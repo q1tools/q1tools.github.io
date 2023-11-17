@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PAK File Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/tga-js@1.1.1/dist/umd/tga.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.js"></script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <!-- QuakeWebTools https://github.com/andyp123/quake_web_tools -->
+    <!--lib-->
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/lib/stats.min.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/lib/DataStream.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/lib/three.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/lib/orbitcontrols.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/lib/firstpersoncontrols.js"></script>
+    <!--util-->
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/util/filemanager.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/util/fileutil.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/util/imageutil.js"></script>
+    <!--types-->
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/pak.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/wad.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/pal.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/lmp.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/spr.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/bsp.js"></script>
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/types/mdl.js"></script>
+    <!--application-->
+    <script src="https://qssm.quakeone.com/pak/QuakeWebTools/scripts/quakewebtools.js"></script>
+</head>
+
+<body onload="app_init()"> <!--app_init() for QWT -->
+    <h1 class="header-container"><img src="pak.png" class="header-image" alt="PAK File Tool Logo">PAK File Tool</h1>
+
+    <!-- File Drop Zone for Viewing PAK files -->
+    <div id="pak_view_drop">
+        <span id="viewing-text"><span class="text-color-view-create">View / Convert</span>: Drag and drop a .pak here or
+            click to select</span>
+        <input type="file" id="packfile" onchange="pakSelector(this.files)" />
+        <div id="loadingCircle" class="loading-circle" style="display: none;"></div>
+    </div>
+
+    <!-- File Drop Zone for PAK creation -->
+    <div id="create_drop">
+        <span class="text-color-view-create">Create</span>: Drag and drop a folder here or click to select a folder
+        <input type="file" id="pakcreator" webkitdirectory onchange="createPak(this.files)" />
+    </div>
+
+    <!-- Progress Bar Wrapper For Download / Convert to .zip from .pak -->
+    <div id="progressWrapper">
+        <div id="progressBar"></div>
+    </div>
+
+    <!-- Download All Button -->
+    <button id="downloadAll">Download All as Zip</button>
+
+    <!-- Display PAK File Contents -->
+    <div id="packfilecontents"></div>
+
+    <!-- Modal for Confirming PAK Creation -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <p>New .pak created and download initiated!</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+    <script>
+        let fileBlobs = [];
+        let currentPakFileName = ''; // This will store the name of the current PAK file
+        let viewFileBlobs = [];
+        let filePathMap = new Map(); // Key: File object, Value: Path string
+
+
+        function createPAK(files) {
+            // Filter out .DS_Store and other system files if needed
+            files = files.filter(file => !file.name.startsWith('.'));
+
+            // Define the magic number "PACK" for the PAK file header
+            const magicNumber = "PACK";
+            let dirOffset = 12; // Initial offset after the header, accounting for the header size
+            let dirSize = 0; // The size of the directory, will be computed based on entries
+
+            // Arrays to hold the directory entries and corresponding file data
+            let directoryEntries = [];
+            let fileData = [];
+
+            // Process each file to create directory entries and collect file data
+            files.forEach(file => {
+
+
+                let fullPath;
+                if (file.webkitRelativePath) {
+                    // Remove the top-level folder name from the path
+                    let pathSegments = file.webkitRelativePath.split('/');
+                    pathSegments.shift(); // Remove the first segment (top-level folder name)
+                    fullPath = pathSegments.join('/');
+                } else {
+                    // Use the manually constructed path for drag-and-drop
+                    fullPath = filePathMap.get(file) || file.name;
+                }
+
+                let filenamePadded = fullPath.padEnd(56, '\0'); // Pad the filename for alignment
+
+
+                let fileEntry = {
+                    filename: filenamePadded, // Now includes path without the top-level folder name
+                    offset: dirOffset,
+                    size: file.size
+                };
+                directoryEntries.push(fileEntry);
+
+                // Update the directory offset for the next file based on current file size
+                dirOffset += file.size;
+
+                // Add the file's data to the fileData array as a Blob
+                fileData.push(new Blob([file], { type: 'application/octet-stream' }));
+            });
+
+            // Calculate the total size of the directory, assuming each entry is 64 bytes
+            dirSize = directoryEntries.length * 64;
+
+            // Construct the directory part of the PAK file
+            let directoryBlobParts = [];
+            directoryEntries.forEach(entry => {
+                directoryBlobParts.push(entry.filename);
+                directoryBlobParts.push(new Uint32Array([entry.offset]));
+                directoryBlobParts.push(new Uint32Array([entry.size]));
+            });
+            let directoryBlob = new Blob(directoryBlobParts, { type: 'application/octet-stream' });
+
+            // Construct the header part of the PAK file with the magic number, directory offset, and directory size
+            let headerBlob = new Blob([magicNumber, new Uint32Array([dirOffset]), new Uint32Array([dirSize])], { type: 'application/octet-stream' });
+
+            // Combine the header, file data, and directory into one Blob to form the complete PAK file
+            return new Blob([headerBlob, ...fileData, directoryBlob], { type: 'application/octet-stream' });
+        }
+
+
+        function showModal(pakFileName, totalFiles, totalSize) {
+            // Format the total size of the files for display
+            const formattedTotalSize = formatFileSize(totalSize);
+
+            var modal = document.getElementById("myModal");
+
+            var closeButton = document.getElementsByClassName("close")[0];
+
+            var modalContent = modal.querySelector('.modal-content p');
+            modalContent.textContent = `New PAK file "${pakFileName}" with ${totalFiles} file(s) created, total size: ${formattedTotalSize}. Download initiated!`;
+
+            closeButton.onclick = function () {
+                modal.style.display = "none";
+            };
+
+            window.onclick = function (event) {
+                if (event.target === modal) {
+                    modal.style.display = "none";
+                }
+            };
+
+            modal.style.display = "block";
+        }
+
+        function resetGlobalState() {
+            fileBlobs = [];
+        }
+
+        function clearFileInput(inputId) {
+            const fileInput = document.getElementById(inputId);
+            fileInput.value = ''; // This will clear the current selection
+        }
+
+        function createPak(files, folderName) {
+            // Exit the function early if no files were selected
+            if (!files.length) {
+                alert('No files were selected.');
+                return;
+            }
+
+            // safari lets me select single file, disallow
+            //  var folderPath = files[0].webkitRelativePath;
+            //  var folderName = folderPath.split('/')[0]; // Get the first segment of the path
+            // if (!folderName)
+            //     alert('Please select a folder');
+
+            // Extract the folder name from the files if not provided
+            if (!folderName && files[0].webkitRelativePath) {
+                folderName = files[0].webkitRelativePath.split('/')[0];
+            }
+
+            // Exit the function if the folder name could not be determined
+            if (!folderName) {
+                console.error('No folder name provided and unable to determine from files.');
+                return;
+            }
+
+            // Collect all files from the selected folder into an array
+            let folderFiles = Array.from(files);
+
+            // Process the files to create a .pak file using a hypothetical createPAK function
+            let pakFileBlob = createPAK(folderFiles);
+
+            // Calculate the total size and number of files
+            let totalSize = folderFiles.reduce((acc, file) => acc + file.size, 0);
+            let totalFiles = folderFiles.length;
+            let pakFileName = `${folderName}.pak`;
+
+            // Initiate the download of the .pak file
+            let downloadLink = URL.createObjectURL(pakFileBlob);
+            let downloadAnchor = document.createElement('a');
+            downloadAnchor.href = downloadLink;
+            downloadAnchor.download = pakFileName;
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            document.body.removeChild(downloadAnchor);
+
+            // Clean up by revoking the object URL
+            URL.revokeObjectURL(downloadLink);
+
+            // Show the download modal with details about the .pak file
+            showModal(pakFileName, totalFiles, totalSize);
+
+
+            resetGlobalState();
+
+            clearFileInput('packfile'); // Assuming 'packfile' is the ID of your file input
+            clearFileInput('pakcreator'); // Assuming 'pakcreator' is the ID of your folder input
+        }
+
+        // Handles the selection of a file and prepares it for processing
+        function pakSelector(files) {
+            if (files.length === 0) {
+                return;
+            }
+
+            // Extract the base name of the first selected file
+            var fileName = files[0].name;
+
+            // Update the text content of the viewing-text span
+            document.getElementById('viewing-text').innerHTML = '<span class="text-color-view-create">Viewing:</span> ' + fileName;
+
+            // Extract the base name of the first selected file, stripping the extension
+            viewCurrentPakFileName = files[0].name.replace(/\..+$/, '');
+
+            // Pass the file to a function that reads and processes the PAK file
+            readPackFile(files[0]);
+        }
+
+        // Converts a file size in bytes to a human-readable format
+        function formatFileSize(bytes) {
+            const KB = 1024;
+            const MB = KB * KB;
+            const GB = MB * KB;
+
+            if (bytes >= GB) {
+                return (bytes / GB).toFixed(2) + ' GB'; // Size in GB with two decimal places
+            } else if (bytes >= MB) {
+                return (bytes / MB).toFixed(2) + ' MB'; // Size in MB with two decimal places
+            } else {
+                return (bytes / KB).toFixed(2) + ' KB'; // Size in KB with two decimal places
+            }
+        }
+
+
+        function readBSPFile(file) {
+            let reader = new FileReader();
+            reader.onload = function (e) {
+                let arrayBuffer = e.target.result;
+                let dataView = new DataView(arrayBuffer);
+
+                // Read the BSP header and directory entries
+                let version = dataView.getInt32(0, true); // Assuming little-endian format
+                let entitiesOffset = dataView.getInt32(4, true);
+                let entitiesSize = dataView.getInt32(8, true);
+
+                // Extract entities lump data as a Blob
+                let blob = new Blob([arrayBuffer.slice(entitiesOffset, entitiesOffset + entitiesSize)]);
+
+                // Create a new FileReader to read the Blob as text
+                let textReader = new FileReader();
+                textReader.onload = function (e) {
+                    let entitiesData = e.target.result;
+
+                    // Parse entities lump to find worldspawn
+                    let worldspawnData = parseWorldspawn(entitiesData);
+
+                    // Update the web page to display the worldspawn data
+                    displayWorldspawnData(worldspawnData);
+                };
+
+                // Read the blob as a text assuming basic ASCII characters
+                textReader.readAsText(blob);
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function extractEntitiesData(arrayBuffer) {
+            let dataView = new DataView(arrayBuffer);
+
+            // Read the offset and size of the entities lump from the BSP header
+            // The entities lump is the first entry in the directory, so its offset and size are at bytes 4 and 8
+            let entitiesOffset = dataView.getInt32(4, true); // true for little-endian
+            let entitiesSize = dataView.getInt32(8, true);
+
+            // Extract the entities data as a string
+            let entitiesData = '';
+            for (let i = 0; i < entitiesSize; i++) {
+                let charCode = dataView.getUint8(entitiesOffset + i);
+                entitiesData += String.fromCharCode(charCode);
+            }
+
+            return entitiesData;
+        }
+
+        function parseWorldspawn(entitiesData) {
+            // Find the start of any block
+            let blockStart = entitiesData.indexOf('{');
+            while (blockStart !== -1) {
+                // Find the end of the current block
+                let blockEnd = entitiesData.indexOf('}', blockStart);
+                if (blockEnd === -1) return null; // Unclosed block
+
+                // Extract the block
+                let block = entitiesData.substring(blockStart, blockEnd + 1);
+
+                // Check if it's the worldspawn block
+                if (block.includes('"classname" "worldspawn"')) {
+                    // Extract the message from the worldspawn block
+                    let messageMatch = /"message"\s+"([^"]+)"/.exec(block);
+                    if (messageMatch) {
+                        // Translate the message using the translateName function
+                        let translatedMessage = translateName(messageMatch[1]);
+                        return { message: translatedMessage };
+                    } else {
+                        return null;
+                    }
+                }
+
+                // Move to the next block
+                blockStart = entitiesData.indexOf('{', blockEnd + 1);
+            }
+
+            return null; // Worldspawn block not found
+        }
+
+        // dequake unicode in worldspawn map description name
+        function translateName(name) {
+            var translatedName = '';
+
+            for (var i = 0; i < name.length; i++) {
+                var character = name.charAt(i);
+                var quakeChar = deQuakeMap[character];
+
+                console.log(`Original character: ${character}`);
+
+                if (quakeChar !== undefined) {
+                    console.log(`Mapped character: ${quakeChar}`);
+                    translatedName += quakeChar;
+                } else {
+                    console.log(`Character not in deQuakeMap: ${character}`);
+                    translatedName += character;
+                }
+            }
+
+            console.log(`Translated name: ${translatedName}`);
+            return translatedName;
+        }
+
+        // dequake for readable previews uses javascript escape chars
+        deQuakeMap = {
+            '\u001c': '&#183;', '\u0001': '0', '\u0002': '0', '\u0003': '0', '\u201e': '0', '\u0005': '&#183;', '\u2020': '0', '\u2021': '0', '\u02c6': '0', '\u2030': '0', 'normal space disabled': ' ', '\u000B': '#', '\u000c': ' ', '> disabled': '&#187;', '\u000e': '&#183;', '\u000f': '&#183;',
+            '\u0010': '[', '\u0011': ']', '\u0012': '0', '\u0013': '1', '\u0014': '2', '\u0015': '3', '\u0016': '4', '\u0017': '5', '\u0018': '6', '\u0019': '7', '\u001A': '8', '\u001B': '9', '\u001c': '&#183;', '\u001D': '<', '\u001E': '-', '\u001F': '>',
+            '\u007F': '<',
+            '\u20ac': '<', '\u0081': '-', '\u201A': '>', '\u0192': '&#8364;', '\u201E': '0', '\u2026': '&#183;', '\u2021': '0', '\u02C6': '0', '\u2030': '0', '\u0160': ' ', '\u2039': '#', '\u0152': ' ', '\u008D': '&#187;', '\u017D': '&#183;', '\u008f': '&#183;',
+            '\u0090': '[', '\u2018': ']', '\u2019': '0', '\u201C': '1', '\u201D': '2', '\u2022': '3', '\u2013': '4', '\u2014': '5', '\u02DC': '6', '\u2122': '7', '\u0161': '8', '\u203A': '9', '\u0153': '&#183;', '\u009D': '<', '\u017E': '-', '\u0178': '>',
+            '\u00A0': ' ', '\u00A1': '!', '\u00A2': '"', '\u00A3': '#', '\u00A4': '$', '\u00A5': '%', '\u00A6': '&', '\u00A7': "'", '\u00A8': '(', '\u00A9': ')', '\u00AA': '*', '\u00AB': '+', '\u00AC': ',', '\u00AD': '-', '\u00AE': '.', '\u00AF': '/',
+            '\u00B0': '0', '\u00B1': '1', '\u00B2': '2', '\u00B3': '3', '\u00B4': '4', '\u00B5': '5', '\u00B6': '6', '\u00B7': '7', '\u00B8': '8', '\u00B9': '9', '\u00BA': ':', '\u00BB': ';', '\u00BC': '<', '\u00BD': '=', '\u00BE': '>', '\u00BF': '?',
+            '\u00C0': '@', '\u00C1': 'A', '\u00C2': 'B', '\u00C3': 'C', '\u00C4': 'D', '\u00C5': 'E', '\u00C6': 'F', '\u00C7': 'G', '\u00C8': 'H', '\u00C9': 'I', '\u00CA': 'J', '\u00CB': 'K', '\u00CC': 'L', '\u00CD': 'M', '\u00CE': 'N', '\u00CF': 'O',
+            '\u00D0': 'P', '\u00D1': 'Q', '\u00D2': 'R', '\u00D3': 'S', '\u00D4': 'T', '\u00D5': 'U', '\u00D6': 'V', '\u00D7': 'W', '\u00D8': 'X', '\u00D9': 'Y', '\u00DA': 'Z', '\u00DB': '[', '\u00DC': '\\', '\u00DD': ']', '\u00DE': '^', '\u00DF': '_',
+            '\u00E0': '`', '\u00E1': 'a', '\u00E2': 'b', '\u00E3': 'c', '\u00E4': 'd', '\u00E5': 'e', '\u00E6': 'f', '\u00E7': 'g', '\u00E8': 'h', '\u00E9': 'i', '\u00EA': 'j', '\u00EB': 'k', '\u00EC': 'l', '\u00ED': 'm', '\u00EE': 'n', '\u00EF': 'o',
+            '\u00F0': 'p', '\u00F1': 'q', '\u00F2': 'r', '\u00F3': 's', '\u00F4': 't', '\u00F5': 'u', '\u00F6': 'v', '\u00F7': 'w', '\u00F8': 'x', '\u00F9': 'y', '\u00FA': 'z', '\u00FB': '{', '\u00FC': '|', '\u00FD': '}', '\u00FE': '~', '\u00FF': '<'
+        }
+
+        // get map descriptions
+        function displayWorldspawnData(worldspawnData) {
+            console.log("Display Worldspawn Data called with:", worldspawnData);
+
+            if (!worldspawnData) {
+                console.error('No worldspawn data to display');
+                return;
+            }
+
+            // Find the div where the data should be displayed
+            var previewDiv = document.getElementById('worldspawn-preview');
+            if (!previewDiv) {
+                console.error('Preview element not found');
+                return;
+            }
+
+            // Start building the HTML content
+            var contentHtml = '<h3>Worldspawn Data</h3>';
+            console.log("Building HTML content for worldspawn data");
+
+            // Add each key-value pair as a paragraph
+            for (var key in worldspawnData) {
+                console.log("Adding data:", key, worldspawnData[key]);
+                contentHtml += `<p><strong>${key}:</strong> ${worldspawnData[key]}</p>`;
+            }
+
+            // Update the inner HTML of the preview div
+            previewDiv.innerHTML = contentHtml;
+            console.log("Updated HTML content in preview div");
+        }
+
+        // just show image, with less info than default QWT
+        QuakeWebTools.ImageUtil.generateHTMLPreviewSimple = function (images, palette, element_id) {
+            var IU = QuakeWebTools.ImageUtil;
+            var fragment = new DocumentFragment();
+
+            var image_datas = images.image_datas || null;
+            var image_infos = images.image_infos || null;
+            var arraybuffer = images.arraybuffer || null;
+            var limit = (image_datas) ? image_datas.length : image_infos.length;
+
+            for (var i = 0; i < limit; ++i) {
+                if (image_datas) {
+                    var image_data = image_datas[i];
+                } else {
+                    var image_info = image_infos[i];
+                    var image_data = IU.getImageData(image_info.name, arraybuffer, image_info);
+                }
+                var img_info = " (" + image_data.width + "x"
+                    + image_data.height + ")";
+                var img = IU.expandImageData(image_data, palette);
+                img.title = image_data.name + img_info;
+                //img.download = name + ".png"; // seems to have no effect...
+
+
+                // woods simple display
+                var div = document.createElement("div");
+                div.className = "item-box";
+                div.appendChild(img);
+                div.innerHTML += "";
+
+                fragment.appendChild(div);
+            }
+
+            var element = document.getElementById(element_id);
+            if (element) {
+                element.appendChild(fragment);
+            } else {
+                document.body.appendChild(fragment);
+            }
+        }
+
+        function createMiniAudioPlayer(filename, fileArrayBuffer) {
+            const audioBlob = new Blob([fileArrayBuffer], { type: 'audio/*' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            // Mini player container
+            const playerContainer = document.createElement('div');
+            playerContainer.className = 'mini-player';
+
+            // Play/Pause button with Font Awesome icon
+            const playPauseButton = document.createElement('button');
+            playPauseButton.className = 'play-pause-btn';
+            const playPauseIcon = document.createElement('i');
+            playPauseIcon.className = 'fas fa-play'; // Initial icon as play
+            playPauseButton.appendChild(playPauseIcon);
+
+            // Progress bar
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-bar';
+            const progressIndicator = document.createElement('div');
+            progressIndicator.className = 'progress-indicator';
+            progressBar.appendChild(progressIndicator);
+
+            // Create Howl instance
+            var sound = new Howl({
+                src: [audioUrl],
+                format: ['mp3', 'ogg', 'wav'],
+                onplay: () => {
+                    playPauseIcon.className = 'fas fa-pause';
+                    requestAnimationFrame(updateProgress); // Ensure progress bar updates
+                },
+                onpause: () => playPauseIcon.className = 'fas fa-play',
+                onend: () => {
+                    playPauseIcon.className = 'fas fa-play';
+                    progressIndicator.style.width = '0%';
+                }
+            });
+
+            // Play/Pause toggle
+            playPauseButton.addEventListener('click', () => {
+                if (sound.playing()) {
+                    sound.pause();
+                } else {
+                    sound.play();
+                }
+            });
+
+            // Update progress bar
+            function updateProgress() {
+                const seek = sound.seek() || 0;
+                progressIndicator.style.width = `${(seek / sound.duration()) * 100}%`;
+                if (sound.playing()) requestAnimationFrame(updateProgress);
+            }
+
+            // Scrubbing functionality
+            progressBar.addEventListener('click', (event) => {
+                const x = event.offsetX;
+                const totalWidth = progressBar.offsetWidth;
+                const percentage = x / totalWidth;
+                const newTime = sound.duration() * percentage;
+                sound.seek(newTime);
+                if (!sound.playing()) {
+                    updateProgress(); // Update the progress bar immediately
+                }
+            });
+
+            // Append controls to the container
+            playerContainer.appendChild(playPauseButton);
+            playerContainer.appendChild(progressBar);
+
+            return playerContainer;
+        }
+
+        function crc16ccitt(data) {
+            let crc = 0xFFFF;
+            for (let i = 0; i < data.length; i++) {
+                crc ^= data[i] << 8;
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x8000) {
+                        crc = (crc << 1) ^ 0x1021;
+                    } else {
+                        crc = crc << 1;
+                    }
+                }
+            }
+            return crc & 0xFFFF;
+        }
+
+        function checkPopLmp(dataView, diroffset, dirlen) {
+            let hasPop = false;
+            let isPopCorrect = false;
+
+            const numFiles = dirlen / 64;
+            for (let i = 0; i < numFiles; i++) {
+                const entryOffset = diroffset + i * 64;
+                const fileName = getStringFromDataView(dataView, entryOffset, 56);
+
+                if (fileName === "gfx/pop.lmp") {
+                    hasPop = true;
+                    const fileOffset = dataView.getUint32(entryOffset + 56, true);
+                    const fileSize = dataView.getUint32(entryOffset + 60, true);
+
+                    const popContent = new Uint16Array(dataView.buffer, fileOffset, fileSize / 2);
+                    isPopCorrect = comparePopContent(popContent, expectedPop);
+                    break;
+                }
+            }
+
+            return { hasPop, isPopCorrect };
+        }
+
+        function getStringFromDataView(dataView, offset, length) {
+            let str = "";
+            for (let i = offset; i < offset + length; i++) {
+                const charCode = dataView.getUint8(i);
+                if (charCode === 0) break;
+                str += String.fromCharCode(charCode);
+            }
+            return str;
+        }
+
+        function comparePopContent(popContent, expectedPop) {
+            if (popContent.length !== expectedPop.length) return false;
+
+            for (let i = 0; i < popContent.length; i++) {
+                // Adjusting for potential endianness mismatch
+                const popValue = adjustEndian(popContent[i]);
+                if (popValue !== expectedPop[i]) return false;
+            }
+            return true;
+        }
+
+        function adjustEndian(value) {
+            // Adjusts endianness of a 16-bit value
+            return ((value & 0xFF) << 8) | ((value >> 8) & 0xFF);
+        }
+
+        const expectedPop = new Uint16Array([
+            0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+            0x0000, 0x0000, 0x6600, 0x0000, 0x0000, 0x0000, 0x6600, 0x0000,
+            0x0000, 0x0066, 0x0000, 0x0000, 0x0000, 0x0000, 0x0067, 0x0000,
+            0x0000, 0x6665, 0x0000, 0x0000, 0x0000, 0x0000, 0x0065, 0x6600,
+            0x0063, 0x6561, 0x0000, 0x0000, 0x0000, 0x0000, 0x0061, 0x6563,
+            0x0064, 0x6561, 0x0000, 0x0000, 0x0000, 0x0000, 0x0061, 0x6564,
+            0x0064, 0x6564, 0x0000, 0x6469, 0x6969, 0x6400, 0x0064, 0x6564,
+            0x0063, 0x6568, 0x6200, 0x0064, 0x6864, 0x0000, 0x6268, 0x6563,
+            0x0000, 0x6567, 0x6963, 0x0064, 0x6764, 0x0063, 0x6967, 0x6500,
+            0x0000, 0x6266, 0x6769, 0x6a68, 0x6768, 0x6a69, 0x6766, 0x6200,
+            0x0000, 0x0062, 0x6566, 0x6666, 0x6666, 0x6666, 0x6562, 0x0000,
+            0x0000, 0x0000, 0x0062, 0x6364, 0x6664, 0x6362, 0x0000, 0x0000,
+            0x0000, 0x0000, 0x0000, 0x0062, 0x6662, 0x0000, 0x0000, 0x0000,
+            0x0000, 0x0000, 0x0000, 0x0061, 0x6661, 0x0000, 0x0000, 0x0000,
+            0x0000, 0x0000, 0x0000, 0x0000, 0x6500, 0x0000, 0x0000, 0x0000,
+            0x0000, 0x0000, 0x0000, 0x0000, 0x6400, 0x0000, 0x0000, 0x0000
+        ]);
+
+        // custom mdl viewer diff than QWT
+        function viewMDL2(mdl, containerId, skinId) {
+            var scene, camera, renderer;
+            var mesh, controls;
+            var animate_id = 0;
+            var frame_id = 0;
+            var model;
+
+            function init() {
+                var container = document.getElementById(containerId);
+                if (!container) {
+                    console.error('Container not found:', containerId);
+                    return;
+                }
+
+                var width = container.offsetWidth - 200;
+                var height = 200; // Set the desired height
+
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(75, width / height, 1, 10000);
+
+                scene.rotation.y = -Math.PI / 2;
+
+                model = mdl.toThreeBufferGeometry(0); // Create model geometry
+                var material = mdl.toThreeMaterial(skinId); // Create material
+                mesh = new THREE.Mesh(model, material); // Create mesh
+
+                scene.add(mesh);
+
+                var radius = model.boundingSphere.radius;
+                // Position the camera for a side view along the Y-axis
+                camera.position.x = radius * 1.6;
+                camera.position.y = 0;
+                camera.position.z = 0; // Move camera along Z-axis to look from the side
+
+                // Point the camera towards the center of the model
+                camera.lookAt(new THREE.Vector3(0, 0, 0))
+
+
+                // Update the mesh position if necessary
+                mesh.position.x = -model.boundingSphere.center.x;
+                mesh.position.y = -model.boundingSphere.center.y;
+                mesh.position.z = -model.boundingSphere.center.z;
+
+
+
+
+                renderer = new THREE.WebGLRenderer();
+                renderer.setSize(width, height);
+                renderer.setClearColor(0x2e2d2d); // Set background color
+                container.appendChild(renderer.domElement);
+
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.addEventListener('change', render);
+
+                animate(model); // Start the animation
+            }
+
+            var lastFrameTime = 0;
+            var frameDuration = 30; // Time in milliseconds for each frame
+
+            function animate(timestamp) {
+                animate_id = requestAnimationFrame(animate);
+
+                if (timestamp - lastFrameTime > frameDuration) {
+                    mdl.blendBufferGeometryFrame(model, frame_id);
+                    frame_id = (frame_id + 1 / 6) % mdl.geometry.frames.length;
+                    lastFrameTime = timestamp;
+                }
+
+                render();
+            }
+
+            function render() {
+                renderer.render(scene, camera);
+            }
+
+            function loadModel() {
+                init();
+            }
+
+            var container = document.getElementById(containerId);
+            if (container) {
+                if (!container.querySelector('.load-model-btn')) {
+                    var loadModelButton = document.createElement('button');
+                    loadModelButton.textContent = 'Load Model';
+                    loadModelButton.className = 'load-model-btn';
+
+                    loadModelButton.addEventListener('click', function () {
+                        container.removeChild(loadModelButton);
+                        loadModel();
+                    });
+
+                    container.appendChild(loadModelButton);
+                }
+            } else {
+                console.error('Container not found:', containerId);
+            }
+        }
+
+        // main function to handle all the file types for viewing
+        function processDirectoryEntries(buffer, view, diroffset, dirsize, numEntries, table) {
+            // Iterate over each entry in the directory
+            for (let i = 0; i < numEntries; i++) {
+                const entryOffset = diroffset + i * 64;
+                const filenameBytes = new Uint8Array(buffer, entryOffset, 56);
+                const filename = new TextDecoder("utf-8").decode(filenameBytes).split('\0', 1)[0];
+                const fileOffset = view.getUint32(entryOffset + 56, true);
+                const fileSize = view.getUint32(entryOffset + 60, true);
+                const formattedSize = formatFileSize(fileSize);
+
+                // Create a blob for each file entry
+                const fileBlob = new Blob([new Uint8Array(buffer, fileOffset, fileSize)], { type: 'application/octet-stream' });
+                viewFileBlobs.push({ filename, blob: fileBlob });
+
+                // Create a link for the file download
+                const link = document.createElement('a');
+                link.className = 'file-item';
+                link.href = URL.createObjectURL(fileBlob);
+                // Extract only the file name, not the full path
+                const filenameOnly = filename.split('/').pop();
+                link.download = filenameOnly;
+
+                // Append the filename and file size to the link
+                const filenameText = document.createTextNode(filename);
+                const separatorSpan = document.createElement('span');
+                separatorSpan.className = 'separator-style';
+                separatorSpan.textContent = ' - ';
+                const fileSizeSpan = document.createElement('span');
+                fileSizeSpan.className = 'file-size';
+                fileSizeSpan.textContent = formattedSize;
+                link.appendChild(filenameText);
+                link.appendChild(separatorSpan);
+                link.appendChild(fileSizeSpan);
+
+                // Create a table row for each file with name and preview
+                const row = table.insertRow();
+                const nameCell = row.insertCell();
+                nameCell.appendChild(link);
+                const previewCell = row.insertCell();
+                previewCell.classList.add('preview-cell-style'); // Apply the style class
+
+
+                // begin all the cases for diff file types (png, jpg, tga, bsp bmodels, bsp map descriptions, wav, mp3, ogg, spr, lmp, mdl)
+
+                // png, jpg
+                if (/\.(jpe?g|png)$/i.test(filename)) {
+                    const image = new Image();
+                    image.src = link.href;
+                    image.className = 'preview';
+                    image.alt = 'Preview of ' + filename;
+                    previewCell.appendChild(image);
+                }
+
+                // tga
+                else if (/\.(tga)$/i.test(filename)) {
+                    const tga = new TgaLoader();
+                    const fileBuffer = new Uint8Array(buffer, fileOffset, fileSize);
+                    tga.load(fileBuffer);
+                    const imageCanvas = tga.getCanvas();
+                    const scale = 256 / imageCanvas.width;
+                    const scaledHeight = imageCanvas.height * scale;
+                    imageCanvas.width = 256;
+                    imageCanvas.height = scaledHeight;
+                    const ctx = imageCanvas.getContext('2d');
+                    ctx.drawImage(tga.getCanvas(), 0, 0, imageCanvas.width, imageCanvas.height);
+                    imageCanvas.className = 'preview';
+                    previewCell.appendChild(imageCanvas);
+                }
+
+                //bmodels
+                else if (/\/b_(shell[01]|nail[01]|rock[01]|batt[01]|bh10|bh100|bh25)\.bsp$/i.test(filename)) {
+                    console.log(`Debug: Processing BSP Filename = ${filename}`);
+
+                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+
+                    if (fileArrayBuffer.byteLength !== fileSize) {
+                        console.error(`File size mismatch for ${filename}: Expected ${fileSize}, but got ${fileArrayBuffer.byteLength}`);
+                        continue;
+                    }
+
+                    if (fileArrayBuffer instanceof ArrayBuffer) {
+                        var bsp = new QuakeWebTools.BSP(filename, fileArrayBuffer);
+                        console.log(`Debug: Created BSP object for ${filename}`);
+
+                        // Dynamically create a container for the BSP preview
+                        var previewContainer = document.createElement('div');
+                        previewContainer.id = 'preview-container-' + i;
+                        previewCell.appendChild(previewContainer);
+
+                        // Define the array of filenames that should be displayed as 3D models
+                        const gltfModels = ['b_batt0.gltf', 'b_batt1.gltf', 'b_bh10.gltf', 'b_bh100.gltf', 'b_bh25.gltf', 'b_nail0.gltf', 'b_nail1.gltf', 'b_rock0.gltf', 'b_rock1.gltf', 'b_shell0.gltf', 'b_shell1.gltf'];
+
+                        // Extract the basename of the filename and replace .bsp with .gltf
+                        const basename = filename.split('/').pop().replace('.bsp', '.gltf');
+
+                        if (gltfModels.includes(basename)) {
+                            console.log(`Debug: Creating Load Model button for ${basename}`);
+
+                            // Create a button for lazy loading the model viewer
+                            const loadModelButton = document.createElement('button');
+                            loadModelButton.textContent = 'Load Model';
+                            loadModelButton.className = 'load-model-btn';
+
+                            // Event listener for button click
+                            loadModelButton.addEventListener('click', function () {
+                                // Create and configure the model-viewer element
+                                const modelViewer = document.createElement('model-viewer');
+                                modelViewer.setAttribute('alt', '');
+                                modelViewer.setAttribute('src', 'bmodels/' + basename);
+                                modelViewer.setAttribute('ar', '');
+                                modelViewer.setAttribute('environment-image', '');
+                                modelViewer.setAttribute('shadow-intensity', '1');
+                                modelViewer.setAttribute('camera-controls', '');
+                                modelViewer.setAttribute('touch-action', 'pan-y');
+
+                                // Replace the button with the model viewer in the preview cell
+                                previewCell.innerHTML = '';
+                                previewCell.appendChild(modelViewer);
+
+                                console.log(`Debug: Loaded model-viewer for ${basename}`);
+                            });
+
+                            // Append the Load Model button to the preview cell
+                            previewCell.appendChild(loadModelButton);
+                        } else {
+                            console.log(`Debug: Generating HTML preview for ${filename}`);
+                        }
+
+
+                        // Use QWT.ImageUtil.generateHTMLPreview to generate preview in the 'file-content' element
+                        QWT.ImageUtil.generateHTMLPreviewSimple({ image_infos: bsp.miptex_directory, arraybuffer: bsp.ab },
+                            QWT.DEFAULT_PALETTE, previewContainer.id);
+
+                    } else {
+                        console.error(`Failed to create ArrayBuffer for ${filename}`);
+                    }
+                }
+
+
+
+
+
+
+                // bsp -- show worldspawn map descriptions and dequake them
+                else if (/\.bsp$/i.test(filename)) {
+                    const bspPreview = document.createElement('div');
+                    bspPreview.className = 'bsp-preview';
+                    bspPreview.textContent = 'Loading BSP data...';
+
+                    // Function to handle BSP file reading and displaying worldspawn data
+                    const handleBspFile = (fileBlob) => {
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            const buffer = e.target.result;
+                            const entitiesData = extractEntitiesData(buffer);
+                            const worldspawnData = parseWorldspawn(entitiesData);
+                            if (worldspawnData && worldspawnData.message) {
+                                bspPreview.textContent = worldspawnData.message;
+                            } else {
+                                bspPreview.textContent = '';
+                            }
+                        };
+                        reader.readAsArrayBuffer(fileBlob);
+                    };
+
+                    // Call the function with the fileBlob
+                    handleBspFile(fileBlob);
+                    previewCell.appendChild(bspPreview);
+                }
+
+                // .map
+                else if (/\.map$/i.test(filename)) {
+                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+
+                    // Convert the ArrayBuffer to a Uint8Array
+                    const uint8Array = new Uint8Array(fileArrayBuffer);
+
+                    // Convert the Uint8Array to a string (considering only the first part of the file for efficiency)
+                    const chunkSize = 1024; // Adjust based on how deep you expect "message" to be
+                    let fileText = '';
+                    for (let i = 0; i < Math.min(uint8Array.length, chunkSize); i++) {
+                        fileText += String.fromCharCode(uint8Array[i]);
+                    }
+
+                    // Regular expression to find the first occurrence of "message"
+                    const messagePattern = /"message"\s+"([^"]+)"/;
+                    const messageMatch = messagePattern.exec(fileText);
+
+                    if (messageMatch) {
+                        let messageText = messageMatch[1];
+                        // dequake just in case
+                        messageText = translateName(messageText);
+                        previewCell.textContent = `${messageText}`;
+                    } else {
+                        previewCell.textContent = '';
+                    }
+                }
+
+                else if (/\.ion$/i.test(filename)) {
+                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+
+                    let reader = new FileReader();
+                    reader.onload = function (e) {
+                        const fileText = e.target.result;
+                        previewCell.textContent = fileText;  // Display the contents of the .ion file
+                    };
+
+                    reader.readAsText(new Blob([new Uint8Array(fileArrayBuffer)], { type: 'text/plain' }), 'UTF-8');
+                }
+
+
+                else if (/\.mp3$/i.test(filename) || /\.ogg$/i.test(filename) || /\.wav$/i.test(filename)) {
+                    // Create a button for lazy loading the mini player
+                    const loadPlayerButton = document.createElement('button');
+                    loadPlayerButton.textContent = 'Load Player';
+                    loadPlayerButton.className = 'load-player-btn';
+
+                    // Event listener for button click
+                    loadPlayerButton.addEventListener('click', function () {
+                        // Create the mini audio player
+                        const miniPlayer = createMiniAudioPlayer(filename, buffer.slice(fileOffset, fileOffset + fileSize));
+
+                        // Replace the button with the mini player in the preview cell
+                        previewCell.innerHTML = '';
+                        previewCell.appendChild(miniPlayer);
+                    });
+
+                    // Append the button to the preview cell
+                    previewCell.appendChild(loadPlayerButton);
+                }
+
+                // .dem
+                else if (/\.(dem)$/i.test(filename)) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const fileText = e.target.result;
+                        // Regular expression with negative lookahead to exclude specific patterns
+                        const pattern = /maps\/(?!b_shell1|b_bh25|b_bh10|b_shell0|b_rock0|b_nail1|b_nail0|b_batt0|b_batt1|b_rock1|b_bh100|b_mrock0|b_mrock1|b_plas0|b_plas1|b_lnail0|b_lnail1)(.*?)\.bsp/g;
+                        let match;
+                        let matches = []; // Array to store matches
+
+                        while ((match = pattern.exec(fileText)) !== null) {
+                            matches.push(match[1]); // Store each match
+                        }
+
+                        if (matches.length === 0) {
+                            previewCell.textContent = 'No matching "maps/*.bsp" pattern found in .dem file excluding specific cases';
+                        } else {
+                            // Determine singular or plural form based on the number of matches
+                            let levelText = matches.length === 1 ? 'Map:' : 'Maps:';
+                            // Join the matches with newline
+                            let previewText = levelText + ' ' + matches.join(', ');
+                            previewCell.textContent = previewText;
+                        }
+                    };
+                    reader.readAsText(new Blob([new Uint8Array(buffer, fileOffset, fileSize)], { type: 'text/plain' }), 'UTF-8');
+                }
+
+                // spr
+                else if (/\.(spr)$/i.test(filename)) {
+                    console.log(`Processing .spr file: ${filename}`);
+
+                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+
+                    if (fileArrayBuffer.byteLength !== fileSize) {
+                        console.error(`File size mismatch for ${filename}: Expected ${fileSize}, but got ${fileArrayBuffer.byteLength}`);
+                        continue;
+                    }
+
+                    if (fileArrayBuffer instanceof ArrayBuffer) {
+                        // Use getFileObject to create an SPR object
+                        var sprObject = QuakeWebTools.FileUtil.getFileObject("spr", filename, fileArrayBuffer);
+
+                        // Check if sprObject is correctly formed
+                        if (!sprObject) {
+                            console.error(`Failed to create SPR object for ${filename}`);
+                            continue;
+                        }
+
+                        // Assuming sprObject has a method to get image data (you might need to implement this)
+                        var imageData = sprObject.getImageData();
+
+                        // Check if imageData is correctly formed
+                        if (!imageData || !imageData.length) {
+                            console.error(`Failed to get image data for ${filename}`);
+                            continue;
+                        }
+
+                        // Create a container element to hold the .spr preview
+                        var previewContainer = document.createElement('div');
+                        previewContainer.id = 'preview-container-' + i;
+                        previewCell.appendChild(previewContainer);
+
+                        // Generate the HTML preview inside the created container
+                        QuakeWebTools.ImageUtil.generateHTMLPreviewSimple({
+                            image_datas: imageData
+                        }, QWT.DEFAULT_PALETTE, previewContainer.id);
+                    } else {
+                        console.error(`Failed to create ArrayBuffer for ${filename}`);
+                    }
+                }
+
+                // lmp
+                else if (/\.(lmp)$/i.test(filename)) {
+
+                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+
+                    if (fileArrayBuffer.byteLength !== fileSize) {
+                        console.error(`File size mismatch for ${filename}: Expected ${fileSize}, but got ${fileArrayBuffer.byteLength}`);
+
+                    }
+
+                    if (fileArrayBuffer instanceof ArrayBuffer) {
+                        console.log(`Buffer size for ${filename}: ${fileArrayBuffer.byteLength}`);
+
+                        var justFileName = filename.split('/').pop();
+
+                        // Now use justFileName to get the image data
+                        var imageData = QWT.ImageUtil.getImageData(justFileName, fileArrayBuffer);
+
+                        // Create a container element to hold the image preview
+                        var previewContainer = document.createElement('div');
+                        previewContainer.id = 'preview-container-' + i;
+                        previewCell.appendChild(previewContainer);
+
+                        // Generate the HTML preview inside the created container
+                        QuakeWebTools.ImageUtil.generateHTMLPreviewSimple({
+                            image_datas: [imageData]
+                        }, QWT.DEFAULT_PALETTE, previewContainer.id);
+                    } else {
+                        console.error(`Failed to create ArrayBuffer for ${filename}`);
+                    }
+                }
+
+                else if (/\.(mdl)$/i.test(filename)) {
+                    console.log(`Processing .mdl file: ${filename}`);
+
+                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+
+                    const MAX_MDL_SIZE = 10000000; // Maximum reasonable size for .mdl file, adjust as needed
+                    if (fileSize > MAX_MDL_SIZE) {
+                        console.error(`File size exceeds the maximum expected size for .mdl file: ${filename}`);
+                        previewCell.textContent = 'Error: File size exceeds maximum expected size.';
+                        return; // Stop processing this file
+                    }
+
+                    try {
+                        // Create MDL object from the file data
+                        var mdl = new QuakeWebTools.MDL(filename, buffer.slice(fileOffset, fileOffset + fileSize));
+                        var file_entry = G.FILEMANAGER.addFile(filename, fileArrayBuffer);
+
+                        if (mdl.skins && mdl.skins.length > 0) {
+                            // Iterate through each skin
+                            mdl.skins.forEach((skin, skinIndex) => {
+                                // Create a container element to hold the image preview for each skin
+                                console.log(`Processing skin ${skinIndex}:`, skin); // Debug print for skin
+
+                                var previewContainer = document.createElement('div');
+                                previewContainer.id = `preview-container-${filename.replace(/[^a-zA-Z0-9]/g, '')}-skin-${skinIndex}`;
+                                previewCell.appendChild(previewContainer);
+
+                                // Prepare image data for preview
+                                var imageData = {
+                                    image_datas: [skin], // Pass the current skin object as image data
+                                    image_infos: null,
+                                    arraybuffer: null
+                                };
+
+                                // Generate the HTML preview inside the created container
+                                QuakeWebTools.ImageUtil.generateHTMLPreviewSimple(imageData, QWT.DEFAULT_PALETTE, previewContainer.id);
+
+                                var mdlview = file_entry.obj; // Get the MDL object from the FileManager
+                                var currentSkinIndex = skinIndex;
+                                // Assuming viewMDL2 is a function that takes the MDL object, the container ID, and the skin ID
+                                QWT.ANIMATION_ID = viewMDL2(mdlview, previewContainer.id, currentSkinIndex); // Pass the container ID and skin ID
+
+
+                            });
+                        } else {
+                            console.error(`No skins available for ${filename}`);
+                            previewCell.textContent = 'Error: No skins available in file.';
+                        }
+                    } catch (error) {
+                        console.error(`Error processing .mdl file: ${filename}`, error);
+                        previewCell.textContent = 'Error processing file.';
+                    }
+                }
+
+                else {
+                    previewCell.textContent = '';
+                }
+            }
+        }
+
+        function readPackFile(file) {
+            // Clear the fileBlobs array each time a new PAK file is read
+            fileBlobs = [];
+            viewFileBlobs = [];
+            const reader = new FileReader();
+
+            // Define the onload callback
+            reader.onload = function (e) {
+                const buffer = e.target.result;
+                const view = new DataView(buffer);
+
+                // Check for the PACK magic number
+                const magic = new TextDecoder("utf-8").decode(new Uint8Array(buffer, 0, 4));
+                if (magic !== "PACK") {
+                    alert("This is not a valid PAK file.");
+                    return;
+                }
+
+                // Read the directory offset and size
+                const diroffset = view.getUint32(4, true);
+                const dirsize = view.getUint32(8, true);
+                const numEntries = dirsize / 64;
+
+                // Clear the contents display
+                const contentsDiv = document.getElementById('packfilecontents');
+                contentsDiv.innerHTML = '';
+
+                // Create and append a new table to the contents div
+                const table = document.createElement('table');
+                contentsDiv.appendChild(table);
+
+                // Initialize crcDescription
+                let crcDescription = "";
+
+                // Extract the directory part of the file for CRC calculation
+                const directoryBytes = new Uint8Array(e.target.result, diroffset, dirsize);
+
+                // Calculate CRC on the directory part
+                const crc = crc16ccitt(directoryBytes);
+
+                console.log(crc);
+                switch (crc) {
+                    case 13900:
+                        crcDescription = " (Official PAK0 v. 1.0 - CRC-16-CCITT 13900)";
+                        break;
+                    case 62751:
+                        crcDescription = " (Official PAK0 v. 1.01 - CRC-16-CCITT 62751)";
+                        break;
+                    case 32981:
+                        crcDescription = " (Official PAK0 v. 1.06 - Steam - CRC-16-CCITT 32981)";
+                        break;
+                    case 60371:
+                        crcDescription = " (Official PAK0 Re-Release - Steam - CRC-16-CCITT 60371)";
+                        break;
+                    case 18139:
+                        crcDescription = " (Official PAK1 v. 1.01 - Steam - CRC-16-CCITT 18139)";
+                        break;
+                    case 42362:
+                        crcDescription = " (Official Scourge of Armagon [Hipnotic] - CRC-16-CCITT 42362)";
+                        break;
+                    case 19534:
+                        crcDescription = " (Official Dissolution of Eternity [Rogue] - CRC-16-CCITT 19534)";
+                        break;
+                    case 37050:
+                        crcDescription = " (Official Threewave CTF v. 3.01 - CRC-16-CCITT 37050)";
+                        break;
+                    case 46212:
+                        crcDescription = " (Official Threewave CTF v. 4.0 - CRC-16-CCITT 46212)";
+                        break;
+                    case 33258:
+                        crcDescription = " (Official League of Capture CTF v. 1.0 - CRC-16-CCITT 33258)";
+                        break;
+                    case 50532:
+                        crcDescription = " (Official Rocket Arena v. 1.2 - CRC-16-CCITT 50532)";
+                        break;
+
+                }
+
+                // Check for gfx/pop.lmp
+                const { hasPop, isPopCorrect } = checkPopLmp(view, diroffset, dirsize);
+                let popCheck = '';
+                if (hasPop) {
+                    popCheck = " | pop.lmp: Found, CRC: " + (isPopCorrect ? "Pass" : "Fail");
+                }
+
+                // Update the viewing-text element with CRC description
+                var fileName = file.name;
+                document.getElementById('viewing-text').innerHTML = '<span class="text-color-view-create">Viewing:</span> ' + fileName + crcDescription + popCheck;
+
+                processDirectoryEntries(buffer, view, diroffset, dirsize, numEntries, table);
+
+                // Show the download all button if there are entries
+                document.getElementById('downloadAll').style.display = numEntries > 0 ? 'inline-block' : 'none';
+
+                document.getElementById('loadingCircle').style.display = 'none';
+            };
+
+            // Read the file as an ArrayBuffer
+            reader.readAsArrayBuffer(file);
+        }
+
+        document.getElementById('create_drop').addEventListener('click', function () {
+            document.getElementById('pakcreator').click();
+        });
+
+        // Drag over event listener to add the hover effect
+        document.getElementById('create_drop').addEventListener('dragover', function (event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy'; // Show as a copy cursor (optional)
+            event.currentTarget.classList.add('hover'); // Add the hover class for visual feedback
+        }, false);
+
+        // Drag leave event listener to remove the hover effect
+        document.getElementById('create_drop').addEventListener('dragleave', function (event) {
+            event.currentTarget.classList.remove('hover'); // Remove the hover class when dragging leaves the drop zone
+        }, false);
+
+        async function handleDropForCreate(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.classList.remove('hover');
+            const items = event.dataTransfer.items;
+            let folderDropped = false;
+
+            console.log('Drop event items:', items); // Debugging: Log the raw drop event items
+
+            for (const item of items) {
+                console.log('Handling item:', item); // Debugging: Log the item being handled
+                if (item.kind === 'file') {
+
+                    // Safari specific handling
+                    if (item.kind === 'file' && item.webkitGetAsEntry) {
+                        const entry = item.webkitGetAsEntry();
+                        if (entry && entry.isDirectory) {
+                            folderDropped = true;
+                            const files = await readAllEntriesForCreate(entry.createReader());
+                            createPak(files, entry.name);
+                            break;
+                        }
+                    }
+
+                    if ('getAsFileSystemHandle' in item) {
+                        const entry = await item.getAsFileSystemHandle();
+                        console.log('Chrome entry:', entry); // Debugging
+                        if (entry.kind === 'directory') {
+                            folderDropped = true;
+                            const files = await getFilesForCreate(entry);
+                            console.log('Files obtained from Chrome path:', files); // Debugging
+                            createPak(files, entry.name);
+                            break;
+                        }
+                    } else if (item.webkitGetAsEntry) {
+                        const entry = item.webkitGetAsEntry();
+                        console.log('Safari entry:', entry); // Debugging
+                        if (entry && entry.isDirectory) {
+                            folderDropped = true;
+                            const files = await getFilesForCreate(entry);
+                            console.log('Files obtained from Safari path:', files); // Debugging
+                            createPak(files, entry.name);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!folderDropped) {
+                console.error('No folder was dropped');
+                alert('Please drop a folder');
+            }
+        }
+
+        async function getFilesForCreate(entry, currentPath = '') {
+            let files = [];
+            if (entry.kind === 'directory' && 'values' in entry) {
+                for await (const handle of entry.values()) {
+                    const fullPath = currentPath + handle.name;
+                    if (handle.kind === 'file') {
+                        const file = await handle.getFile();
+                        filePathMap.set(file, fullPath); // Set the full path including the directory structure
+                        console.log(`Processed file (Chrome): Name: ${file.name}, Path: ${fullPath}`); // Debugging
+                        files.push(file);
+                    } else if (handle.kind === 'directory') {
+                        const nestedFiles = await getFilesForCreate(handle, fullPath + '/'); // Append '/' for directories
+                        files = files.concat(nestedFiles);
+                    }
+                }
+            }
+            return files;
+        }
+
+        async function readAllEntriesForCreate(reader, path = '') {
+            let allEntries = [];
+            let readEntries = async () => {
+                let entries = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+                if (entries.length) {
+                    allEntries.push(...entries);
+                    await readEntries();
+                }
+            };
+            await readEntries();
+
+            let files = [];
+            for (const entry of allEntries) {
+                if (entry.isFile) {
+                    const file = await new Promise((resolve) => entry.file(resolve));
+                    file.webkitRelativePath = path + file.name; // Manually set the relative path
+                    console.log('Processed file (Safari):', file); // Debugging
+                    files.push(file);
+                } else if (entry.isDirectory) {
+                    files.push(...await readAllEntriesForCreate(entry.createReader(), path + entry.name + '/'));
+                }
+            }
+            return files;
+        }
+
+        document.getElementById('create_drop').addEventListener('drop', handleDropForCreate, false);
+
+        document.getElementById('pak_view_drop').addEventListener('click', function () {
+            document.getElementById('packfile').click();
+        });
+
+        document.getElementById('pak_view_drop').addEventListener('dragover', function (event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('hover');
+        });
+
+        document.getElementById('pak_view_drop').addEventListener('dragleave', function (event) {
+            event.currentTarget.classList.remove('hover');
+        });
+
+        document.getElementById('pak_view_drop').addEventListener('drop', function (event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('hover');
+
+            document.getElementById('loadingCircle').style.display = 'block';
+
+            const files = event.dataTransfer.files;
+            if (files.length === 0) {
+                return;
+            }
+
+            const file = files[0]; // Considering only the first file for simplicity
+
+            if (file.name.endsWith('.pak')) {
+                pakSelector(files); // Process the .pak file
+            } else {
+                alert('Only .pak files are accepted');
+                document.getElementById('loadingCircle').style.display = 'none';
+                // Reset any changes made to the drop zone, if necessary
+            }
+        });
+
+        document.getElementById('downloadAll').addEventListener('click', function () {
+            const zip = new JSZip();
+            const mainFolderName = viewCurrentPakFileName; // Use the PAK file name for the main folder's name
+
+            viewFileBlobs.forEach(function (file) {
+                // Prepend the main folder name to the file's path
+                const filePath = mainFolderName + '/' + file.filename;
+                zip.file(filePath, file.blob);
+            });
+
+            // Show the progress wrapper and reset the progress bar to 0%
+            document.getElementById('progressWrapper').style.display = 'block';
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+
+            // Update the zip.generateAsync call to handle progress updates
+            zip.generateAsync({ type: "blob" }, function (metadata) {
+                // Update the progress bar with the current percentage
+                const percent = metadata.percent.toFixed(2);
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
+            }).then(function (content) {
+                // Use the PAK file name for the zip file's name
+                const url = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = mainFolderName + ".zip"; // Use the PAK file name here
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+
+                // Hide the progress bar when done
+                document.getElementById('progressWrapper').style.display = 'none';
+            }, function (err) {
+                alert('Error generating zip: ' + err);
+                // Hide the progress bar if there's an error
+                document.getElementById('progressWrapper').style.display = 'none';
+            });
+        });
+
+        // QWT Initation
+        var QWT = QuakeWebTools;
+        var G = QWT.GLOBAL;
+
+        // will need a proper system to deal with these for multiple viewers
+        if (QWT.ANIMATION_ID != null) {
+            console.log("stopping animationFrame " + QWT.ANIMATION_ID);
+            cancelAnimationFrame(QWT.ANIMATION_ID);
+            QWT.ANIMATION_ID = null;
+        }
+
+    </script>
+    <div id="footer">
+        Created by <span class="bronze">w</span>ood<span class="bronze">s</span> &nbsp;&nbsp;| &nbsp;&nbsp;<a
+            href="https://github.com/timbergeron"><i class="fa-brands fa-github"></i></a>
+    </div>
+</body>
+
+</html>
