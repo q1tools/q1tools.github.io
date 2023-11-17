@@ -1,0 +1,88 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #333; /* Dark background */
+    color: #8f8f8f; /* Light text */
+    font-family: Arial, sans-serif;
+    font-size: 10pt;;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* Full viewport height */
+}
+
+
+::selection {
+    background: #787878;
+    /* Background color for the selected text */
+    color: #b0b0b0;
+    /* Text color for the selected text */
+}
+
+/* For Mozilla Firefox, you need to use the vendor prefix */
+::-moz-selection {
+    background: #787878;
+    color: #b0b0b0;
+}
+
+body a {
+    color: #989898;
+    text-decoration: none;
+}
+
+body a:active {
+    color: #989898;
+}
+
+body a:hover {
+    text-decoration-color: #989898;
+}
+
+body a:visited {
+    color: #989898;
+}
+
+.container {
+    display: flex;
+    flex-direction: column; /* Align items vertically */
+    gap: 30px; /* Space between divs */
+}
+
+.clickable-div {
+    width: 250px;
+    height: 200px;
+    font-size: 14pt;
+    background-color: #383838;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    border: 2px solid #4f4f4f;
+    padding: 10px;
+    
+}
+
+.clickable-div img {
+    width: 150px; /* Image width */
+    height: auto; /* Maintain aspect ratio */
+    margin-bottom: 14px; /* Space between image and text */
+}
+
+.clickable-div span {
+    margin-top: 0; /* Adjust if needed */
+}
+
+.clickable-div:hover {
+    background-color: #474747;
+}
+
+footer {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    color: inherit; /* White text */
+    font-size: 0.8em; /* Smaller font size */
+}

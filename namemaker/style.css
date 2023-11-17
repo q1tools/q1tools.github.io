@@ -1,0 +1,222 @@
+﻿body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    /* This ensures the body takes at least the full viewport height */
+    margin: 0;
+    /* This removes the default margin */
+    font-family: Arial, Helvetica, sans-serif;
+    size: 16pt;
+    color: #939393;
+    background-color: #333333;
+}
+
+body a {
+    color: #b4b4b4;
+    text-decoration: none;
+  }
+
+body a:active {
+    color: #b4b4b4;
+}
+
+body a:hover {
+    text-decoration-color: #b4b4b4;
+  }
+
+body a:visited {
+    color: #b4b4b4;
+  }
+  
+
+::selection {
+    background: #584c34;
+    /* Background color for the selected text */
+    color: #b0b0b0;
+    /* Text color for the selected text */
+}
+
+/* For Mozilla Firefox, you need to use the vendor prefix */
+::-moz-selection {
+    background: #584c34;
+    color: #b0b0b0;
+}
+
+#container {
+    text-align: center;
+    margin-top: 20px;
+}
+
+@font-face {
+    font-family: 'q1';
+    src: url('Quake1.ttf') format('truetype');
+}
+
+#quakefontheader
+{
+    font-family: 'q1', sans-serif;
+    text-align: left;
+    margin-bottom: 24px;
+    margin-left: 22px;
+    font-size: 22pt;
+    text-shadow: 3px 4px 2px rgba(0, 0, 0, 0.3), -1px 1px 0px rgba(255, 255, 255, 0.5);
+    opacity: .9;
+    letter-spacing: 3px;
+}
+
+#keyboard {
+    margin-right: 60px;
+    margin-bottom: 16px;
+    -webkit-user-select: none;
+    /* Safari */
+    -moz-user-select: none;
+    /* Firefox */
+    -ms-user-select: none;
+    /* Internet Explorer/Edge */
+    user-select: none;
+    /* Non-prefixed version, currently supported by Chrome, Opera, and Edge */
+}
+
+@media (min-width: 920px) {
+    #keyboard {
+        float: left;
+        margin-right: 20px;
+        margin-left: 20px;
+    }
+
+    #right_fields {
+        float: left;
+        margin-left: 12px;
+    }
+}
+
+#qcharstable {
+
+    text-align: center;
+    margin-top: 0px;
+    cursor: pointer;
+    
+}
+
+.charmap
+{
+    cursor: not-allowed;
+}
+
+#controls {
+    margin-top: 8px;
+}
+
+.controls-margin {
+    margin-right: 26px;
+}
+
+#controls a:link,
+#controls a:visited {
+    text-decoration: none;
+    color: inherit;
+}
+
+#right_fields {
+    text-align: left;
+}
+
+#preview {
+    margin-top: 0px;
+    text-align: left
+}
+
+.pre {
+    margin-top: 8px;
+}
+
+#below_preview {
+    text-align: left;
+    margin-left: 0px;
+}
+
+input[type="button"] {
+    width: 24px; /* or any other value */
+}
+
+.input-button.fa {
+    font-family: "Font Awesome 5 Free", "Font Awesome 5 Brands", sans-serif;
+    color: #7b6c4d;
+    font-size: 14pt;
+    background-color: transparent;
+    border-radius: 0px;
+    border: 0px;
+}
+
+.input-button.fa:active {
+    color: #584c34;
+}
+
+.input-button:hover {
+    filter: brightness(70%);
+    /* Makes the button 10% darker on hover */
+}
+
+#yourname {
+    margin-top: 8px;
+}
+
+#converted {
+    width: 69%;
+    color: #875848;
+    margin-top: 8px;
+    font-size: 20px;
+    background-color: #b0b0b0;
+}
+
+#saveContainer {
+    margin-top: 6px;
+}
+
+#filename {
+    font-size: 20px;
+    color: #875848;
+    background-color: #b0b0b0;
+
+}
+
+#dropZone {
+    transition: background-color 0.3s ease;
+    border: 2px dotted #686868;
+    padding: 20px;
+    width: 300px;
+    text-align: center;
+    cursor: pointer;
+    margin-top: 20px;
+    border-radius: 15px;
+
+}
+
+#dropZone.active {
+    background-color: #4d4d4d;
+}
+
+#credits {
+    margin-top: 20px;
+    font-size: 8pt;
+    margin-bottom: 20px;
+    color: #595959;
+}
+
+.bronze
+{
+    color: #875848
+}
+
+#footer {
+    position: fixed;
+    left: 2px;
+    right: 2px;
+    bottom: 0;
+    text-align: right;
+    background-color: #333;
+    padding: 10px;
+    font-size: 10px;
+}
+
