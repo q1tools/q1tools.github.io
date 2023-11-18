@@ -48,7 +48,7 @@
     <!-- File Drop Zone for PAK creation -->
     <div id="create_drop">
         <span class="text-color-view-create">Create</span>: Drag and drop a folder here or click to select a folder
-        <input type="file" id="pakcreator" webkitdirectory onchange="createPak(this.files)" />
+        <input type="file" id="pakcreator" webkitdirectory onchange="createPakHelper(this.files)" />
     </div>
 
     <!-- Progress Bar Wrapper For Download / Convert to .zip from .pak -->
@@ -93,24 +93,24 @@
 
             // Process each file to create directory entries and collect file data
             files.forEach(file => {
-
-
                 let fullPath;
-                if (file.webkitRelativePath) {
+
+                // Check if 'customPath' is available, fallback to 'webkitRelativePath' or file.name
+                if (file.customPath) {
+                    fullPath = file.customPath;
+                } else if (file.webkitRelativePath) {
                     // Remove the top-level folder name from the path
                     let pathSegments = file.webkitRelativePath.split('/');
                     pathSegments.shift(); // Remove the first segment (top-level folder name)
                     fullPath = pathSegments.join('/');
                 } else {
-                    // Use the manually constructed path for drag-and-drop
-                    fullPath = filePathMap.get(file) || file.name;
+                    fullPath = file.name; // Default to just the file name
                 }
 
                 let filenamePadded = fullPath.padEnd(56, '\0'); // Pad the filename for alignment
 
-
                 let fileEntry = {
-                    filename: filenamePadded, // Now includes path without the top-level folder name
+                    filename: filenamePadded,
                     offset: dirOffset,
                     size: file.size
                 };
@@ -127,12 +127,11 @@
             dirSize = directoryEntries.length * 64;
 
             // Construct the directory part of the PAK file
-            let directoryBlobParts = [];
-            directoryEntries.forEach(entry => {
-                directoryBlobParts.push(entry.filename);
-                directoryBlobParts.push(new Uint32Array([entry.offset]));
-                directoryBlobParts.push(new Uint32Array([entry.size]));
-            });
+            let directoryBlobParts = directoryEntries.flatMap(entry => [
+                entry.filename,
+                new Uint32Array([entry.offset]),
+                new Uint32Array([entry.size])
+            ]);
             let directoryBlob = new Blob(directoryBlobParts, { type: 'application/octet-stream' });
 
             // Construct the header part of the PAK file with the magic number, directory offset, and directory size
@@ -141,7 +140,6 @@
             // Combine the header, file data, and directory into one Blob to form the complete PAK file
             return new Blob([headerBlob, ...fileData, directoryBlob], { type: 'application/octet-stream' });
         }
-
 
         function showModal(pakFileName, totalFiles, totalSize) {
             // Format the total size of the files for display
@@ -176,7 +174,7 @@
             fileInput.value = ''; // This will clear the current selection
         }
 
-        function createPak(files, folderName) {
+        function createPakHelper(files, folderName) {
             // Exit the function early if no files were selected
             if (!files.length) {
                 alert('No files were selected.');
@@ -1231,46 +1229,27 @@
             event.preventDefault();
             event.stopPropagation();
             event.currentTarget.classList.remove('hover');
+
             const items = event.dataTransfer.items;
             let folderDropped = false;
 
-            console.log('Drop event items:', items); // Debugging: Log the raw drop event items
+            console.log("Drop event items:", items); // Debugging: Log the raw drop event items
 
             for (const item of items) {
-                console.log('Handling item:', item); // Debugging: Log the item being handled
+                console.log("Handling item:", item); // Debugging: Log the item being handled
                 if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry();
+                    console.log("Entry:", entry); // Debugging: Log the entry
 
-                    // Safari specific handling
-                    if (item.kind === 'file' && item.webkitGetAsEntry) {
-                        const entry = item.webkitGetAsEntry();
-                        if (entry && entry.isDirectory) {
-                            folderDropped = true;
-                            const files = await readAllEntriesForCreate(entry.createReader());
-                            createPak(files, entry.name);
-                            break;
-                        }
-                    }
-
-                    if ('getAsFileSystemHandle' in item) {
-                        const entry = await item.getAsFileSystemHandle();
-                        console.log('Chrome entry:', entry); // Debugging
-                        if (entry.kind === 'directory') {
-                            folderDropped = true;
-                            const files = await getFilesForCreate(entry);
-                            console.log('Files obtained from Chrome path:', files); // Debugging
-                            createPak(files, entry.name);
-                            break;
-                        }
-                    } else if (item.webkitGetAsEntry) {
-                        const entry = item.webkitGetAsEntry();
-                        console.log('Safari entry:', entry); // Debugging
-                        if (entry && entry.isDirectory) {
-                            folderDropped = true;
-                            const files = await getFilesForCreate(entry);
-                            console.log('Files obtained from Safari path:', files); // Debugging
-                            createPak(files, entry.name);
-                            break;
-                        }
+                    if (entry && entry.isDirectory) {
+                        folderDropped = true;
+                        const files = await readAllEntriesForCreate(entry.createReader());
+                        createPakHelper(files, entry.name);
+                        break;
+                    } else if (entry && entry.isFile) {
+                        // Handle file drop (optional, depending on your requirements)
+                        console.log("File dropped:", entry); // Debugging: Log the file entry
+                        // ... You may want to process individual file drops here ...
                     }
                 }
             }
@@ -1281,26 +1260,8 @@
             }
         }
 
-        async function getFilesForCreate(entry, currentPath = '') {
-            let files = [];
-            if (entry.kind === 'directory' && 'values' in entry) {
-                for await (const handle of entry.values()) {
-                    const fullPath = currentPath + handle.name;
-                    if (handle.kind === 'file') {
-                        const file = await handle.getFile();
-                        filePathMap.set(file, fullPath); // Set the full path including the directory structure
-                        console.log(`Processed file (Chrome): Name: ${file.name}, Path: ${fullPath}`); // Debugging
-                        files.push(file);
-                    } else if (handle.kind === 'directory') {
-                        const nestedFiles = await getFilesForCreate(handle, fullPath + '/'); // Append '/' for directories
-                        files = files.concat(nestedFiles);
-                    }
-                }
-            }
-            return files;
-        }
 
-        async function readAllEntriesForCreate(reader, path = '') {
+        async function readAllEntriesForCreate(reader, parentPath = '') {
             let allEntries = [];
             let readEntries = async () => {
                 let entries = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
@@ -1313,17 +1274,24 @@
 
             let files = [];
             for (const entry of allEntries) {
+                console.log("Entry:", entry, "Parent Path:", parentPath); // Debugging: Log each entry and its path
+
                 if (entry.isFile) {
                     const file = await new Promise((resolve) => entry.file(resolve));
-                    file.webkitRelativePath = path + file.name; // Manually set the relative path
-                    console.log('Processed file (Safari):', file); // Debugging
+                    const relativePath = entry.fullPath.replace(/^\/[^\/]+\//, ''); // Remove the leading '/pak0/' (or similar) from the path
+                    file.customPath = relativePath; // Use a custom property to store the relative path
+                    console.log("Processed file:", file, "Custom Path:", file.customPath); // Debugging: Log the file and custom path
                     files.push(file);
                 } else if (entry.isDirectory) {
-                    files.push(...await readAllEntriesForCreate(entry.createReader(), path + entry.name + '/'));
+                    const subdirectoryPath = entry.fullPath.replace(/^\//, '') + '/'; // Get the subdirectory path
+                    files.push(...await readAllEntriesForCreate(entry.createReader(), subdirectoryPath));
                 }
             }
             return files;
         }
+
+
+
 
         document.getElementById('create_drop').addEventListener('drop', handleDropForCreate, false);
 
