@@ -1321,7 +1321,7 @@
 
             const file = files[0]; // Considering only the first file for simplicity
 
-            if (file.name.endsWith('.pak')) {
+            if (file.name.toLowerCase().endsWith('.pak')) {
                 pakSelector(files); // Process the .pak file
             } else {
                 alert('Only .pak files are accepted');
