@@ -44,11 +44,20 @@ body a:visited {
 
 .container {
     display: flex;
-    flex-direction: column; /* Align items vertically */
+    flex-wrap: wrap; /* Allow wrapping */
+    gap: 30px; /* Space between rows and divs */
+    justify-content: center; /* Center the items horizontally */
+}
+
+.row {
+    display: flex;
+    flex-direction: row; /* Align items horizontally */
     gap: 30px; /* Space between divs */
 }
 
 .clickable-div {
+    width: calc(50% - 15px); /* Adjust width to fit two per row, accounting for gap */
+
     width: 250px;
     height: 200px;
     font-size: 14pt;

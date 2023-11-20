@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>TGA Converter</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+
+</head>
+
+<body>
+    <h1 class="header-container"><img src="tga.png" class="header-image" alt="">TGA Converter</h1>
+
+    <div class="drop-zone" id="universal-converter">
+        Drop/Select PNG or TGA to convert
+        <input type="file" accept="image/png, .tga">
+    </div>
+    <div class="drop-zone" id="folder-converter">
+        Select folder to convert all PNG or TGA files
+        <input type="file" webkitdirectory directory multiple>
+    </div>
+
+    <div id="progressWrapper">
+        <div id="progressBar"></div>
+    </div>
+
+    <!-- Modal for Confirming Download -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <p>New .zip file created and download initiated!</p>
+        </div>
+    </div>
+
+    <script>
+
+        var errorMessages = [];  // Global array to store error messages
+
+
+        // Function to create TGA from PNG
+        function createTGA(imageData) {
+            const header = new Uint8Array(18);
+            header[2] = 2; // Uncompressed true-color image
+            header[12] = imageData.width & 0xFF;
+            header[13] = (imageData.width >> 8) & 0xFF;
+            header[14] = imageData.height & 0xFF;
+            header[15] = (imageData.height >> 8) & 0xFF;
+            header[16] = 24; // 24 bits per pixel
+
+            const body = new Uint8Array(imageData.data.length / 4 * 3);
+            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
+                body[j] = imageData.data[i + 2]; // Blue
+                body[j + 1] = imageData.data[i + 1]; // Green
+                body[j + 2] = imageData.data[i]; // Red
+            }
+
+            return new Blob([header, body], { type: 'image/x-tga' });
+        }
+        // Utility function to download a Blob
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        async function processPng2Tga(file) {
+            console.log('Starting PNG to TGA conversion for:', file.name);
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function (e) {
+                    try {
+                        const arrayBuffer = e.target.result;
+                        const blob = new Blob([arrayBuffer], { type: 'image/png' });
+                        const imgBitmap = await createImageBitmap(blob);
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgBitmap.width;
+                        canvas.height = imgBitmap.height;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(imgBitmap, 0, 0);
+
+                        // Flip the image vertically if needed
+                        // ...
+
+                        // Convert the canvas content to TGA Blob
+                        const tgaBlob = canvasToTgaBlob(canvas);
+                        if (tgaBlob) {
+                            console.log('PNG to TGA conversion successful for:', file.name);
+                            resolve(tgaBlob);
+                        } else {
+                            console.log('Failed to convert PNG to TGA for:', file.name);
+                            reject('Error in image conversion to TGA');
+                        }
+                    } catch (error) {
+                        console.error('Error converting PNG to TGA for:', file.name, error);
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => {
+                    console.log('Error reading file:', file.name);
+                    reject('Error reading file');
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function canvasToTgaBlob(canvas) {
+            // Create a TGA header (18 bytes)
+            const header = new Uint8Array(18);
+            header[2] = 2; // Uncompressed RGB
+            header[12] = canvas.width & 0xFF;
+            header[13] = (canvas.width >> 8) & 0xFF;
+            header[14] = canvas.height & 0xFF;
+            header[15] = (canvas.height >> 8) & 0xFF;
+            header[16] = 24; // 24 bits per pixel
+
+            // Get canvas data
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            // Convert RGBA to BGR format
+            const body = new Uint8Array(canvas.width * canvas.height * 3);
+            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
+                body[j] = imageData.data[i + 2]; // Blue
+                body[j + 1] = imageData.data[i + 1]; // Green
+                body[j + 2] = imageData.data[i]; // Red
+            }
+
+            // Combine the header and body to create the TGA content
+            const tgaContent = new Uint8Array(header.length + body.length);
+            tgaContent.set(header);
+            tgaContent.set(body, header.length);
+
+            // Create a Blob from the TGA content
+            const tgaBlob = new Blob([tgaContent], { type: 'image/x-tga' });
+            return tgaBlob;
+        }
+
+        function processTga2Png(tgaArrayBuffer, filename) {
+            if (!(tgaArrayBuffer instanceof ArrayBuffer)) {
+                console.error('processTga2Png: Argument is not an ArrayBuffer:', tgaArrayBuffer);
+                throw new Error('Argument must be an ArrayBuffer');
+            }
+            console.log('Starting TGA to PNG conversion');
+            return new Promise((resolve, reject) => {
+                const TGAHEADER = 18;
+                const imgDataOffset = TGAHEADER;
+
+                const tgaDataView = new DataView(tgaArrayBuffer);
+
+                // Check if the TGA is uncompressed and 24-bit
+                if (tgaDataView.getUint8(2) !== 2 || tgaDataView.getUint8(16) !== 24) {
+                    console.log('Invalid TGA file format');
+                    const errorMessage = `${filename}`;
+                    errorMessages.push(errorMessage); // Add error message to global array
+                    reject('Invalid TGA file. Must be an uncompressed, 24-bit image.');
+                    return;
+                }
+
+                const imgWidth = tgaDataView.getUint16(12, true);
+                const imgHeight = tgaDataView.getUint16(14, true);
+
+                // Create a canvas and context
+                const canvas = document.createElement('canvas');
+                canvas.width = imgWidth;
+                canvas.height = imgHeight;
+                const context = canvas.getContext('2d');
+
+                // Create ImageData to draw on the canvas
+                const imageData = context.createImageData(imgWidth, imgHeight);
+
+                // Process TGA pixel data, flipping the image vertically
+                for (let y = 0; y < imgHeight; y++) {
+                    for (let x = 0; x < imgWidth; x++) {
+                        const tgaPixelIndex = imgDataOffset + ((imgHeight - 1 - y) * imgWidth + x) * 3;
+                        const r = tgaDataView.getUint8(tgaPixelIndex + 2);
+                        const g = tgaDataView.getUint8(tgaPixelIndex + 1);
+                        const b = tgaDataView.getUint8(tgaPixelIndex);
+
+                        const canvasPixelIndex = (y * imgWidth + x) * 4;
+                        imageData.data[canvasPixelIndex] = r;     // Red
+                        imageData.data[canvasPixelIndex + 1] = g; // Green
+                        imageData.data[canvasPixelIndex + 2] = b; // Blue
+                        imageData.data[canvasPixelIndex + 3] = 255; // Alpha (fully opaque)
+                    }
+                }
+
+                // Draw ImageData to canvas
+                context.putImageData(imageData, 0, 0);
+
+                // Convert canvas to PNG Blob
+                canvas.toBlob(function (blob) {
+                    if (blob) {
+                        console.log('TGA to PNG conversion successful');
+                        resolve(blob);
+                    } else {
+                        console.log('Failed to convert TGA to PNG');
+                        reject('Error in canvas to Blob conversion');
+                    }
+                }, 'image/png');
+            });
+        }
+
+        // Single drop zone handling both PNG and TGA files
+
+        const universalConverterZone = document.querySelector('#universal-converter');
+
+        universalConverterZone.addEventListener('dragover', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            universalConverterZone.classList.add('drop-zone-hover');
+        });
+
+        universalConverterZone.addEventListener('dragleave', (event) => {
+            universalConverterZone.classList.remove('drop-zone-hover');
+        });
+
+        universalConverterZone.addEventListener('drop', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            universalConverterZone.classList.remove('drop-zone-hover');
+
+            const files = event.dataTransfer.files;
+
+            if (files.length !== 1) {
+                alert('Please drop only one file at a time.');
+                return;
+            }
+
+            const file = event.dataTransfer.files[0];
+            const filenameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
+
+            if (file.type === 'image/png') {
+                processPng2Tga(file).then(tgaBlob => {
+                    downloadBlob(tgaBlob, filenameWithoutExtension + '.tga');
+                }).catch(error => {
+                    console.error('Error converting PNG to TGA:', error);
+                });
+            } else if (file.type === 'image/tga' || file.name.endsWith('.tga')) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const arrayBuffer = e.target.result;
+                    processTga2Png(arrayBuffer).then(pngBlob => {
+                        downloadBlob(pngBlob, filenameWithoutExtension + '.png');
+                    }).catch(error => {
+                        console.error('Error converting TGA to PNG:', error);
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                alert('Invalid file type. Please drop a PNG or TGA file.');
+            }
+        });
+
+        universalConverterZone.addEventListener('click', () => {
+            universalConverterZone.querySelector('input').click();
+        });
+
+        universalConverterZone.querySelector('input[type="file"]').addEventListener('change', function (e) {
+            if (e.target.files && e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const filenameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
+
+                if (file.type === 'image/png') {
+                    processPng2Tga(file).then(tgaBlob => {
+                        downloadBlob(tgaBlob, filenameWithoutExtension + '.tga');
+                    }).catch(error => {
+                        console.error('Error converting PNG to TGA:', error);
+                    });
+                } else if (file.type === 'image/tga' || file.name.endsWith('.tga')) {
+                    const reader = new FileReader();
+                    reader.onload = function (event) {
+                        const arrayBuffer = event.target.result;
+                        processTga2Png(arrayBuffer).then(pngBlob => {
+                            downloadBlob(pngBlob, filenameWithoutExtension + '.png');
+                        }).catch(error => {
+                            console.error('Error converting TGA to PNG:', error);
+                        });
+                    };
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    alert('Invalid file type. Please select a PNG or TGA file.');
+                }
+            }
+        });
+
+        // code for folder selectiom
+
+        function getRelativePath(file, folderName) {
+            const filePath = file.webkitRelativePath || file.mozRelativePath || file.name;
+            const parts = filePath.split('/');
+            const folderIndex = parts.indexOf(folderName);
+            if (folderIndex !== -1 && folderIndex < parts.length - 1) {
+                return parts.slice(folderIndex).join('/');
+            }
+            return filePath;
+        }
+
+        async function processFile(file, zip, folderName) {
+            const relativePath = getRelativePath(file, folderName);
+            const pathWithoutFolder = relativePath.replace(new RegExp(`^${folderName}/`), ''); // Remove folderName from path
+            console.log('Processing file:', pathWithoutFolder);
+            try {
+                if (file.type === 'image/png') {
+                    const tgaBlob = await processPng2Tga(file);
+                    console.log('TGA Blob created:', tgaBlob); // Verify Blob creation
+                    zip.file(pathWithoutFolder.replace(/\.png$/i, '.tga'), tgaBlob);
+                    return true; // Successful processing
+                } else if (file.type === 'image/tga' || file.name.endsWith('.tga')) {
+                    const arrayBuffer = await readFileAsArrayBuffer(file);
+                    const pngBlob = await processTga2Png(arrayBuffer, file.name);
+                    console.log('PNG Blob created:', pngBlob); // Verify Blob creation
+                    zip.file(pathWithoutFolder.replace(/\.tga$/i, '.png'), pngBlob);
+                    return true; // Successful processing
+                } else {
+                    console.log('Unrecognized file type:', pathWithoutFolder);
+                    return false; // Skip unrecognized file types
+                }
+            } catch (error) {
+                console.error('Error processing file:', pathWithoutFolder, error);
+                return false; // Error in processing
+            }
+        }
+
+
+        function showModal(zipFileName, totalFiles) {
+            var modal = document.getElementById("myModal");
+            var closeButton = modal.querySelector('.close');
+            var modalContent = modal.querySelector('.modal-content p');
+
+            let message = "";
+
+            // Check if there are error messages to display
+            if (errorMessages.length > 0) {
+                message += "Invalid TGA file. Must be an uncompressed, 24-bit image:<br>" + errorMessages.join("<br>");
+                message += "<br><br>"; // Add two <br> tags for visual separation
+                errorMessages = []; // Clear the errorMessages array after displaying
+            }
+
+            // Append the success message if there are files processed
+            if (totalFiles > 0) {
+                message += `New ZIP file "${zipFileName}" with ${totalFiles} file(s) created. Download initiated!`;
+            }
+
+            modalContent.innerHTML = message; // Set the modal content with HTML rendering
+
+            // Function to hide the modal
+            function hideModal() {
+                modal.style.display = "none";
+            }
+
+            // Close button event listener
+            closeButton.onclick = hideModal;
+
+            // Clicking outside the modal event listener
+            window.onclick = function (event) {
+                if (event.target === modal) {
+                    hideModal();
+                }
+            };
+
+            modal.style.display = "block";
+        }
+
+
+
+
+
+
+
+        async function processFolder(files) {
+            // Check if the folder contains any .tga or .png files
+            const hasValidFiles = Array.from(files).some(file => file.type === 'image/png' || file.name.endsWith('.tga'));
+
+            if (!hasValidFiles) {
+                alert('No .tga or .png files found in the folder. Please select a folder with valid image files.');
+                return; // Exit the function if no valid files are found
+            }
+
+            errorMessages = [];  // Clear the errorMessages array
+
+
+            const zip = new JSZip();
+            const folderName = getFolderNameFromFiles(files);
+
+            console.log('Processing folder:', folderName);
+            document.getElementById('progressWrapper').style.display = 'block';
+
+            const totalFiles = files.length;
+            let processedFiles = 0;
+
+            const filePromises = [];
+
+            for (let i = 0; i < totalFiles; i++) {
+                const filePromise = processFile(files[i], zip, folderName).then(fileProcessed => {
+                    if (fileProcessed) {
+                        processedFiles++;
+                    }
+                    const progress = Math.round((processedFiles / totalFiles) * 10); // Update progress for file processing
+                    updateProgressBar(progress);
+                });
+                filePromises.push(filePromise);
+            }
+
+            // Wait for all file processing to complete
+            await Promise.all(filePromises);
+
+            if (processedFiles > 0) {
+                console.log('Some files processed, creating zip file...');
+                try {
+                    const zipContent = await zip.generateAsync({
+                        type: "blob",
+                        streamFiles: true
+                    }, function updateCallback(metadata) {
+                        const zipProgress = 10 + (metadata.percent * 0.9); // Update progress for zipping
+                        updateProgressBar(Math.round(zipProgress));
+                    });
+                    console.log('Zip file size:', zipContent.size);
+                    downloadBlob(zipContent, folderName + '.zip');
+                    console.log('Zip file creation completed:', folderName + '.zip');
+                    showModal(folderName + '.zip', totalFiles);
+                    errorMessages = [];  // Clear the errorMessages array
+
+                } catch (error) {
+                    console.error('Error creating zip file:', error);
+                }
+            } else {
+                console.error('No files were processed.');
+            }
+
+            document.getElementById('progressWrapper').style.display = 'none';
+        }
+
+        function updateProgressBar(percentage) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
+        }
+
+
+
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        const folderConverterZone = document.querySelector('#folder-converter');
+
+        folderConverterZone.addEventListener('dragover', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            folderConverterZone.classList.add('drop-zone-hover');
+        });
+
+        folderConverterZone.addEventListener('dragleave', (event) => {
+            folderConverterZone.classList.remove('drop-zone-hover');
+        });
+
+        folderConverterZone.addEventListener('click', () => {
+            folderConverterZone.querySelector('input').click();
+        });
+
+        folderConverterZone.querySelector('input[type="file"]').addEventListener('change', function (e) {
+            if (e.target.files && e.target.files.length > 0) {
+                // Process the folder
+                processFolder(e.target.files);
+                console.log('click input pass to processfolder:', e.target.files); // Debug print
+                // Reset the input value so the same folder can be selected again
+                e.target.value = '';
+            }
+        });
+
+        function getFolderNameFromFiles(files) {
+            if (files.length === 0 || !files[0].webkitRelativePath) {
+                return 'converted_files'; // default name if folder name can't be determined
+            }
+            const path = files[0].webkitRelativePath;
+            const folderName = path.substring(0, path.indexOf('/'));
+            console.log('Determined folder name:', folderName); // Debug print
+
+            return folderName || 'converted_files'; // in case the folder name is empty
+        }
+
+        // implement folder drop code (to do)
+
+
+
+        folderConverterZone.addEventListener('drop', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+
+            const items = event.dataTransfer.items;
+            if (items && items.length > 0 && items[0].webkitGetAsEntry().isDirectory) {
+                folderConverterZone.querySelector('input').click();
+
+            } else {
+                alert('Please drop only folders.');
+            }
+
+            folderConverterZone.classList.remove('drop-zone-hover');
+
+        });
+
+
+
+    </script>
+    <footer>
+        Created by woods &nbsp;&nbsp;|&nbsp;&nbsp; <a href="https://github.com/q1tools/q1tools.github.io"><i
+                class="fa-brands fa-github"></a></i>
+    </footer>
+</body>

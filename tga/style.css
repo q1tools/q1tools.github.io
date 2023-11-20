@@ -1,0 +1,131 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #333; /* Dark background */
+    color: #969696; /* Light text */
+    font-family: Arial, sans-serif;
+    font-size: 12pt;;
+    justify-content: center;
+    align-items: center;
+}
+
+::selection {
+    background: #787878;
+    /* Background color for the selected text */
+    color: #b0b0b0;
+    /* Text color for the selected text */
+}
+
+/* For Mozilla Firefox, you need to use the vendor prefix */
+::-moz-selection {
+    background: #787878;
+    color: #b0b0b0;
+}
+
+body a {
+    color: #989898;
+    text-decoration: none;
+}
+
+body a:active {
+    color: #989898;
+}
+
+body a:hover {
+    text-decoration-color: #989898;
+}
+
+body a:visited {
+    color: #989898;
+}
+
+.header-image {
+    width: 35px;
+    height: auto;
+    /* This will maintain the aspect ratio */
+    margin-right: 12px;
+    border: 1px solid #a9a9a9;
+}
+
+.header-container {
+    display: flex;
+    align-items: center;
+    /* This aligns the items vertically in the center */
+    margin: 12px;
+    color: #bcbcbc
+
+}
+
+.drop-zone {
+    border: 2px dashed #747474;
+    border-radius: 10px;
+    text-align: center;
+    padding: 20px;
+    cursor: pointer;
+    margin: 16px;
+}
+
+/* Style when hovering over drop-zone */
+.drop-zone-hover {
+    background-color: #474747; /* Background color when hovering */
+}
+
+input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+}
+
+footer {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    color: inherit; /* White text */
+    font-size: 0.6em; /* Smaller font size */
+}
+
+#progressWrapper {
+    display: none;
+    margin: 20px;
+}
+
+#progressBar {
+    width: 0;
+    height: 20px;
+    background-color: #555;
+    text-align: left;
+    line-height: 20px;
+    font-size: 10pt;
+    padding-left: 5px;
+    color: #FFF;
+    transition: width 0.4s ease;
+    
+   
+}
+
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0, 0, 0);
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    background-color: #7a7a7a;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    border-radius: 10px;
+    color: #dddddd;
+}
