@@ -58,9 +58,9 @@ body a:visited {
 .clickable-div {
     width: calc(50% - 15px); /* Adjust width to fit two per row, accounting for gap */
 
-    width: 250px;
-    height: 200px;
-    font-size: 14pt;
+    width: 30vh;
+    height: 30vh;
+    font-size: 3vh;
     background-color: #383838;
     border-radius: 16px;
     display: flex;
@@ -75,7 +75,7 @@ body a:visited {
 }
 
 .clickable-div img {
-    width: 150px; /* Image width */
+    width: 20vh; /* Image width */
     height: auto; /* Maintain aspect ratio */
     margin-bottom: 14px; /* Space between image and text */
 }
