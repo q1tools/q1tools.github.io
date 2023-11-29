@@ -47,6 +47,8 @@ body a:visited {
     flex-wrap: wrap; /* Allow wrapping */
     gap: 30px; /* Space between rows and divs */
     justify-content: center; /* Center the items horizontally */
+    max-width: 80%; /* Ensure container takes full width */
+    margin: auto; /* Center the container */
 }
 
 .row {
