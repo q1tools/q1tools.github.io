@@ -117,43 +117,67 @@
 
         // Function to process TGA to LMP conversion
         function processTga2Lmp(tgaArrayBuffer) {
-            const TGAHEADER = 18;
-            const imgDataOffset = TGAHEADER;
+                const TGAHEADER = 18;
+                const imgDataOffset = TGAHEADER;
 
-            const tgaDataView = new DataView(tgaArrayBuffer);
+                const tgaDataView = new DataView(tgaArrayBuffer);
 
-            if (tgaDataView.getUint8(2) !== 2 || tgaDataView.getUint8(16) !== 24) {
-                console.error('Invalid TGA file. Must be an uncompressed, 24-bit image.');
-                return null;
-            }
-
-            const img_w = tgaDataView.getUint16(12, true);
-            const img_h = tgaDataView.getUint16(14, true);
-
-            const lmpBuffer = new ArrayBuffer(img_w * img_h + 8);
-            const lmpDataView = new DataView(lmpBuffer);
-
-            lmpDataView.setUint32(0, img_w, true);
-            lmpDataView.setUint32(4, img_h, true);
-
-            // Determine which palette to use - custom or fallback
-            const paletteToUse = customPalette || convertedPalette;
-
-            let done = 0;
-            for (let row = img_h - 1; row >= 0; row--) {
-                for (let col = 0; col < img_w; col++) {
-                    const tgaPixelIndex = imgDataOffset + ((row * img_w + col) * 3);
-                    const r = tgaDataView.getUint8(tgaPixelIndex + 2);
-                    const g = tgaDataView.getUint8(tgaPixelIndex + 1);
-                    const b = tgaDataView.getUint8(tgaPixelIndex);
-                    const lmpPixelIndex = 8 + done;
-                    lmpDataView.setUint8(lmpPixelIndex, pal24to8(r, g, b, paletteToUse));
-                    done++;
+                // Check for uncompressed TGA files
+                if (tgaDataView.getUint8(2) !== 2) {
+                    console.error('Invalid TGA file. Must be an uncompressed image.');
+                    return null;
                 }
-            }
 
-            return lmpBuffer;
-        }
+                // Check if TGA file is 24-bit or 32-bit
+                const is32Bit = tgaDataView.getUint8(16) === 32;
+                const bytesPerPixel = is32Bit ? 4 : 3;
+
+                if (!is32Bit && tgaDataView.getUint8(16) !== 24) {
+                    console.error('TGA file must be either 24-bit or 32-bit in depth.');
+                    return null;
+                }
+
+                const img_w = tgaDataView.getUint16(12, true);
+                const img_h = tgaDataView.getUint16(14, true);
+
+                const lmpBuffer = new ArrayBuffer(img_w * img_h + 8);
+                const lmpDataView = new DataView(lmpBuffer);
+
+                lmpDataView.setUint32(0, img_w, true);
+                lmpDataView.setUint32(4, img_h, true);
+
+                // Determine which palette to use - custom or fallback
+                const paletteToUse = customPalette || convertedPalette;
+
+                let done = 0;
+                const transparentIndex = 255; // Using color index 255 for transparency
+
+                for (let row = img_h - 1; row >= 0; row--) {
+                    for (let col = 0; col < img_w; col++) {
+                        const tgaPixelIndex = imgDataOffset + ((row * img_w + col) * bytesPerPixel);
+                        const r = tgaDataView.getUint8(tgaPixelIndex + 2);
+                        const g = tgaDataView.getUint8(tgaPixelIndex + 1);
+                        const b = tgaDataView.getUint8(tgaPixelIndex);
+
+                        const lmpPixelIndex = 8 + done;
+
+                        if (is32Bit) {
+                            const a = tgaDataView.getUint8(tgaPixelIndex + 3); // Alpha channel for 32-bit TGA
+                            if (a < 128) { // Threshold for transparency
+                                lmpDataView.setUint8(lmpPixelIndex, transparentIndex);
+                            } else {
+                                lmpDataView.setUint8(lmpPixelIndex, pal24to8(r, g, b, paletteToUse));
+                            }
+                        } else {
+                            // For 24-bit TGA, treat all pixels as opaque
+                            lmpDataView.setUint8(lmpPixelIndex, pal24to8(r, g, b, paletteToUse));
+                        }
+                        done++;
+                    }
+                }
+
+                return lmpBuffer;
+            }
 
         function convertImageToLmp(imageData) {
             const img_w = imageData.width;
@@ -169,6 +193,8 @@
             // Determine which palette to use - custom or fallback
             const paletteToUse = customPalette || convertedPalette;
 
+            const transparentIndex = 255; // Using color index 255 for transparency
+
             // Convert pixel data to LMP format
             for (let y = 0; y < img_h; y++) {
                 for (let x = 0; x < img_w; x++) {
@@ -176,8 +202,16 @@
                     const r = imageData.data[pixelIndex];     // Red
                     const g = imageData.data[pixelIndex + 1]; // Green
                     const b = imageData.data[pixelIndex + 2]; // Blue
+                    const a = imageData.data[pixelIndex + 3]; // Alpha
+
                     const lmpPixelIndex = 8 + (y * img_w + x); // Position in LMP buffer
-                    lmpDataView.setUint8(lmpPixelIndex, pal24to8(r, g, b, paletteToUse));
+
+                    // Check if the pixel is transparent
+                    if (a < 128) { // Threshold for transparency
+                        lmpDataView.setUint8(lmpPixelIndex, transparentIndex);
+                    } else {
+                        lmpDataView.setUint8(lmpPixelIndex, pal24to8(r, g, b, paletteToUse));
+                    }
                 }
             }
 
@@ -298,7 +332,18 @@
                     return;
                 }
 
-                dropZone.textContent = `Processing: ${file.name}`;
+                const existingProcessingMessage = document.getElementById('processingMessage');
+                if (existingProcessingMessage) {
+                    dropZone.removeChild(existingProcessingMessage);
+                }
+
+                const processingMessage = document.createElement('div');
+                processingMessage.id = 'processingMessage';
+                processingMessage.textContent = `Processed: ${file.name}`;
+                processingMessage.style.marginTop = "10px";
+
+                dropZone.appendChild(processingMessage);
+
                 const reader = new FileReader();
 
                 if (file.type === 'image/png' || file.type === 'image/jpeg') {
