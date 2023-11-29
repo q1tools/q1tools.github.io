@@ -39,7 +39,6 @@
 
         var errorMessages = [];  // Global array to store error messages
 
-
         // Function to create TGA from PNG
         function createTGA(imageData) {
             const header = new Uint8Array(18);
@@ -48,17 +47,20 @@
             header[13] = (imageData.width >> 8) & 0xFF;
             header[14] = imageData.height & 0xFF;
             header[15] = (imageData.height >> 8) & 0xFF;
-            header[16] = 24; // 24 bits per pixel
+            header[16] = 32; // 32 bits per pixel for RGBA
 
-            const body = new Uint8Array(imageData.data.length / 4 * 3);
-            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
+            // Change the loop to include the alpha channel
+            const body = new Uint8Array(imageData.data.length);
+            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 4) {
                 body[j] = imageData.data[i + 2]; // Blue
                 body[j + 1] = imageData.data[i + 1]; // Green
                 body[j + 2] = imageData.data[i]; // Red
+                body[j + 3] = imageData.data[i + 3]; // Alpha
             }
 
             return new Blob([header, body], { type: 'image/x-tga' });
         }
+
         // Utility function to download a Blob
         function downloadBlob(blob, filename) {
             const url = URL.createObjectURL(blob);
@@ -130,18 +132,19 @@
             header[13] = (canvas.width >> 8) & 0xFF;
             header[14] = canvas.height & 0xFF;
             header[15] = (canvas.height >> 8) & 0xFF;
-            header[16] = 24; // 24 bits per pixel
+            header[16] = 32; // 32 bits per pixel for RGBA
 
             // Get canvas data
             const ctx = canvas.getContext('2d');
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-            // Convert RGBA to BGR format
-            const body = new Uint8Array(canvas.width * canvas.height * 3);
-            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
+            // Convert RGBA to BGRA format
+            const body = new Uint8Array(canvas.width * canvas.height * 4);
+            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 4) {
                 body[j] = imageData.data[i + 2]; // Blue
                 body[j + 1] = imageData.data[i + 1]; // Green
                 body[j + 2] = imageData.data[i]; // Red
+                body[j + 3] = imageData.data[i + 3]; // Alpha
             }
 
             // Combine the header and body to create the TGA content
@@ -167,11 +170,11 @@
                 const tgaDataView = new DataView(tgaArrayBuffer);
 
                 // Check if the TGA is uncompressed and 24-bit
-                if (tgaDataView.getUint8(2) !== 2 || tgaDataView.getUint8(16) !== 24) {
+                if (tgaDataView.getUint8(2) !== 2 || (tgaDataView.getUint8(16) !== 24 && tgaDataView.getUint8(16) !== 32)) {
                     console.log('Invalid TGA file format');
                     const errorMessage = `${filename}`;
                     errorMessages.push(errorMessage); // Add error message to global array
-                    reject('Invalid TGA file. Must be an uncompressed, 24-bit image.');
+                    reject('Invalid TGA file. Must be an uncompressed, 24/32-bit image.');
                     return;
                 }
 
@@ -187,21 +190,23 @@
                 // Create ImageData to draw on the canvas
                 const imageData = context.createImageData(imgWidth, imgHeight);
 
-                // Process TGA pixel data, flipping the image vertically
-                for (let y = 0; y < imgHeight; y++) {
-                    for (let x = 0; x < imgWidth; x++) {
-                        const tgaPixelIndex = imgDataOffset + ((imgHeight - 1 - y) * imgWidth + x) * 3;
-                        const r = tgaDataView.getUint8(tgaPixelIndex + 2);
-                        const g = tgaDataView.getUint8(tgaPixelIndex + 1);
-                        const b = tgaDataView.getUint8(tgaPixelIndex);
+// Process TGA pixel data, including alpha if present
+const bytesPerPixel = tgaDataView.getUint8(16) / 8;
+    for (let y = 0; y < imgHeight; y++) {
+        for (let x = 0; x < imgWidth; x++) {
+            const tgaPixelIndex = imgDataOffset + ((imgHeight - 1 - y) * imgWidth + x) * bytesPerPixel;
+            const r = tgaDataView.getUint8(tgaPixelIndex + 2);
+            const g = tgaDataView.getUint8(tgaPixelIndex + 1);
+            const b = tgaDataView.getUint8(tgaPixelIndex);
+            const a = bytesPerPixel === 4 ? tgaDataView.getUint8(tgaPixelIndex + 3) : 255;
 
-                        const canvasPixelIndex = (y * imgWidth + x) * 4;
-                        imageData.data[canvasPixelIndex] = r;     // Red
-                        imageData.data[canvasPixelIndex + 1] = g; // Green
-                        imageData.data[canvasPixelIndex + 2] = b; // Blue
-                        imageData.data[canvasPixelIndex + 3] = 255; // Alpha (fully opaque)
-                    }
-                }
+            const canvasPixelIndex = (y * imgWidth + x) * 4;
+            imageData.data[canvasPixelIndex] = r;     // Red
+            imageData.data[canvasPixelIndex + 1] = g; // Green
+            imageData.data[canvasPixelIndex + 2] = b; // Blue
+            imageData.data[canvasPixelIndex + 3] = a; // Alpha
+        }
+    }
 
                 // Draw ImageData to canvas
                 context.putImageData(imageData, 0, 0);
