@@ -1,0 +1,48 @@
+//
+// ctf3m5.loc
+//
+// Egyptian Pig Factory locations
+//
+// For distribution with ProQuake+
+//
+// By Jonathan Wheeler
+// HDz Avalanche
+// e-mail: wheeler@odsy.net
+// irc: irc.enterthegame.com #clan_hdz
+//
+// Created  March 19, 2001
+// Modified March 19, 2001
+// Modified July 20, 2005 by woods
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+896, 176, 86, 16, -688, -306, "Red Open Area (Outside Base)"
+-2272, -2512, -306, -1392, -1648, 86, "Blue Open Area (Outside Base)"
+-335, -1392, -402, 496, -624, -106, "Red Hallway From Middle"
+-1041, -944, -402, -1872, -1712, -106, "Blue Hallway From Middle"
+-240, -1680, -106, -1136, -656, -402, "Middle LG & RA"
+-656, -1776, 246, -80, -528, -18, "Red Base"
+-720, -560, 246, -1296, -1808, -18, "Blue Base"
+-80, -1264, -18, 496, -624, 86, "Red Base Entrance"
+-1296, -1072, -18, -1872, -1712, 86, "Blue Base Entrance"
+-1040, -608, -258, 80, -144, 86, "Red RL"
+-336, -1728, -258, -1456, -2192, 86, "Blue RL"

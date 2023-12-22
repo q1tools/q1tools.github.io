@@ -1,0 +1,332 @@
+8864 19200 224 [RED] top level / elevator
+8502 18712 -392 [RED] main hall / ramps
+9088 18723 -575 [RED] main hall / ramps
+9958 19597 224 [RED] top level / elevator
+9886 20138 224 [RED] top level / elevator
+9931 20801 224 [RED] top level / elevator
+9695 22679 -3423 [RED] flag level / elevator
+9857 24758 -3423 [RED] flag level / corridor to elevator
+10113 26212 -3423 [RED] flag level / corridor to elevator
+8894 26152 -3423 [RED] flag level / corridor to elevator
+9713 27775 -3423 [RED] flag level / corridor to elevator
+7319 27413 -3423 [RED] flag level / corridor to elevator
+8290 31120 -3423 [RED] flag level / resupply room
+6254 27423 -3423 [RED] flag level / corridor to elevator
+5955 25313 -3423 [RED] flag level / corridor to elevator
+5186 25225 -3423 [RED] flag level / corridor to elevator
+7621 26283 -3423 [RED] flag level / corridor to elevator
+6043 24499 -3423 [RED] flag level / corridor to elevator
+5232 24557 -3423 [RED] flag level / corridor to elevator
+4894 23935 -3423 [RED] flag level / corridor to elevator
+4617 23175 -3423 [RED] flag level / hallway
+3592 22876 -3423 [RED] flag level / hallway
+3527 24109 -3423 [RED] flag level / short corridor
+3502 25060 -3423 [RED] flag level / short corridor
+3322 25942 -3423 [RED] flag level / short corridor
+2472 25914 -3423 [RED] flag level / short corridor
+1646 25864 -3423 [RED] flag level / short corridor
+838 25833 -3423 [RED] flag level / short corridor
+-199 26000 -3423 [RED] flag level / flag room
+-259 25025 -3423 [RED] flag level / flag room
+-1906 25329 -3423 [RED] flag level / flag room
+-2163 24105 -3423 [RED] flag level / flag room
+-2198 23259 -3423 [RED] flag level / long corridor
+-2970 24153 -3423 [RED] flag level / flag room
+-312 23986 -3423 [RED] flag level / flag room
+-30 26986 -3423 [RED] flag level / flag room
+94 27855 -3423 [RED] flag level / flag room
+-708 27860 -3423 [RED] flag level / flag room
+-1510 27937 -3423 [RED] flag level / flag room
+-2603 28037 -3423 [RED] flag level / flag room
+-3861 27846 -3423 [RED] flag level / flag room
+-3856 26981 -3423 [RED] flag level / flag room
+-3839 26034 -3423 [RED] flag level / flag room
+-3845 25117 -3423 [RED] flag level / flag room
+-3798 24214 -3423 [RED] flag level / flag room
+-2312 22424 -3423 [RED] flag level / long corridor
+-2450 21483 -3423 [RED] flag level / long corridor
+-1932 20588 -3423 [RED] flag level / long corridor
+-411 20634 -3423 [RED] flag level / long corridor
+769 20652 -3423 [RED] flag level / long corridor
+1911 20531 -3423 [RED] flag level / long corridor
+2588 20564 -3423 [RED] flag level / long corridor
+3883 20418 -3423 [RED] flag level / hallway
+3744 21654 -3423 [RED] flag level / hallway
+4558 19818 -3423 [RED] flag level / hallway
+3878 18962 -3423 [RED] flag level / hallway
+3044 18740 -3423 [RED] flag level / hallway
+3136 16896 -3423 [RED] flag level / hallway
+2988 16498 -3423 [RED] flag level / hallway
+3928 16545 -3423 [RED] flag level / hallway
+1529 16979 -3423 [RED] spiral / bottom
+1137 17049 -3318 [RED] spiral / bottom
+303 17127 -2893 [RED] spiral / bottom
+-825 17002 -2591 [RED] spiral / bottom
+-949 17820 -2376 [RED] spiral / middle
+-881 18637 -2006 [RED] spiral / middle
+-55 19435 -1576 [RED] spiral / middle
+728 19495 -1332 [RED] spiral / middle
+1802 19549 -917 [RED] spiral / middle
+2044 19580 -824 [RED] spiral / middle
+3150 18346 -352 [RED] spiral / top
+3228 17940 -256 [RED] spiral / top
+3194 17030 -42 [RED] spiral / top
+3348 15419 192 [RED] spiral / top
+2483 14973 192 [RED] spiral / top
+1579 14467 192 [RED] spiral / top
+1857 12981 192 [RED] top level / hall
+-871 19424 -1823 [RED] spiral / middle
+-863 16844 -1215 [RED] corridor between entrance and main hall
+-2039 17073 -1215 [RED] corridor between entrance and main hall
+3533 16640 -1215 [RED] corridor between entrance and main hall
+3519 13984 192 [RED] spiral / top
+2775 12973 192 [RED] top level / hall
+3398 13567 192 [RED] top level / hall
+3589 13012 192 [RED] top level / hall
+4440 13056 192 [RED] top level / hall
+1543 15579 192 [RED] spiral / top
+539 12959 64 [RED] top level / room with grating floor
+525 12017 64 [RED] top level / room with grating floor
+1280 11264 192 [RED] top level / hall
+511 11096 64 [RED] top level / room with grating floor
+-405 11036 64 [RED] top level / room with grating floor
+-709 9600 64 [RED] top level / room with grating floor
+863 9816 64 [RED] top level / room with grating floor
+-316 12968 64 [RED] top level / room with grating floor
+1809 12058 192 [RED] top level / hall
+-433 11874 64 [RED] top level / room with grating floor
+3613 11646 192 [RED] top level / hall
+2787 11591 192 [RED] top level / hall
+5133 11648 192 [RED] top level / hall
+6297 12618 192 [RED] top level / hall
+6323 11690 192 [RED] top level / hall
+4904 10655 192 [RED] top level / corridor to balcony
+4933 9893 192 [RED] top level / corridor to balcony
+-35 12145 -1215 [RED] entrance junction
+-2108 14066 -1215 [RED] corridor between entrance and main hall
+-2193 14829 -1215 [RED] corridor between entrance and main hall
+-2084 15701 -1215 [RED] corridor between entrance and main hall
+-3381 16718 -31 [RED] corridor between top resupply and entrance
+-4479 16749 -31 [RED] corridor between top resupply and entrance
+-5683 16786 -31 [RED] corridor between top resupply and entrance
+-6735 16625 -31 [RED] corridor between top resupply and entrance
+-6543 15089 -31 [RED] corridor to top resupply
+-8455 15945 -31 [RED] top resupply
+-6572 14043 -31 [RED] corridor to top resupply
+-6609 12789 -31 [RED] corridor to top resupply
+-6655 11441 -31 [RED] corridor to top resupply
+-6779 9944 -31 [RED] corridor to top resupply
+-6755 8807 -31 [RED] corridor to top resupply
+-4959 8866 -31 [RED] corridor to top resupply
+-3132 8934 192 [RED] sniper balcony
+-3031 8173 192 [RED] sniper balcony
+-1703 8201 192 [RED] sniper balcony
+65 8245 320 [RED] sniper balcony
+1583 8057 192 [RED] sniper balcony
+-105 3867 -1727 [RED] yard
+25 3551 -2636 moat between fortresses
+0 2740 -1727 bridge between fortresses, red end
+329 1308 -3460 moat between fortresses
+6 -2748 -1727 bridge between fortresses, blue end
+68 -5136 -1727 [BLUE] yard
+24 -8584 -1215 [BLUE] entrance
+1832 -8623 -1215 [BLUE] entrance
+6544 -9133 -31 [BLUE] corridor to top resupply
+3627 -12118 -1535 [BLUE] stairway from water to entrance
+2156 -12049 -1215 [BLUE] entrance junction
+3395 7779 192 [RED] sniper balcony
+2446 7684 192 [RED] sniper balcony
+-2211 9038 192 [RED] sniper balcony
+-1563 8477 -1215 [RED] entrance
+1985 8917 192 [RED] sniper balcony
+2852 8917 192 [RED] sniper balcony
+3449 8784 192 [RED] sniper balcony
+4689 8408 192 [RED] top level / corridor to balcony
+4951 8914 192 [RED] top level / corridor to balcony
+6236 13171 192 [RED] top level / hall
+7619 14092 -149 [RED] main hall / ramps
+8179 12890 192 [RED] top level / resupply room
+6422 14096 372 [RED] main hall / ramps
+7849 11552 192 [RED] top level / resupply room
+9762 11605 192 [RED] top level / resupply room
+9137 14012 -916 [RED] main hall / ramps
+8526 14019 -607 [RED] main hall / ramps
+5281 13108 192 [RED] top level / hall
+5788 11668 192 [RED] top level / hall
+4500 11648 192 [RED] top level / hall
+5867 14700 192 [RED] main hall / ramps
+6310 14611 -1215 [RED] main hall
+7037 14080 -1215 [RED] main hall
+8582 15263 -1215 [RED] main hall
+6149 15710 -1215 [RED] main hall
+5928 12985 -1215 [RED] hallway between entrance and main hall
+5267 12372 -1215 [RED] hallway between entrance and main hall
+2276 12434 -1215 [RED] hallway between entrance and main hall
+198 10720 -1215 [RED] entrance junction
+34 8858 -1215 [RED] entrance 
+-3135 8566 -1215 [RED] entrance
+-3424 6536 -1727 [RED] yard
+-2189 -5669 -1727 [BLUE] yard
+-2032 -8554 -1215 [BLUE] entrance
+-2793 -8666 192 [BLUE] sniper balcony
+-5280 -8481 192 [BLUE] top level / corridor to balcony
+-5007 -10228 192 [BLUE] top level / corridor to balcony
+-5015 -10575 192 [BLUE] top level / corridor to balcony
+-4879 -11856 192 [BLUE] top level / hall
+-5380 -12430 192 [BLUE] top level / hall
+-5725 -12890 192 [BLUE] top level / hall
+-6679 -14445 192 [BLUE] main hall / ramps
+-7229 -14493 -1215 [BLUE] main hall
+-8252 -14113 -436 [BLUE] main hall / ramps
+-5876 -12531 -1215 [BLUE] hallway between entrance and main hall
+-1060 2300 -3767 moat between fortresses
+917 2432 -5742 [RED] watertunnel between moat and staircase
+861 2432 -7230 [RED] watertunnel between moat and staircase
+112 3346 -8061 [RED] watertunnel between moat and staircase
+712 2896 -8678 [RED] watertunnel between moat and staircase
+630 4505 -8599 [RED] watertunnel between moat and staircase
+591 6236 -8392 [RED] watertunnel between moat and staircase
+-977 12029 -1215 [RED] entrance junction
+6307 15746 192 [RED] main hall / ramps
+6249 16921 192 [RED] main hall / ramps
+7561 16466 192 [RED] main hall / ramps
+8577 16407 192 [RED] main hall / ramps
+9420 16431 192 [RED] main hall / ramps
+10043 16548 192 [RED] main hall / ramps
+10025 17580 192 [RED] main hall / ramps
+10086 18384 192 [RED] main hall / ramps
+10133 18763 -575 [RED] main hall / ramps
+9539 16721 -1215 [RED] main hall
+6199 17801 192 [RED] main hall / ramps
+6376 17054 -1215 [RED] main hall
+8392 13984 -1215 [RED] main hall
+6324 18351 -1215 [RED] main hall
+10207 17065 -1043 [RED] main hall / ramps
+9920 18426 -1215 [RED] main hall
+9903 18591 -1215 [RED] main hall
+7685 18687 -94 [RED] main hall / ramps
+6956 18688 187 [RED] main hall / ramps
+6256 18396 192 [RED] main hall / ramps
+9804 14386 -1215 [RED] main hall
+10146 15542 -1215 [RED] main hall
+4796 16586 -1215 [RED] corridor between entrance and main hall
+8821 17840 -1215 [RED] main hall
+8685 18464 -1215 [RED] main hall
+7379 18292 -1215 [RED] main hall
+2081 16706 -1215 [RED] corridor between entrance and main hall
+-2109 12339 -1215 [RED] entrance junction
+3738 12397 -1215 [RED] hallway between entrance and main hall
+-2722 12227 -1215 [RED] entrance junction
+-3855 11602 -1791 [RED] stairway from water to entrance
+-3553 13118 -3583 [RED] stairway from water to entrance
+-3779 11328 -4307 [RED] stairway from water to entrance
+-5215 11456 -4863 [RED] stairway from water to entrance
+-5148 13119 -5601 [RED] stairway from water to entrance
+-3019 12148 -6655 [RED] stairway from water to entrance
+-1282 12469 -7781 [RED] water tunnel between moat and staircase
+-312 12014 -8073 [RED] water tunnel between moat and staircase
+392 10540 -8121 [RED] water tunnel between moat and staircase
+556 8045 -8117 [RED] water tunnel between moat and staircase
+21 3099 -1727 bridge between fortresses, red end
+1803 2692 -3632 moat between fortresses
+107 8489 -1215 [RED] entrance
+-1140 6291 -1727 [RED] yard
+-70 -10685 -1215 [BLUE] entrance junction
+2344 -12372 -1215 [BLUE] entrance junction
+3562 -12717 -3711 [BLUE] stairway from water to entrance
+853 -12817 -7399 [BLUE] water tunnel between moat and staircase
+4704 -12041 -6655 [BLUE] stairway from water to entrance
+4837 -13247 -5759 [BLUE] stairway from water to entrance
+5151 -13247 -3071 [BLUE] stairway from water to entrance
+-5212 12094 -6655 [RED] stairway from water to entrance
+573 6658 -1727 [RED] yard
+-48 -11710 64 [BLUE] top level / room with grating floor
+-2811 4540 -1727 [RED] yard
+-3237 5679 -1727 [RED] yard
+-2713 2048 -3713 moat between fortresses
+3215 997 -3579 moat between fortresses
+-8459 -14265 -1215 [BLUE] main hall
+-10067 -14982 -1215 [BLUE] main hall
+-9903 -15795 -1215 [BLUE] main hall
+-9795 -18943 -1215 [BLUE] main hall
+-3249 -18507 -359 [BLUE] spiral / top
+-8966 -18943 -1215 [BLUE] main hall
+-783 -17247 -3105 [BLUE] spiral / bottom
+-1821 -17176 -3423 [BLUE] flag level / spiral / bottom
+-3044 -17173 -3423 [BLUE] flag level / hallway
+-3421 -17522 -3423 [BLUE] flag level / hallway
+-3972 -20676 -3423 [BLUE] flag level / hallway
+-1624 -19607 -1011 [BLUE] spiral / middle
+-1742 -20718 -3423 [BLUE] flag level / long corridor
+589 -18345 -2196 [BLUE] spiral / middle
+2067 -21014 -3423 [BLUE] flag level / long corridor
+2101 -26336 -3423 [BLUE] flag level / flag room
+142 -27963 -3423 [BLUE] flag level / flag room
+699 -25807 -3423 [BLUE] flag level / flag room
+-1491 -25968 -3423 [BLUE] flag level / short corridor
+-3717 -22686 -3423 [BLUE] flag level / hallway
+-3721 -26162 -3423 [BLUE] flag level / short corridor
+-5798 -25092 -3423 [BLUE] flag level / corridor to elevator
+-8310 -31037 -3423 [BLUE] flag level / resupply room
+-7979 -26958 -3423 [BLUE] flag level / corridor to elevator
+-9872 -26317 -3423 [BLUE] flag level / corridor to elevator
+-9910 -25099 -3423 [BLUE] flag level / corridor to elevator
+-9797 -22949 -3423 [BLUE] flag level / elevator
+-10271 -18943 -1215 [BLUE] main hall
+-9816 -21090 224 [BLUE] top level / elevator
+-9184 -18902 -575 [BLUE] main hall / ramps
+-10043 -18060 -770 [BLUE] main hall / ramps
+-10171 -17520 192 [BLUE] main hall / ramps
+-8682 -18943 -349 [BLUE] main hall / ramps
+-6285 -18536 -1215 [BLUE] main hall
+-3218 -17762 -184 [BLUE] spiral / top
+277 -17138 -2591 [BLUE] spiral / bottom
+-158 -16846 -1215 [BLUE] corridor between entrance and main hall
+-1845 -16793 -1215 [BLUE] corridor between entrance and main hall
+-3245 -16852 -1215 [BLUE] corridor between entrance and main hall
+2551 -5578 -1727 [BLUE] yard
+146 -5783 -1727 [BLUE] yard
+3058 -1959 -3697 moat between fortresses
+-387 -4633 -8991 [BLUE] water tunnel between moat and staircase
+-8570 -14283 -597 [BLUE] main hall / ramps
+2137 -14138 -1215 [BLUE] corridor between entrance and main hall
+2043 -15572 -1215 [BLUE] corridor between entrance and main hall
+1373 -16888 -1215 [BLUE] corridor between entrance and main hall
+2232 -16651 -1215 [BLUE] corridor between entrance and main hall
+6757 -13947 -31 [BLUE] corridor to top resupply
+8423 -16224 -31 [BLUE] top resupply
+5831 -16833 -31 [BLUE] corridor between top resupply and entrance
+3596 -16871 -31 [BLUE] corridor between top resupply and entrance
+-349 -10728 -8547 [BLUE] water tunnel between moat and staircase
+-424 -8221 -8543 [BLUE] water tunnel between moat and staircase
+-2649 -83 -3746 moat between fortresses
+-9426 -11766 192 [BLUE] top level / resupply room
+-3314 -12449 -1215 [BLUE] hallway between entrance and main hall
+-6286 -16033 -1215 [BLUE] main hall
+-4779 -16860 -1215 [BLUE] corridor between entrance and main hall
+-6359 -18452 192 [BLUE] main hall / ramps
+-7805 -18627 -1215 [BLUE] main hall
+-7990 -16098 -1215 [BLUE] main hall
+-6807 -16320 192 [BLUE] main hall / ramps
+1440 -2982 -3839 moat between fortresses
+-549 -3209 -6675 [BLUE] water tunnel between moat and staircase
+-2669 -2215 -3351 moat between fortresses
+2607 -8603 192 [BLUE] sniper balcony
+-5080 -9755 192 [BLUE] top level / corridor to balcony
+117 -12312 -1215 [BLUE] entrance junction
+-2381 -12497 -1215 [BLUE] hallway between entrance and main hall
+-6111 -13351 192 [BLUE] top level / hall
+-3133 -12579 192 [BLUE] top level / hall
+-2334 -15083 192 [BLUE] spiral / top
+-1888 -12899 192 [BLUE] top level / hall
+-370 -12786 64 [BLUE] top level / room with grating floor
+-245 -12459 64 [BLUE] top level / room with grating floor
+420 -10149 64 [BLUE] top level / room with grating floor
+-494 -9729 64 [BLUE] top level / room with grating floor
+37 -8971 192 [BLUE] sniper balcony
+501 -1141 -3420 moat between fortresses
+56 634 -1727 bridge between fortresses, middle
+2921 6705 -1727 [RED] yard
+76 3637 -1727 bridge between fortresses, red end
+1706 8501 -1215 [RED] entrance
+2784 8463 -1215 [RED] entrance

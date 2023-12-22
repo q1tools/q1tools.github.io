@@ -1,0 +1,59 @@
+//
+// ctf3m2.loc
+//
+// Red Alert locations
+//
+// For distribution with ProQuake+
+//
+// By Jonathan Wheeler
+// HDz Avalanche
+// e-mail: wheeler@odsy.net
+// irc: irc.enterthegame.com #clan_hdz
+//
+// Created  March 24, 2001
+// Modified March 24, 2001
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+2148, 496, -158, 2028, 1112, -226, "Blue GA Passage"
+868, -96, -158, 988, -712, -226, "Red GA Passage"
+-556, -816, 246, 20, -224, -226, "Red Base"
+3572, 1216, 246, 2996, 624, -226, "Blue Base"
+-268, 1328, 246, 20, 968, -226, "Red Nailgun"
+3284, -928, 246, 2996, -568, -226, "Blue Nailgun"
+-716, 456, 246, -268, 224, -226, "Red RL"
+3723, -56, 246, 3284, 176, -226, "Blue RL"
+-268, 1328, 246, 72, -224, -226, "Red RL Hallway"
+3284, -928, 246, 2944, 624, -226, "Blue RL Hallway"
+1964, 320, 246, 1052, 680, -226, "Red RA"
+1052, 80, 246, 1964, -280, -226, "Blue RA"
+20, 968, 246, 1284, 680, -226, "Red RA Hallway"
+1732, -280, 246, 2996, -568, -226, "Blue RA Hallway"
+20, -172, 246, 1284, -1008, -226, "Red GL Hallway"
+2996, 572, 246, 1732, 1408, -226, "Blue GL Hallway"
+608, 148, 110, 804, 680, -226, "Red Elevator"
+2408, 252, 110, 2212, -280, -226, "Blue Elevator"
+804, 368, -158, 988, -96, -226, "Red GA (QUAD)"
+2212, 32, -158, 2028, 496, -226, "Blue GA (QUAD)"
+988, 368, -158, 2028, 32, -226, "QUAD"
+72, -172, 150, 700, 432, 62, "Red 100 Health"
+2944, 572, 150, 2316, -32, 62, "Blue 100 Health"

@@ -1,0 +1,98 @@
+//
+// ctf2m8.loc
+//
+// Capturephobopolis locations
+//
+// By Jonathan Wheeler
+// HDz Avalanche
+// e-mail: wheeler@odsy.net
+//
+// Created  January 20, 2001
+// Modified August 15, 2001
+// Modified July 20, 2005 by woods
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+-120, -1168, -530, -176, -1456, -42, "PENTAGRAM"
+-688, -1776, 238, -368, -1456, -850, "Main Passage Between Bases"
+40, -1328, 374, -104, -1176, -674, "ELEVATOR PASSAGE"
+-52, -1328, 374, -400, -720, 46, "Red Elevator Exit"
+-52, -1328, -400, -400, -720, -754, "Blue Elevator Entrance"
+-368, -1456, 238, -656, -720, 46, "Red Front RL"
+-368, -1456, -850, -656, -720, -618, "Blue Front RL"
+-1360, -1168, 270, -656, -1072, 22, "Red Entry Lava"
+-1360, -1168, -530, -656, -1072, -770, "Blue Entry Lava"
+-1200, -1168, 270, -1360, -816, 0, "Red Entry Lava"
+-1200, -1168, -530, -1360, -816, -760, "Blue Entry Lava"
+-784, -560, 366, -1064, -208, 446, "Red GL"
+-784, -560, -434, -1064, -208, -354, "Blue GL"
+-1752, -560, 366, -1592, -150, 566, "Red 100 Health"
+-1752, -560, -434, -1592, -150, -234, "Blue 100 Health"
+-1064, -560, 366, -1592, -336, 366, "Red Flag"
+-1064, -560, -434, -1592, -336, -434, "Blue Flag"
+-1008, -272, 248, -904, -816, 54, "Red YA"
+-1008, -272, -552, -904, -816, -746, "Blue YA"
+-1648, -272, 248, -1752, -816, 54, "Red YA"
+-1648, -272, -522, -1752, -816, -746, "Blue YA"
+-1136, 240, 310, -1712, 113, 206, "Red RL/Quad Area Hiding"
+-1136, 240, -490, -1712, 113, -594, "Blue RL/Quad Area Hiding"
+-1424, -144, 206, -1744, 113, 438, "Red Base RL"
+-1424, -144, -594, -1744, 113, -362, "Blue Base RL"
+-1424, -144, 566, -1712, 240, 206, "Red Base RL Hiding"
+-1424, -144, -234, -1712, 240, -594, "Blue Base RL Hiding"
+-1040, -176, 566, -1200, 112, 262, "Red Quad Hiding"
+-1040, -176, -234, -1200, 112, -538, "Blue Quad Hiding"
+-1040, -176, 566, -1360, 240, 206, "Red Quad"
+-1040, -176, -234, -1360, 240, -594, "Blue Quad"
+-368, 592, 278, -464, -304, 142, "Red RA Hallway"
+-368, 592, -522, -464, -304, -658, "Blue RA Hallway"
+-880, 40, 30, -368, 272, 278, "Red Water"
+-880, 40, -770, -368, 272, -522, "Blue Water"
+-1104, 592, 30, -368, 272, 278, "Red Nailgun"
+-1104, 592, -770, -368, 272, -522, "Blue Nailgun"
+-496, 48, 182, -624, -144, 246, "Red RA Hiding"
+-496, 48, -618, -624, -144, -554, "Blue RA Hiding"
+-720, -304, 438, -624, -176, 246, "Red RA Hiding"
+-720, -304, -362, -624, -176, -554, "Blue RA Hiding"
+-720, -304, 438, -688, -16, 330, "Red RA Hiding"
+-720, -304, -362, -688, -16, -470, "Blue RA Hiding"
+-496, 48, 78, -976, -144, 438, "Red RA"
+-496, 48, -722, -976, -144, -362, "Blue RA"
+-976, 48, 438, -624, -304, 78, "Red RA"
+-976, 48, -362, -624, -304, -722, "Blue RA"
+-656, -720, 46, -368, -144, 238, "Red RA Elevator"
+-656, -720, -754, -368, -144, -562, "Blue RA Elevator"
+-880, 368, -138, -336, 592, 22, "Red Back Teleport Area"
+-880, 368, -938, -336, 592, -778, "Blue Back Teleport Area"
+-880, 752, -74, -808, 592, -138, "Red Back Teleport Area"
+-880, 752, -874, -808, 592, -938, "Blue Back Teleport Area"
+-1360, 624, 54, -880, 336, -138, "Red Back Teleport"
+-1360, 624, -746, -880, 336, -938, "Blue Back Teleport"
+-1104, 592, 166, -336, 912, -138, "Red Back Area"
+-1104, 592, -634, -336, 912, -938, "Blue Back Area"
+-1744, -247, 566, -944, 336, 46, "Red Quad/RL Area"
+-1744, -247, -234, -944, 336, -754, "Blue Quad/RL Area"
+-912, -912, 446, -1800, -176, -82, "Red Base"
+-912, -912, -354, -1800, -176, -882, "Blue Base"
+-264, 656, 54, -144, 776, -726, "Rear Water Passage Hiding"
+304, 616, 78, 176, 472, -930, "REAR ELEVATOR TO RED"
+-336, 776, -946, 304, 336, 74, "REAR WATER PASSAGE"

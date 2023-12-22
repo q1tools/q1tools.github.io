@@ -1,0 +1,69 @@
+//
+// ctf3m9.loc
+//
+// The CHEAT Complex 2: Barkfalls locations
+//
+// For distribution with ProQuake+
+//
+// By Jonathan Wheeler
+// HDz Avalanche
+// e-mail: wheeler@odsy.net
+// irc: irc.enterthegame.com #clan_hdz
+//
+// Created  January 21, 2001
+// Modified March 24, 2001
+// Modified July 20, 2005 by woods
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+1120, -720, -82, 640, -944, -62, "QUAD"
+-3080, -1288, -282, -3040, -1248, -600, "QUAD"
+961, -1264, 158, 1184, -1041, 358, "Red RL Window"
+799, -400, 158, 576, -623, 358, "Blue RL Window"
+840, -2168, -290, 920, -1264, -354, "Red Tunnel Front"
+920, 504, -290, 840, -400, -354, "Blue Tunnel Front"
+840, -2168, -290, 1816, -2088, -346, "Red Tunnel Middle"
+920, 504, -290, -56, 424, -346, "Blue Tunnel Middle"
+1984, -2288, 46, 2320, -2048, 246, "Red LG"
+-224, 624, 46, -560, 384, 246, "Blue LG"
+1632, -2304, -74, 2049, -2080, -146, "Red RL Teleport"
+128, 640, -74, -289, 416, -146, "Blue RL Teleport"
+1216, -2304, 246, 2336, -1632, -146, "Red LG Area"
+544, 640, 246, -576, -32, -146, "Blue LG Area"
+1816, -3768, -290, 1736, -2088, -346, "Red Tunnel Rear"
+1736, -3768, 74, 1816, -3688, -346, "Red Tunnel Rear"
+24, 2104, -290, -56, 424, -346, "Blue Tunnel Rear"
+24, 2104, 74, -56, 2024, -346, "Blue Tunnel Rear"
+1535, -2656, 246, 1216, -3520, 46, "Inside Red Base" 
+225, 992, 246, 544, 1856, 46, "Inside Blue Base"
+2017, -2656, 246, 2336, -3520, 46, "Inside Red Base"
+-257, 992, 246, -240, 1440, 46, "Inside Blue Base"
+2336, -3265, 246, 1216, -3872, 94, "Inside Red Base"
+-576, 1601, 246, 544, 2208, 94, "Inside Blue Base"
+1216, -3872, 246, 2336, -2256, 46, "Red Flag"
+554, 2208, 246, -576, 592, 46, "Blue Flag"
+1440, -1072, 486, 992, -1520, 158, "Red RL"
+320, -592, 486, 768, -144, 158, "Blue RL"
+1184, -400, 358, 576, -1264, -90, "Middle/Center"
+1184, -400, -354, 576, -1264, -80, "Red Armor"
+832, -1792, -10, 1216, -1264, -146, "Red Hallway"
+928, 128, -10, 544, -400, -82, "Blue Hallway"

@@ -1,0 +1,132 @@
+-2472 -21330 -1727 [BLUE] bottom respawn
+-7301 -21108 -1855 [BLUE] bottom respawn
+-7325 -17516 -1855 [BLUE] low lift
+-9217 -19656 -1855 [BLUE] bottom respawn area
+-12984 -19602 -1855 [BLUE] basement
+-15252 -23078 -1855 [BLUE] basement
+-17174 -20476 -1855 [BLUE] basement
+-19541 -19588 -1855 [BLUE] basement (low spiral area)
+-17833 -12096 -1855 [BLUE] low spiral
+-15433 -12608 576 [BLUE] mid spiral
+-17081 -11909 2240 [BLUE] top spiral
+-10791 -12107 2240 [BLUE] ramps room
+-10679 -7976 3264 [BLUE] ramps room
+-6891 -8725 3264 [BLUE] ramps room
+-7077 -11721 3264 [BLUE] ramps room
+-7190 -24117 -1727 [BLUE] flagroom
+-9963 -22656 -1599 [BLUE] secret passage
+-11903 -22624 -1599 [BLUE] secret passage
+-11903 -21120 -575 [BLUE] secret passage
+-13633 -24172 -1855 [BLUE] flagroom
+-11657 -24216 -1471 [BLUE] flagroom
+-8813 -24006 -1855 [BLUE] flagroom
+-12188 -7981 1216 [BLUE] rocket resupply
+-6076 -14419 1216 [BLUE] health resupply
+-6930 -13045 1274 [BLUE] ramps room
+-4151 -8656 2496 [BLUE] sniper nest
+23 -7351 2624 [BLUE] sniper nest
+4854 -7590 2496 [BLUE] sniper nest
+10597 -10776 2624 [BLUE] upper respawn
+5773 -10859 2496 [BLUE] upper respawn
+2614 -10897 2496 [BLUE] upper respawn area
+-138 -9190 2368 [BLUE] grate
+-3832 -10607 2496 [BLUE] top grate area
+-5619 -14463 3264 [BLUE] top lift area
+-6905 -16498 3264 [BLUE] top lift
+-1663 -7887 2496 [BLUE] grate
+3446 -8298 2496 [BLUE] upper respawn area
+2344 -6946 2496 [BLUE] sniper nest
+3327 -6824 2496 [BLUE] sniper nest
+-2966 -7453 2496 [BLUE] sniper nest
+-2176 -8831 2496 [BLUE] sniper nest
+-4992 -7296 1216 [BLUE] ramps room
+-4147 -11494 1216 [BLUE] low grate area
+-549 -11810 1216 [BLUE] low grate area
+-2180 -7144 1216 [BLUE] low grate area
+3012 -6985 1216 [BLUE] low grate area
+302 -7096 1216 [BLUE] low grate area
+1841 -11868 1216 [BLUE] secret water passage
+3343 -10368 320 [BLUE] secret water passage
+569 -11090 -1087 [BLUE] secret water passage
+-249 -8439 -1087 [BLUE] secret water passage
+-19 -1431 -978 [BLUE] secret water passage
+-220 385 192 under water bridge
+162 -415 1216 water bridge
+-117 -4932 887 [BLUE] outside
+-2064 -4699 1037 [BLUE] outside
+-6261 -655 192 [BLUE] outside
+5938 -379 192 [BLUE] outside
+4863 -4295 1087 [BLUE] outside
+-2493 4387 1103 [RED] outside
+-5095 2825 909 [RED] outside
+520 4895 916 [RED] outside
+3933 4641 1161 [RED] outside
+2834 7443 1216 [RED] low grate area
+705 7100 1216 [RED] low grate area
+-2849 7463 1216 [RED] low grate area
+3908 11283 1216 [RED] low grate area
+2140 11630 1216 [RED] low grate area
+-697 11835 1216 [RED] secret water passage
+-3455 10752 768 [RED] secret water passage
+-2187 11190 192 [RED] secret water passage
+291 9694 -945 [RED] secret water passage
+159 4093 -701 [RED] secret water passage
+-1975 12024 1216 [RED] secret water passage
+-959 12159 1216 [RED] low grate area
+60 9708 2368 [RED] grate
+-3023 11135 2496 [RED] upper respawn area
+-719 10838 2496 [RED] upper respawn area
+-3779 7936 2496 [RED] upper respawn area
+-3843 6273 2496 [RED] sniper nest
+-648 7147 2496 [RED] sniper nest
+2929 6843 2496 [RED] sniper nest
+2702 8708 2496 [RED] sniper nest
+5532 9200 2240 [RED] ramps room
+7802 8698 3264 [RED] ramps room
+11324 8610 3264 [RED] ramps room
+10707 11283 3264 [RED] ramps room
+11504 14287 1216 [RED] ramps room
+8028 14627 1216 [RED] ramps room
+6746 14237 1329 [RED] health resupply
+11471 8059 1304 [RED] rockets resupply
+15953 12192 2240 [RED] top spiral
+15535 11673 448 [RED] mid spiral
+15828 11818 -1599 [RED] low spiral
+19155 12195 -1855 [RED] low spiral area
+19640 19702 -1855 [RED] basement (low spiral area)
+17707 19699 -1855 [RED] basement
+13032 19527 -1855 [RED] basement
+9216 19771 -1855 [RED] bottom respawn area
+8256 21292 -1855 [RED] bottom respawn area
+7015 17383 -1855 [RED] low lift
+15498 22230 -1855 [RED] basement
+13643 24417 -1855 [RED] flagroom
+11869 24241 -1471 [RED] flagroom
+9181 23782 -1855 [RED] flagroom
+7073 23852 -1727 [RED] flagroom
+8831 22684 -1855 [RED] flagroom
+10192 22736 -1599 [RED] secret tunnel
+11903 22623 -1599 [RED] secret tunnel
+11659 21272 -575 [RED] secret tunnel
+12223 21120 -575 [RED] secret tunnel
+12672 21213 -831 [RED] secret tunnel area
+7001 16810 3264 [RED] top lift
+5616 14498 3264 [RED] top lift area
+3668 12330 2854 [RED] top grate area
+3940 10510 2496 [RED] top grate area
+7117 21141 -1855 [RED] bottom respawn
+3885 21037 -1727 [RED] bottom respawn
+2085 21211 -1727 [RED] bottom respawn
+9948 8323 1390 [RED] ramps room
+12252 10219 1216 [RED] ramps room
+6237 8026 1216 [RED] ramps room
+-907 7930 2496 [RED] grate
+1387 7049 2496 [RED] sniper nest
+1575 7643 2496 [RED] grate
+-5909 10936 2496 [RED] upper respawn
+-8737 10911 2624 [RED] upper respawn
+-10319 10752 2624 [RED] upper respawn
+18070 14088 -319 [RED] mid spiral
+14938 14446 960 [RED] mid spiral
+2629 4819 1058 [RED] outside
+10512 23688 -1705 [RED] flagroom

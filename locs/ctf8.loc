@@ -1,0 +1,53 @@
+//
+// ctf8.loc
+//
+// Strongbox locations
+//
+// For use with ProQuake or Qrack
+//
+//
+// Created  July 20, 2005 by woods
+
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+
+1366.2, -608, 46, 1728, 32, 294, "Red Base"
+2048, 240, 222, 1873.4, -608, 46, "Red Entrance From RA"
+1371.7, -372.4, 122.5, 624, -608, 46, "Red Entrance From Middle"
+2048, 240, 438, 976, 832, 158, "RA Area"
+1184, -96, 422, 739.2, 112, 158, "RA Area"
+688, 496, 438, 581, 282.3, 46, "Quad"
+131.3, 407.5, 164.5, -48, 496, 438, "Middle RL"
+134.3, 283.2, 174, 63.2, 176.1, 275.6, "Middle Mega"
+
+688, 496, 438, -560, -480, 46, "Middle"
+
+-1744, -224, 310, -1104, 336, 46, "Blue Base"
+-1317.6, 384.8, 46, -784, 624, 118, "Big Blue Entrance"
+-945.5, 624, 118, -588, 161.6, 46, "Big Blue Entrance"
+-539.5, -239.2, 74.8, -912, -135.5, 230, "Small Blue Entrance"
+-830.9, -160, 174, -1104, 78.6, 268.7, "Small Blue Entrance"
+-1293.6, 75.1, 558, 400, 144, 582, "Blue Air Tunnel"
+1536, -264.4, 558, 368, -128, 582, "Red Air Tunnel"
+
+1280, -236.9, 222, 1232, 384, 246, "Hideout Tunnel Near RA Outlet"

@@ -1,0 +1,56 @@
+//
+// ctf3m7.loc
+//
+// 
+
+//
+// Created  July 22, 2020 by woods
+// 
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+
+
+
+
+
+
+
+200, 1768, -200, 2000, 100, 200, "blue base"
+144, -992, 144, 1700, -2500, -200, "red base"
+
+1000, 0, 2300, 1432, -700, -1450, "middle"
+
+
+// blue mid
+500, 872, 88, 1448, -272, 96, "blue base" 
+
+
+// red mid
+416, -500, 200, 1300, -1632, -100, "red base" 
+
+
+
+
+// red mid filler
+1400, -464, 220, 1900, -1112, -17, "red base" 
+-520, -368, 500, 2000, 1584, -300, "blue base"

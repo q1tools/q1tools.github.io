@@ -1,0 +1,42 @@
+//
+// boom.loc
+//
+// 
+
+//
+// Created  July 27, 2020 by woods
+// 
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+
+
+
+392, -280, 88, -72, -1224, -56, "red base"
+
+392, -2488, 88, -72, -1544, -56, "blue base"
+
+-360, -1300, 120, 680, -1550, 30, "quad"
+
+220, -1224, -250, 90, -1544, -80, "ra"
+
+-80, -1190, -45, 392, -1540, -100, "rl"

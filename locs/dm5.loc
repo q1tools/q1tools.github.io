@@ -1,0 +1,21 @@
+//
+// dm5.loc  Baker   5/11/2005 (Imperfect)
+//
+
+366,784,142,224,232,112,"Button Walkway"
+816,-296,142,248,-703,142,"Yellow Armor Lower"
+936,-704,238, 48,-184,238,"Yellow Armor Upper"
+-8,-680,-90,168,-480,-90,"Water @ GL"
+-8,-680,-90,576,80,-90,"Main Water"
+704,-112,14,560,48,70,"Pent Deck"
+560,232,14,49,489,73,"Water Exit Area"
+40,-440,62,168,-328,62,"Grenade Launcher"
+1008,-880,238,1136,-656, 238,"Tele Near SNG"
+936,-816,238,-154,-708,238,"Tele Long Hall"
+448,-816,142,-168,-512,62,"2 Cellpack Corner"
+-168,-448,62,-44,492,166,"Lower Long GL Hall"
+224, 848,142,381,1008,278,"RL Room"
+619, 232,238,944,528,238,"Tele Near RL"
+560, 232,248,-168,472, 186.6,"Walkway Over Button"
+
+ 

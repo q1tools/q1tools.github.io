@@ -1,0 +1,84 @@
+//
+// ctf2m1.loc
+//
+// McKinley Station locations
+//
+// For use with ProQuake or Qrack
+//
+//
+// Created  July 20, 2005 by woods
+
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+424, -1248, -210, -168, -1827, 118, "RL Lava Area"
+-48, -1200, -122, 204, -656, -210, "Red Armor"
+-88, -512, -168.3, 440, 384, -570, "Middle Water"
+80, -304, -362, 304, 129.9, -466, "Middle RL Room"
+440, 384, 22, -55.5, -489.4, -165.1, "Middle"
+440.0, -174.6, 46, -97.4, -352, -66, "Middle"
+
+
+
+454.5, -352, -66, 1232, -192, 6, "Red Hallway"
+1232, -192, 6, 1062.8, -1361.4, -210, "Red Hallway"
+
+1325.1, -1405.1, -210, 2000, -1232, -138, "Red Hallway Near Red Base"`
+2000, -1232, -138, 1840, -800, -138, "Red Hallway Near Red Base"
+424.0, -1477, -62.7, -168, -1248, -210, "RL Lava Area"
+
+
+2576, 670.3, 46, 1520, 80, -154, "Red Base"
+2576, 48.5, 150, 1840, -688, -210, "Red Base"
+
+1754.8, 237.3, -147, 1561.6, 114, -407.4, "Red Tunnel"
+1555.1, 130.9, -424.4, 432, 252.8, -346, "Red Tunnel"
+
+
+470.6, 70.6, -66, 1232, 240, 6, "Red Hallway"
+1232, 64, 6, 1072, 1280, -210, "Red Hallway"
+1072, 1280, -128, 1984, 1088, -210, "Red Hallway"
+1984, 1088, -210, 1846, 669, -138, "Red Hallway"
+
+
+
+
+-108.2, 224, -66, -880, 64, 6, "Blue Hallway"
+-880, 64, -66, -688.6, 1280, 102, "Blue Hallway"
+-695.3, 1280, 46, -1648, 1104, 118, "Blue Hallway"
+-1648, 1104, 46, -1540.6, 646.9, 118, "Blue Hallway"
+
+-1488, 560, 46, -2224, 96, -210, "Blue Base"
+-1488, 71.8, 46, -2224, -688, -210, "Blue Base"
+
+-1398.2, -365.3, -146, -1241.9, -256, -405, "Blue Tunnel"
+-1223.7, -369.1, -420.3, -54.8, -234.1, -345.1, "Blue Tunnel"
+
+-112, -192, -66, -868.9, -1147, 110.9, "Blue Hallway"
+-1413.5, -1392, 46, -1648, -800, 118, "Blue Hallway Near Base"
+
+
+
+
+
+
+

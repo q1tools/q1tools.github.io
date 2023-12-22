@@ -1,0 +1,49 @@
+//
+// ctfgold7.loc
+//
+// 
+
+//
+// Created  July 22, 2020 by woods
+// 
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+
+
+
+-224, 336, 352, 424, -112, -64, "middle"
+720, -2016, 312, -384, -1680, -80, "red base"
+
+// entry
+-512, -550, -80, 520, -1400, 88, "red base" 
+
+512, -705, -80, 0, -550, -250, "red ra"
+
+
+-464, 2016, 312, 816, 1680, -80, "blue base"
+
+// entry
+-264, 1400, 88, 768, 864, -250, "blue base"
+
+
+512, 632, -80, -256, 700, -220, "blue ra"

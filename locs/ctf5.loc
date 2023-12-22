@@ -1,0 +1,59 @@
+//
+// ctf5.loc
+//
+// Da Ancient War Grounds locations
+//
+// For use with ProQuake or Qrack
+//
+//
+// Created  July 20, 2005 by woods
+
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+
+-1253.3, 1946.9, -18, -208, 2235.1, 126.6, "Middle Lava Area"
+-718.4, 2096.3, 150, -910, 1408, -2, "Lava Near Quad"
+-542.6, 1330.9, 408.1, -670.4, 1099.2, -84.6, "Lava Near Quad"
+-661, 1258, -266, -654.9, 1123.9, -498, "Quad"
+816, 1894, 382, 170, 1178, -18, "Blue Castle"
+-2.2, 1782.2, -18, -223.2, 1087.2, 502, "Outside Blue Castle"
+-562, 1425.4, 416, -910, 1664, 334, "Air Push Passageway"
+-844.1, 1662.3, 494, -639.4, 1400.2, 566, "Top Teleports To RA"
+
+
+1136, 1832, -18, 994.2, 1744, 53.9, "Blue RA"
+
+-2608, 1320, -10, -2464, 1232, 54, "Red RA"
+
+586.4, 1188.9, 502, 816, 1894, 382, "Blue Mega Health & YA"
+
+-1105.2, 1746.4, -18, -1454, 1037.7, 363.6, "Outside Red Castle"
+-2288, 1178, 382, -1600, 1939, -84.2, "Red Castle"
+
+-2416, 1461, -18, -2961, 1589.5, 162.4, "Red Flag"
+996.4, 1616, -18, 1502.8, 1475.9, 150.5, "Blue Flag"`
+
+
+-2672, 1040, -138, -2273.6, 1136, -210, "Red LG"
+1200, 2032, -138, 805.6, 1936, -210, "Blue LG"
+-2288, 1168, 502, -2064, 1894, 382, "Red Mega Health & YA"

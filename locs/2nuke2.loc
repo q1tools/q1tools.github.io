@@ -1,0 +1,135 @@
+6784 -23423 3264 bl resupply
+9599 -23423 3264 bl resupply
+9599 -21632 3264 bl resupply
+6784 -21632 3264 bl resupply
+5707 -15422 4288 bl balcony
+3913 -15344 4288 bl balcony
+1152 -17408 3264 bl top floor
+3586 -18347 3520 bl top floor
+1458 -20695 3264 bl top floor
+7033 -20911 3264 bl top floor
+9486 -21119 3264 bl top floor
+9599 -17792 3520 bl top floor
+7040 -17844 3264 bl top floor
+1552 -22402 2240 bl nuke room
+5551 -22451 2240 bl nuke room
+5676 -27109 1216 bl nuke room
+1465 -27158 1216 bl nuke room
+5516 -20075 192 bl health room
+1475 -19978 192 bl health room
+1534 -22845 -63 bl health room
+5675 -23015 -63 bl health room
+6015 -27519 -63 bl health room
+1152 -27519 -63 bl health room
+5273 -18474 192 bl entrance
+1817 -18300 192 bl entrance
+2543 -16580 192 bl entrance
+2560 -15381 192 bl bridge
+2885 -13111 192 bl bridge
+6431 -16672 192 bl bottom elevator
+9054 -16599 -63 bl bottom elevator
+7405 -18725 -63 bl bottom elevator
+8772 -18904 -63 bl bottom elevator
+4362 -14547 192 bl lower capwalk
+6391 -15194 192 bl lower capwalk
+7676 -15370 -1095 bl moat
+7646 -12735 -1182 bl moat
+4681 -13330 -1168 bl moat
+2766 -14018 -1152 bl moat
+-90 -14599 -1199 bl moat
+4484 -18442 3776 bl corridor - balcony
+6187 -18484 3776 bl corridor - balcony
+6172 -17285 3776 bl corridor - balcony
+4783 -17247 3776 bl corridor - balcony
+1667 -16007 3776 bl corridor - balcony
+3485 -16096 3776 bl corridor - balcony
+2221 -16648 2112 bl middle catwalk
+3382 -16296 2240 bl middle catwalk
+6380 -15913 2752 bl weird catwalk
+8484 -15977 2752 bl weird catwalk
+8562 -11840 201 bl yard
+5110 -11857 198 bl yard
+2825 -12115 192 bl yard
+622 -12270 192 bl yard
+6722 -7222 448 bl yard
+4708 -7014 448 bl yard
+1330 -6963 448 bl yard
+659 -949 960 bl yard
+6799 -6032 -800 bl lake
+2496 -5629 -772 bl lake
+4647 -6527 -842 bl lake
+2750 -1799 -770 bl lake
+1984 107 -1160 bl lake
+6851 -324 -761 bl lake
+4620 -3617 960 bl lake tower
+7209 -9197 2240 bl yard tower
+-948 -716 960 tunnel
+-2726 -690 950 tunnel
+-4255 -274 704 tunnel
+-4771 1168 704 tunnel
+-4708 2446 505 tunnel
+6925 938 -703 pipe
+6938 2368 -703 pipe
+5981 3618 -703 pipe
+4121 3641 -703 pipe
+2713 3595 -892 œreœ lake
+-19 4683 -799 œreœ lake
+-813 3649 -793 œreœ lake
+2471 5228 1216 œreœ yard
+116 5518 731 œreœ yard
+-1798 4126 320 œreœ yard
+-4810 4187 530 œreœ yard
+-5073 9079 258 œreœ yard
+-2287 9034 192 œreœ yard
+193 9153 192 œreœ yard
+2496 8918 404 œreœ yard
+133 10041 192 œreœ bridge
+349 12193 192 œreœ bridge
+-1385 11647 192 œreœ lower catwalk
+-3329 12241 192 œreœ lower catwalk
+-3396 13552 192 œreœ bottom elevator
+-5874 13486 -63 œreœ bottom elevator
+-4224 15707 -63 œreœ bottom elevator
+-5788 15826 -63 œreœ bottom elevator
+-4656 12119 -1137 œreœ moat
+-4836 9741 -1268 œreœ moat
+-2479 10003 -1118 œreœ moat
+158 11037 -1041 œreœ moat
+3120 11118 -1041 œreœ moat
+553 13535 192 œreœ entrance
+1514 15350 192 œreœ entrance
+-274 15363 192 œreœ entrance
+-2435 15301 192 œreœ entrance
+-2264 17310 192 œreœ health room
+1477 17338 192 œreœ health room
+1451 19769 -63 œreœ health room
+-2481 19973 -63 œreœ health room
+-2943 24447 -63 œreœ health room
+1919 24447 -63 œreœ health room
+-2943 24447 1216 œreœ nuke room
+1919 24447 1216 œreœ nuke room
+1542 19533 2240 œreœ nuke room
+-2610 19417 2240 œreœ nuke room
+1679 17712 3264 œreœ top floor
+1601 14680 3264 œreœ top floor
+-447 15178 3392 œreœ top floor
+-3968 14720 3264 œreœ top floor
+-6387 14925 3520 œreœ top floor
+-6170 17917 3264 œreœ top floor
+-4149 17930 3264 œreœ top floor
+-1533 15348 3776 œreœ corridor - balcony
+-3206 15457 3776 œreœ corridor - balcony
+-3188 14068 3776 œreœ corridor - balcony
+-1807 14090 3776 œreœ corridor - balcony
+-2511 12306 4288 œreœ balcony
+-1071 12299 4288 œreœ balcony
+-384 12913 3776 œreœ upper catwalk
+1238 12910 3776 œreœ upper catwalk
+1053 13484 2112 œreœ middle catwalk
+-609 13204 2240 œreœ middle catwalk
+-5476 12816 2752 œreœ weird catwalk
+-3657 12824 2752 œreœ weird catwalk
+-3712 20351 3264 œreœ resupply
+-6527 20351 3264 œreœ resupply
+-6527 18560 3264 œreœ resupply
+-3712 18560 3264 œreœ resupply

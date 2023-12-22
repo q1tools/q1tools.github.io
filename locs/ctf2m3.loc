@@ -1,0 +1,57 @@
+//
+// ctf2m2.loc
+//
+// Spill The Blood locations
+//
+// For use with ProQuake or Qrack
+//
+//
+// Created  July 20, 2005 by woods
+
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+
+-1445, -1736, 67, -1165.4, -1582.9, 133.1, "Red RL"
+-1306.4, -1237, 81, -1445, -1491, 266, "Red Flag"
+-365, -1519, 67, -1445, -1265, 266, "Red Flag"
+-618, -829, 96, -260, -1964, 162, "Red Flag"
+-185, -1985, 194, -63, -606, 96, "Outer Red Base"
+32.3, -1008, 297, 463, -1590.1, -176, "Outer Red Base"
+
+
+692.9, -498, 224, 672.5, -769, 315.8, "Quad (Top)"
+912, -863, 232, 710.5, -737.4, 344, "Quad (Top)"
+740, -784, 206.8, 673.9, -567.4, 285.8, "Quad (Top)"
+691.9, -498, 224, 867.5, -582.1, 299, "Quad (Top)"
+
+
+1211, -927, 111.3, 385, -443, -155, "Middle"
+
+1211, -738, -165, 1611, -543, -107, "Quad Teleport"
+
+-1156, -185, 67, -1456, -350, 139, "Blue RL"
+-1302.2, 147.1, 81, -1450, -105, 266, "Blue Flag"
+-1251, 149, 67, -370, -105, 266, "Blue Flag"
+-623, 557, 96, -265, -578, 162, "Blue Flag"
+-190, -599, 194, -68, 580, 96, "Outer Blue Base"
+-50.7, 333.2, 297, 428.2, -221.9, -176, "Outer Blue Base"

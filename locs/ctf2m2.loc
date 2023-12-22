@@ -1,0 +1,63 @@
+//
+// ctf2m2.loc
+//
+// Warzone locations
+//
+// For use with ProQuake or Qrack
+//
+//
+// Created  July 20, 2005 by woods
+
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+-2028.4, -432, -14.6, -2480, 432, -274, "Red Flag Area"
+-1872, -48, -138, -2120.3, 62.7, -210, "Red Flag"
+-960, 104, 14, -1872, -48, -210, "Behind Blue Flag"
+-2493, 432, -274, -3120, -421.2, 70, "Red YA"
+-2928, 114.1, -82, -2480, -122.9, 246.0, "Red YA"
+-2528, -96, -274, -2668, 53.4, -183.2, "Red Mega Health"
+-2398.1, -495.4, 423.8, -1251, 752, 105.1, "Red RL Area"
+-2416, -224.7, 438, -2311.9, 294, 334, "Red RL"
+-288, 585.1, -466, -2176, 444.6, -610, "Left Red Tunnel"
+-2180.3, -432, -610, -275, -590, -466, "Right Red Tunnel"
+-1184.4, 752, 438, -381.3, -687.2, -16.3, "Red Courtyard"
+-160, -288, -18, 158.2, 265.9, 73.3, "Middle 100 Mega & RL"
+91.9, 288, 174, -156.9, -315.7, 298.7, "Middle RA & Quad"
+288, 159.1, -466, 496, -96, -362, "Water Quad/RL"
+-336, 422.9, -18, 288, 752, 326, "Middle Bridge"
+336, -411.3, -16, -288,` -752, 326, "Middle Bridge"
+-283.1, 702.9, -114.1, 288, -752.0, -466, "Middle Water"
+2523.9, -432, -274, 2000, 429.1, -11.8, "Blue Flag Area"
+2099.3, -66, -210, 1885.8, 46.1, -138, "Blue Flag"
+1872, 48, -210, 978, -104, 12, "Behind Blue Flag"
+2620.2, 432, -226, 3112.6, -416, 70, "Blue YA"
+2928, -144, -82, 2478.1, 124.5, 242.9, "Blue YA"
+2736,-96, -274, 2528, 96, -179.5, "Blue Mega Health"
+2480, 560, 110, 1272, -752, 438, "Blue RL Area"
+2416, 270.9, 334, 2287.7, -226, 431, "Blue RL"
+308.5, -560, -610, 2228.4, -404.2, -512.3, "Left Blue Tunnel"
+2205.8, 432, -508.8, 288.0, 564.4, -466, "Right Blue Tunnel"
+336, 752, -18, 1272, -752, 438, "Blue Courtyard"
+
+
+

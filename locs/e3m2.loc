@@ -1,0 +1,14 @@
+//e3m2 loc
+
+16, 80, -210, 560, 157.6, -210, "Blue base"
+336.4, -976, -210, 521.2, -345.5, -210, "Outside blue base lowest level"
+234.7, -96, -17.6, 174.9, -1040, -18, "Outside blue base middle level"
+400, -340.6, 214, 320.3, -1008, 206, "Outside blue base ceiling level"
+-377.6, -301.7, -18, -413.2, 530.2, 53.5, "Middle by lava"
+-160.8, 524.6, 47.8, 813.4, 526.8, 46, "Red base hallway"
+1151.3, 240, 46, 1092.5, -400, 46, "Red base"
+1332, 544.5, 46, 1800, 504.9, 94, "Exit by red base"
+560, -1200.9, -242, -53.3, -1283.8, -237.8, "Secret room by blue base"
+496, 144, 46, 523.4, 272, -250, "Grenade launcher by red base"
+392.5, -816, -18, 590.4, -793.6, -18, "Outside blue base middle level"
+816, -624, -110.7, 803.6, -995, -114, "Rocket launcher in wall area"

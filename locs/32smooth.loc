@@ -1,0 +1,360 @@
+1151 -16768 -4159 bl water respawn
+957 -18882 -3967 bl water respawn
+-2687 -19071 -4159 bl water respawn
+-2687 -16768 -4671 bl water respawn
+-1808 -15815 -4671 bl water respawn
+-2687 -14975 -4671 bl tp 1.floor
+-1798 -14906 -4671 bl tp 1.floor
+895 -14975 -4159 bl tp 1.floor
+1151 -11648 -4671 bl tp 1.floor
+-1663 -11648 -4799 bl tp 1.floor
+-2687 -13456 -4671 bl tp 1.floor
+-2687 -10625 -3647 bl tp 2.floor
+914 -10624 -3263 bl tp 2.floor
+983 -11391 -3263 bl tp 2.floor
+1151 -14975 -1663 bl tp 3.floor
+979 -13579 -1727 bl tp 3.floor
+1151 -12052 -1727 bl tp 3.floor
+1151 -10624 -1727 bl tp 3.floor
+-2687 -10611 -1727 bl tp 3.floor
+-897 -10624 -1727 bl tp 3.floor
+-2301 -10139 -3647 bl 2.floor way
+-2306 -8477 -3647 bl 2.floor way
+-5443 -8448 -3647 bl 2.floor way
+-5645 -6286 -3647 bl 2.floor way
+-5309 -4168 -3647 bl 2.floor way
+-1920 -4085 -3647 bl 2.floor way
+-2318 -366 -3647 bl 2.floor way
+-541 -148 -3903 bl 2.floor way
+-4991 -4480 -4671 bl waterway
+-4991 -7807 -4671 bl waterway
+-3967 -7807 -5951 bl waterway
+-1644 -7636 -5951 bl waterway
+-957 -9306 -5716 bl waterway
+-993 -12117 -5951 bl waterway
+-1920 -4480 -5021 bl waterway
+-1608 -4856 -6975 bl waterway
+-571 -4861 -6975 bl waterway
+-2319 -9723 -1719 bl 3.floor way
+-2337 -7622 -1719 bl 3.floor way
+-2361 -4681 -1719 bl 3.floor way
+-2224 -1560 -1719 bl 3.floor way
+-565 -1507 -1207 bl 3.floor way
+384 -384 -1343 bl cap point
+384 -2687 -1343 bl cap point
+2687 -2687 -1343 bl cap point
+2687 -385 -1343 bl cap point
+297 -1606 -1215 bl cap point
+7020 -10632 -4671 bl entrance 1.floor
+3118 -10654 -4671 bl entrance 1.floor
+2960 -13239 -4671 bl entrance 1.floor
+2944 -15743 -4671 bl entrance 1.floor
+6209 -16988 -4671 bl entrance 1.floor
+7039 -14187 -4671 bl entrance 1.floor
+4703 -14079 -4223 bl entrance 1.floor
+6500 -16683 -3135 bl entrance 2.floor
+3333 -16605 -3135 bl entrance 2.floor
+3255 -13577 -3135 bl entrance 2.floor
+3351 -10875 -3135 bl entrance 2.floor
+7039 -14937 -3628 bl entrance 2.floor
+6613 -11096 -1727 bl entrance 3.floor
+3372 -11016 -1727 bl entrance 3.floor
+6655 -13684 -1727 bl entrance 3.floor
+6696 -16496 -1727 bl entrance 3.floor
+3390 -16606 -1727 bl entrance 3.floor
+3334 -13910 -1727 bl entrance 3.floor
+3341 -18881 -1727 bl mid 2.floor
+5168 -18830 -1663 bl mid 2.floor
+6999 -18779 -1727 bl mid 2.floor
+4933 -17812 -3135 bl mid 1.floor
+4938 -16750 -3135 bl entrance 2.floor
+5040 -19669 -3135 bl mid 1.floor
+7175 -20290 -3135 bl mid 1.floor
+2740 -20510 -3135 bl mid 1.floor
+1778 -21161 -1727 bl mid 2.floor
+8229 -21266 -1727 bl mid 2.floor
+2900 -22341 -1727 bl keyhall 2.floor
+2856 -24527 -1727 bl keyhall 2.floor
+2798 -27113 -1727 bl keyhall 2.floor
+7020 -27710 -1727 bl keyhall 2.floor
+7090 -24928 -1727 bl keyhall 2.floor
+7147 -22261 -1727 bl keyhall 2.floor
+4993 -29916 -2623 bl keyhall back
+3066 -29300 -1727 bl keyhall back
+7097 -29505 -1727 bl keyhall back
+5010 -28946 -1727 bl keyhall back
+6941 -28512 -3135 bl keyhall back
+3281 -28389 -3135 bl keyhall back
+4984 -26636 -2879 bl keytower
+7511 -23680 -4671 bl keyhall bottom
+5984 -23808 -4671 bl keyhall bottom
+5720 -27775 -4671 bl keyhall bottom
+4579 -25701 -4671 bl keyhall bottom
+4183 -27775 -4671 bl keyhall bottom
+3286 -27588 -4671 bl keyhall bottom
+2392 -27775 -4671 bl keyhall bottom
+2392 -23680 -4671 bl keyhall bottom
+3807 -23680 -4671 bl keyhall bottom
+4829 -22940 -3903 bl lavaramp
+2705 -22321 -3519 bl lavaramp
+2393 -23423 -3903 bl lavaramp
+7511 -23421 -3903 bl lavaramp
+6990 -21848 -3263 bl lavaramp
+2776 -21640 -3263 bl lavaramp
+5827 -23387 -3903 bl lavaramp
+9599 -12415 -4671 bl entrance
+7905 -12415 -4671 bl entrance
+8043 -10753 -4671 bl entrance
+7787 -8038 -4671 bl entrance
+7953 -6528 -4671 bl entrance
+9599 -6528 -4671 bl entrance
+9599 -8191 -4671 bl entrance
+9471 -9590 -4543 bl entrance
+9599 -8319 -2367 bl entrance top
+9599 -6598 -2367 bl entrance top
+7125 -6240 -2367 bl entrance top
+7224 -8319 -2367 bl entrance top
+8469 -7413 -2367 bl entrance top
+10514 -7305 -2367 bl entrance toproom
+10528 -9040 -2367 bl entrance toproom
+10542 -10830 -2367 bl entrance toproom
+10558 -12944 -1927 bl entrance toproom
+8127 -12958 -1727 bl entrance toproom
+7552 -10670 -1727 bl entrance toproom
+7911 -13994 -1727 bl entrance toproom
+6785 -11623 -3135 bl entrance toproom
+6231 -29312 -4159 bl key respawn
+6047 -31231 -4159 bl key respawn
+2392 -31615 -4159 bl key respawn
+2392 -29312 -4671 bl key respawn
+3340 -28695 -4671 bl key respawn
+6535 -8041 -4671 bl outside
+6579 -6531 -4671 bl outside
+5123 -6404 -5182 bl outside
+5059 -8319 -5183 bl outside
+128 -8169 -5183 bl outside
+2310 -8233 -5183 bl outside
+2363 -6420 -5183 bl outside
+142 -5519 -5183 bl outside
+133 -3185 -5183 bl outside
+2292 -3038 -5183 bl outside
+1747 -1295 -5183 bl tower
+3469 -1321 -5183 bridge
+4559 -1338 -5183 bridge
+5952 -1359 -5183 bridge
+2899 -2415 -3903 bl towerway
+2881 -221 -3903 bl towerway
+532 -68 -3903 bl towerway
+2943 -128 -5183 bl tower
+896 -128 -5183 bl tower
+2943 -2175 -5183 bl tower
+9599 -3200 -6975 bl water
+9599 -6015 -6433 bl water
+5491 -6015 -6505 bl water
+2956 -6015 -6975 bl water
+787 -6015 -6975 bl water
+128 -3200 -6975 bl water
+1919 -3572 -6975 bl water
+3420 -3968 -6975 bl water
+4331 -2149 -6975 bl water
+4288 -1472 -6975 bl water
+5439 -1472 -6975 bl water
+6823 -3200 -6975 bl water
+7039 -13185 -1727 bl entrance 3.floor
+3456 26752 -4159 œreœ key respawn
+3666 28671 -4159 œreœ key respawn
+7290 29055 -4159 œreœ key respawn
+7295 26752 -4671 œreœ key respawn
+6394 25990 -4671 œreœ key respawn
+6417 25152 -4671 œreœ keyhall bottom
+7295 25215 -4671 œreœ keyhall bottom
+5504 25215 -4671 œreœ keyhall bottom
+7284 22972 -4671 œreœ keyhall bottom
+7295 21120 -4671 œreœ keyhall bottom
+5760 21248 -4671 œreœ keyhall bottom
+4730 22369 -4543 œreœ keyhall bottom
+3583 21121 -4671 œreœ keyhall bottom
+2176 21120 -4671 œreœ keyhall bottom
+2302 23010 -4605 œreœ keyhall bottom
+3967 25215 -4671 œreœ keyhall bottom
+2543 25862 -3135 œreœ keyhall back
+4783 25832 -3135 œreœ keyhall back
+7021 25910 -3135 œreœ keyhall back
+4740 24031 -2879 œreœ keytower
+4741 27831 -2623 œreœ keyhall back
+6860 27435 -1727 œreœ keyhall back
+6859 25900 -1727 œreœ keyhall back
+4722 25900 -1727 œreœ keyhall back
+2544 25836 -1727 œreœ keyhall back
+2543 24861 -1727 œreœ keyhall 2.floor
+2511 23126 -1727 œreœ keyhall 2.floor
+2447 19642 -1727 œreœ keyhall 2.floor
+6941 24931 -1727 œreœ keyhall 2.floor
+6926 22749 -1727 œreœ keyhall 2.floor
+6832 19690 -1727 œreœ keyhall 2.floor
+2176 20863 -3903 œreœ lavaramp
+3648 20863 -3903 œreœ lavaramp
+5683 20838 -3903 œreœ lavaramp
+7295 20863 -3903 œreœ lavaramp
+6955 19526 -3391 œreœ lavaramp
+6271 19072 -3903 œreœ lavaramp
+3200 19076 -3903 œreœ lavaramp
+2691 19399 -3391 œreœ lavaramp
+2564 18043 -3135 œreœ mid 1.floor
+3350 17523 -3135 œreœ mid 1.floor
+5451 17601 -3135 œreœ mid 1.floor
+6914 18115 -3135 œreœ mid 1.floor
+5200 15336 -3135 œreœ mid 1.floor
+4063 15150 -3135 œreœ mid 1.floor
+4861 16249 -3135 œreœ mid 1.floor
+1594 18531 -1727 œreœ mid 2.floor
+2989 17680 -1727 œreœ mid 2.floor
+2944 16152 -1727 œreœ mid 2.floor
+2960 14907 -1727 œreœ mid 2.floor
+4665 16238 -1663 œreœ mid 2.floor
+6719 16155 -1727 œreœ mid 2.floor
+8026 18670 -1727 œreœ mid 2.floor
+7685 17330 -1727 œreœ mid 2.floor
+6486 15092 -1727 œreœ mid 2.floor
+6348 13530 -1727 œreœ entrance 3.floor
+6472 11645 -1727 œreœ entrance 3.floor
+6593 9806 -1727 œreœ entrance 3.floor
+6495 8235 -1727 œreœ entrance 3.floor
+4747 8354 -1727 œreœ entrance 3.floor
+2688 8064 -1727 œreœ entrance 3.floor
+2688 9819 -1727 œreœ entrance 3.floor
+2864 12433 -1727 œreœ entrance 3.floor
+2947 13946 -1727 œreœ entrance 3.floor
+2912 14030 -3135 œreœ entrance 2.floor
+2688 14178 -3135 œreœ entrance 2.floor
+3086 12397 -3619 œreœ entrance 2.floor
+5477 14327 -3135 œreœ entrance 2.floor
+6424 13337 -3135 œreœ entrance 2.floor
+6702 11835 -3135 œreœ entrance 2.floor
+6764 10159 -3135 œreœ entrance 2.floor
+6783 8835 -3135 œreœ entrance 2.floor
+6783 8064 -3135 œreœ entrance 2.floor
+6663 8076 -4671 œreœ entrance 1.floor
+6737 10932 -4671 œreœ entrance 1.floor
+6521 13439 -4671 œreœ entrance 1.floor
+4809 14310 -4671 œreœ entrance 1.floor
+2688 14218 -4671 œreœ entrance 1.floor
+2799 11627 -4671 œreœ entrance 1.floor
+2733 8072 -4671 œreœ entrance 1.floor
+4909 11631 -4159 œreœ entrance 1.floor
+1834 8192 -4671 œreœ entrance
+1705 9855 -4671 œreœ entrance
+128 9849 -4671 œreœ entrance
+131 8192 -4671 œreœ entrance
+256 6077 -4543 œreœ entrance
+134 3968 -4671 œreœ entrance
+1943 3983 -4671 œreœ entrance
+1706 5507 -4671 œreœ entrance
+1791 7085 -4543 œreœ entrance
+1013 6584 -4543 œreœ entrance
+974 4726 -4671 œreœ entrance
+3208 9404 -3135 œreœ entrance toproom
+1757 8602 -3135 œreœ entrance toproom
+1721 10157 -3135 œreœ entrance toproom
+-919 8136 -2367 œreœ entrance toproom
+-1101 10581 -1727 œreœ entrance toproom
+-846 6960 -2367 œreœ entrance toproom
+-384 5733 -2367 œreœ entrance toproom
+-425 4480 -2367 œreœ entrance toproom
+2175 8064 -1727 œreœ entrance toproom
+2175 9746 -1727 œreœ entrance toproom
+1833 11423 -1727 œreœ entrance toproom
+128 5751 -2367 œreœ entrance top
+321 4151 -2367 œreœ entrance top
+2393 3999 -2367 œreœ entrance top
+2384 5746 -2367 œreœ entrance top
+8576 14208 -4159 œreœ water respawn
+8618 16127 -4159 œreœ water respawn
+12415 16511 -4159 œreœ water respawn
+12415 14208 -4671 œreœ water respawn
+11543 13313 -4671 œreœ water respawn
+11560 12311 -4671 œreœ tp 1.floor
+12415 12415 -4671 œreœ tp 1.floor
+8832 12415 -4159 œreœ tp 1.floor
+8868 10908 -4671 œreœ tp 1.floor
+8576 9088 -4671 œreœ tp 1.floor
+9642 10712 -4671 œreœ tp 1.floor
+11391 9088 -4799 œreœ tp 1.floor
+12118 10389 -4415 œreœ tp 1.floor
+12402 8305 -3647 œreœ tp 2.floor
+10172 8421 -3647 œreœ tp 2.floor
+8060 8670 -3135 œreœ tp 2.floor
+11190 8931 -3647 œreœ tp 2.floor
+8844 11980 -1663 œreœ tp 3.floor
+8858 10591 -1727 œreœ tp 3.floor
+8576 8064 -1727 œreœ tp 3.floor
+10747 8064 -1727 œreœ tp 3.floor
+12410 8146 -1727 œreœ tp 3.floor
+12006 7322 -1719 œreœ 3.floorway
+12025 5921 -1719 œreœ 3.floorway
+12054 3789 -1719 œreœ 3.floorway
+12048 1319 -1719 œreœ 3.floorway
+12043 -933 -1719 œreœ 3.floorway
+10905 -1006 -1463 œreœ 3.floorway
+10316 -1005 -1207 œreœ 3.floorway
+9340 -1051 -1343 œreœ cap point
+9343 -2175 -1343 œreœ cap point
+7040 -2175 -1343 œreœ cap point
+7040 127 -1343 œreœ cap point
+9343 126 -1343 œreœ cap point
+11983 7480 -3647 œreœ 2.floor way
+11825 5566 -3647 œreœ 2.floor way
+14659 5646 -3647 œreœ 2.floor way
+14970 3923 -3647 œreœ 2.floor way
+15026 1937 -3647 œreœ 2.floor way
+11648 1672 -3647 œreœ 2.floor way
+11957 60 -3647 œreœ 2.floor way
+11980 -2293 -3647 œreœ 2.floor way
+10360 -2467 -3903 œreœ 2.floor way
+10886 9313 -5951 œreœ waterway
+10875 7714 -5951 œreœ waterway
+10826 6015 -5951 œreœ waterway
+11962 4615 -5951 œreœ waterway
+14719 5247 -4671 œreœ waterway
+14719 3847 -4671 œreœ waterway
+14719 1920 -4671 œreœ waterway
+13013 2064 -6496 œreœ waterway
+11648 1920 -5385 œreœ waterway
+12399 2954 -6975 œreœ waterway
+11380 2283 -6975 œreœ waterway
+10320 2270 -6975 œreœ waterway
+9341 -2367 -3903 œreœ towerway
+8087 -2472 -3903 œreœ towerway
+6950 -2411 -3903 œreœ towerway
+6822 -608 -3903 œreœ towerway
+6784 -2431 -5183 œreœ tower
+6784 -384 -5183 œreœ tower
+8831 -384 -5183 œreœ tower
+8831 -2431 -5183 œreœ tower
+9033 241 -5183 œreœ outside
+7195 271 -5183 œreœ outside
+7964 2480 -5183 œreœ outside
+9599 2215 -5183 œreœ outside
+9591 5759 -5183 œreœ outside
+7711 3839 -5183 œreœ outside
+5766 3707 -5183 œreœ outside
+4214 3860 -5026 œreœ outside
+2939 3852 -4671 œreœ outside
+2688 5703 -4671 œreœ outside
+4713 5759 -5183 œreœ outside
+6154 5726 -5183 œreœ outside
+6015 -383 -6975 œreœ water
+4629 -1087 -6955 œreœ water
+3712 -383 -6128 œreœ water
+128 640 -6221 œreœ water
+2682 640 -6123 œreœ water
+128 665 -6146 œreœ water
+128 3455 -6138 œreœ water
+2794 3455 -6287 œreœ water
+5102 3455 -6166 œreœ water
+6974 3455 -6500 œreœ water
+9599 3225 -6339 œreœ water
+9599 1014 -6363 œreœ water
+7808 640 -6288 œreœ water
+6198 1408 -6139 œreœ water
+3403 1810 -6975 œreœ water

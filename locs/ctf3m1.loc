@@ -1,0 +1,60 @@
+//
+// ctf3m1.loc
+//
+// Remix locations
+//
+// For use with ProQuake or Qrack
+//
+//
+// Created  July 20, 2005 by woods
+
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+-729, 439, 622, -1447, -23, 822, "Blue Flag"
+-720, 287.8, 750.9, 48.7, 150.6, 622, "Blue Flag"
+
+-1447, 439, 622, -1232, 656, 694, "Blue YA"
+-1680, 144, 743, -1598.7, 192, -162, "Blue Back Door Tunnel"
+-1598.7, 192, -162, -448, 123.6, -82, "Blue Back Door Tunnel"
+
+-113.3, 160, 710, 80.7, 1328, 366, "Blue Base Entry Stairs"
+291.8, 307.8, 366, 144, 1312, 454, "Blue Hallway"
+-284, 1308, 454, -176, 320, 366, "Blue Hallway"
+-592, -240, 486, -496, 272, 398, "Blue RL"
+
+
+448, 272, 494, -448, -269.4, 195.4, "Middle"
+258.4, -272, 176.1, -440, 272, -162, "Water/RA"
+448, 80, -34, 304, 272, 70, "Middle RL"
+
+
+
+-295, -1319, 366, -179, -272, 450.5, "Red Hallway"
+287.4, -326.7, 454, 137.4, -1328, 366, "Red Hallway"
+-86.6, -1328, 366, 116.1, -160, 710, "Red Base Entry Stairs"
+728.5, -437.5, 622, 1447, 23, 822, "Red Flag"
+736.9, -295.4, 763.9, -57.8, -160.1, 622, "Red Flag"
+1680, -144, 737.4, 1605.1, -192, -162, "Red Back Door Tunnel"
+1605.1, -192, -162, 448, -117.4, -82, "Red Back Door Tunnel"
+1392, -656, 694, 1232, -496, 622, "Red YA"
+592, 240, 486, 496, -272, 398, "Red RL"

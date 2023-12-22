@@ -1,0 +1,432 @@
+-14592 18175 -6975 bl Flagroom
+-16895 18175 -6975 bl Flagroom
+-14592 16896 -6975 bl Flagroom
+-16895 16896 -6975 bl Flagroom
+-15749 16414 -6831 bl Flagroom
+-15745 15085 -6591 bl Flagroom
+-15759 13709 -6591 bl Flagroom
+-14976 12927 -6591 bl Cellar
+-17407 12927 -6591 bl Cellar
+-15791 12592 -6591 bl Cellar
+-14976 9728 -6591 bl Cellar
+-15892 9901 -6591 bl Cellar
+-17024 9504 -6591 bl Cellar
+-18389 10879 -6591 bl Cellar
+-18359 9669 -6591 bl Cellar
+-21375 9472 -6591 bl Cellar
+-18747 10859 -6591 bl Cellar
+-21375 10826 -6591 bl Cellar
+-21375 11473 -6591 bl Cellar <respawn>
+-18816 11521 -6591 bl Cellar <respawn>
+-18845 12927 -6335 bl Cellar <respawn>
+-21375 12872 -6335 bl Cellar <respawn>
+-21375 14382 -6335 bl Cellar <respawn>
+-20304 14291 -6335 bl Cellar <respawn>
+-19821 12927 -6463 bl Cellar <respawn>
+-19457 14236 -5965 bl Cellar <ramp>
+-17722 14139 -5128 bl Cellar <ramp>
+-15669 14080 -4038 bl Cellar <ramp>
+-18165 12452 -6207 bl Cellar <stair>
+-18203 10625 -5055 bl Cellar <stair>
+-17140 10557 -5055 bl Cellar <stair>
+-17090 13379 -3903 bl Cellar <stair>
+-22528 14453 -6207 bl Lower Respawn
+-22400 12564 -6207 bl Lower Respawn
+-24191 12544 -6207 bl Lower Respawn
+-24191 14591 -6207 bl Lower Respawn
+-17152 7167 -6207 bl Cellar <back>
+-18943 7423 -6335 bl Cellar <back>
+-18943 6400 -6335 bl Cellar <back>
+-17190 6528 -6207 bl Cellar <back>
+-18943 8959 -6540 bl Cellar <back>
+-17792 8959 -6540 bl Cellar <back>
+-19030 9472 -6591 bl Cellar
+-16967 16511 -3775 bl Spiralroom
+-19364 16091 -3775 bl Spiralroom
+-19948 13888 -3775 bl Spiralroom
+-19280 13888 -3775 bl Spiralroom
+-16771 13967 -3775 bl Spiralroom
+-16896 14844 -3775 bl Spiralroom
+-19612 13035 -3691 bl Ramp to Backpath
+-19621 11608 -3509 bl Ramp to Backpath
+-19631 9911 -3292 bl Ramp to Backpath
+-19632 7599 -3007 bl Ramp to Backpath
+-19577 6664 -3007 bl Backpath
+-18328 6668 -3007 bl Backpath
+-16849 6673 -3007 bl Backpath
+-15311 6678 -3007 bl Backpath
+-13698 6684 -2751 bl Backpath
+-12689 7629 -2623 bl Backpath
+-13695 8828 -2623 bl Backpath
+-12753 10629 -2495 bl Backpath
+-14463 10564 -2623 bl Backpath
+-16094 10566 -1855 bl Backpath
+-17969 10497 -1343 bl Backpath
+-18709 9902 -959 bl Backpath
+-18721 8754 -767 bl Backpath Lift
+-16413 14199 -4484 bl Cellar <ramp>
+-16173 16274 -3390 bl Bottom Spiral
+-14955 16275 -2751 bl Bottom Spiral
+-14409 16275 -2751 bl Bottom Spiral
+-14461 14471 -2751 bl Bottom Spiral
+-17180 14562 -1727 bl Spiral
+-17119 16204 -1727 bl Spiral
+-14309 16298 -703 bl Spiral
+-14448 14415 -703 bl Spiral
+-17207 14429 320 bl Spiral
+-17177 16293 320 bl Spiral
+-16652 16268 450 bl Top Spiral
+-14369 16266 1344 bl Top Spiral
+-14209 14208 1344 bl Top Spiral
+-14211 15391 1344 bl Top Spiral
+-13823 16319 1344 bl RR
+-13813 15286 1344 bl RR
+-13823 14150 1344 bl RR
+-13823 12906 1344 bl RR
+-13759 9856 1344 bl RR
+-9919 9856 1344 bl RR
+-9464 10312 1344 bl RR
+-11541 9856 1344 bl RR
+-13823 9856 -831 bl RR
+-13823 15187 -831 bl RR
+-12335 15212 -831 bl RR
+-10854 15238 -831 bl RR
+-9344 15264 -831 bl RR
+-9344 14542 192 bl RR
+-9344 12843 192 bl RR
+-13695 16319 -831 bl Eng CMD Point
+-12342 16287 -831 bl Eng CMD Point
+-10720 16297 -831 bl Eng CMD Point
+-9631 16257 -831 bl Eng CMD Point
+-9350 17151 -831 bl Eng CMD Point
+-11392 16896 192 bl quad
+-13951 16961 192 bl quad
+-13948 18303 192 bl quad
+-12416 18303 192 bl quad
+-9591 16511 1344 bl RR
+-9433 15974 1344 bl RR
+-8975 16508 1344 bl Top Respawn
+-8959 14848 1344 bl Top Respawn
+-8959 15975 1344 bl Top Respawn
+-6912 16511 1344 bl Top Respawn
+-7725 15327 1344 bl Top Respawn
+-14208 9536 832 bl Caproom
+-14208 13823 832 bl Caproom
+-15962 11280 864 bl Caproom
+-17163 11366 832 bl Caproom
+-17279 13809 832 bl Caproom
+-14622 11443 1265 bl Caproom
+-13905 11451 1344 bl RR
+-17918 11367 832 bl Way to Backpath
+-18872 11348 832 bl Way to Backpath
+-18817 10284 832 bl Way to Backpath
+-18777 9486 832 bl Way to Backpath
+-9599 10118 192 bl RR
+-8951 14463 192 bl > Way to RR
+-7040 14463 192 bl > Way to RR
+-7040 12415 192 bl > Way to RR
+-7040 9856 192 bl > Way to RR
+-8959 9785 192 bl > Way to RR
+-7085 8192 192 bl > Way to RR
+-7033 9215 192 bl > Way to RR
+-8959 8195 192 bl > Way to RR
+-7040 7671 -63 bl < Way to RR
+-7040 5661 -63 bl < Way to RR
+-7040 4715 64 bl < Way to RR
+-7040 3200 64 bl < Way to RR
+-8319 3200 64 bl < Way to RR
+-8319 5171 64 bl < Way to RR
+-9343 6694 -63 bl < Way to RR
+-9701 9107 101 bl < Way to RR
+-4993 2816 64 bl Entrance
+-4992 4350 64 bl Entrance
+-4988 5933 64 bl Entrance
+-4992 7874 64 bl Entrance
+-4990 9316 64 bl Entrance
+-4992 10367 64 bl Entrance
+-6655 10367 64 bl Entrance
+-6652 9509 64 bl Entrance
+-6637 7622 64 bl Entrance
+-6651 6123 64 bl Entrance
+-6655 4863 64 bl Entrance
+-6525 3002 64 bl Entrance
+-8673 10051 1344 bl Top Way to RR
+-7139 10115 1344 bl Top Way to RR
+-5660 9973 1088 bl Top Way to RR
+-6048 8810 1088 bl Sniperdeck
+-4992 8575 1088 bl Sniperdeck
+-4992 6528 1088 bl Sniperdeck
+-4738 4899 1216 bl Sniperdeck
+-4743 3584 1088 bl Sniperdeck
+-4992 2816 1088 bl Sniperdeck
+-6655 2816 1088 bl Sniperdeck
+-6655 5276 1088 bl Sniperdeck
+-6655 7704 1088 bl Sniperdeck
+-6644 8437 1088 bl Sniperdeck
+-3953 4103 1216 bl Sniperdeck
+-4607 10367 -319 bl Outside
+-426 10355 -319 bl Outside
+-536 8331 -319 bl Outside
+-1284 7087 -256 bl Outside
+-1348 5910 -267 bl Outside
+-85 5489 -319 bl Outside
+-25 4037 -319 bl Outside
+-193 2816 -319 bl Outside
+-4602 2816 -319 bl Outside
+-4569 5247 -319 bl Outside
+-4591 6400 -319 bl Outside
+-4591 7788 -319 bl Outside
+-4591 8703 -319 bl Outside
+-4264 9160 64 bl Outside
+234 7039 -63 Bridge
+179 6016 -63 Bridge
+1635 6048 -63 Bridge
+1656 7007 -63 Bridge
+3581 6973 -63 Bridge
+3564 6003 -63 Bridge
+5899 6048 -63 Bridge
+5921 7007 -63 Bridge
+7501 7039 -63 Bridge
+7484 6016 -63 Bridge
+-8959 16639 192 bl Water Room
+-8959 14848 192 bl Water Room
+-6912 14848 192 bl Water Room
+-6912 16639 192 bl Water Room
+-7423 16356 -2129 bl Waterway
+-7423 16356 -797 bl Waterway
+-7370 15124 -2088 bl Waterway
+-7269 12838 -1956 bl Waterway
+-7397 10045 -1900 bl Waterway
+-4765 9823 -1891 bl Waterway
+-1841 9526 -1842 bl Waterway
+-502 9370 -1980 bl Waterway
+722 10367 -909 Water
+1592 10367 -918 Water
+3601 10367 -946 Water
+7133 10367 -940 Water
+6964 7803 -1098 Water
+6956 5547 -1075 Water
+5514 2816 -907 Water
+3236 2816 -895 Water
+1746 5567 -1158 Water
+1691 7488 -1111 Water
+3857 7815 -1135 Water
+3873 6115 -1218 Water
+5983 5567 -1126 Water
+5958 7488 -1148 Water
+-3860 4120 -319 bl Outside
+8436 2816 -319 œreœ Outside
+8354 3856 -319 œreœ Outside
+8677 5269 -319 œreœ Outside
+8657 6743 -205 œreœ Outside
+7744 7707 -319 œreœ Outside
+7736 9007 -319 œreœ Outside
+8027 10367 -319 œreœ Outside
+10251 10367 -319 œreœ Outside
+12287 10284 -319 œreœ Outside
+12287 7936 -319 œreœ Outside
+10699 8893 -319 œreœ Outside
+12119 7357 64 œreœ Outside
+12271 6437 -319 œreœ Outside
+12251 4873 -319 œreœ Outside
+12190 3895 64 œreœ Outside
+12271 2816 -319 œreœ Outside
+10452 2816 -319 œreœ Outside
+16639 -3455 192 œreœ Waterroom
+16639 -1664 192 œreœ Waterroom
+14592 -1664 192 œreœ Waterroom
+15786 -1664 192 œreœ Waterroom
+14592 -3455 192 œreœ Waterroom
+15487 -3200 448 œreœ Waterroom
+14799 -3263 -684 œreœ Waterway
+15584 -2718 -1236 œreœ Waterway
+15093 -1562 -2008 œreœ Waterway
+14951 630 -2367 œreœ Waterway
+14934 1422 -1913 œreœ Waterway
+15178 3928 -1797 œreœ Waterway
+12407 3728 -1838 œreœ Waterway
+9896 3766 -1868 œreœ Waterway
+8169 3701 -1780 œreœ Waterway
+31871 -1407 -6207 œreœ Bottom Respawn
+31871 639 -6207 œreœ Bottom Respawn
+30080 624 -6207 œreœ Bottom Respawn
+30080 -1407 -6207 œreœ Bottom Respawn
+22272 -4991 -6975 œreœ Flagroom
+24575 -4991 -6975 œreœ Flagroom
+22272 -3712 -6975 œreœ Flagroom
+24575 -3744 -6975 œreœ Flagroom
+23382 -244 -6591 œreœ Flagroom
+23399 -1667 -6591 œreœ Flagroom
+22697 320 -6591 œreœ Cellar
+25087 256 -6591 œreœ Cellar
+23586 500 -6591 œreœ Cellar
+22720 2080 -6591 œreœ Cellar
+22656 3455 -6591 œreœ Cellar
+24268 3455 -6591 œreœ Cellar
+25553 3711 -6591 œreœ Cellar
+26022 3385 -6591 œreœ Cellar
+27391 3711 -6591 œreœ Cellar
+29055 3711 -6591 œreœ Cellar
+25253 2432 -6591 œreœ Cellar
+26408 2432 -6591 œreœ Cellar
+29055 2442 -6591 œreœ Cellar
+29055 1945 -6591 œreœ Cellar <respawn>
+26496 1932 -6591 œreœ Cellar <respawn>
+26723 257 -6335 œreœ Cellar <respawn>
+26717 1510 -6463 œreœ Cellar <respawn>
+29055 1069 -6335 œreœ Cellar <respawn>
+29055 -1407 -6335 œreœ Cellar <respawn>
+27987 -1091 -6335 œreœ Cellar <respawn>
+27904 0 -6335 œreœ Cellar <respawn>
+24960 6783 -6335 œreœ Cellar <back>
+26623 6783 -6335 œreœ Cellar <back>
+26623 5760 -6335 œreœ Cellar <back>
+25067 5839 -6207 œreœ Cellar <back>
+25472 4224 -6540 œreœ Cellar <back>
+26623 4224 -6540 œreœ Cellar <back>
+26701 3711 -6591 œreœ Cellar
+25813 791 -6207 œreœ Cellar <stair>
+25855 1948 -5311 œreœ Cellar <stair>
+25897 3085 -5055 œreœ Cellar <stair>
+24448 3197 -5055 œreœ Cellar <stair>
+24743 -125 -3903 œreœ Cellar <stair>
+24711 951 -4287 œreœ Cellar <stair>
+25501 1773 832 œreœ Way to Backpath
+26258 1733 832 œreœ Way to Backpath
+26326 3659 832 œreœ Way to Backpath
+26333 4342 -767 œreœ Backpath Lift
+26414 2883 -1215 œreœ Backpath
+25227 2558 -1471 œreœ Backpath
+23477 2605 -1983 œreœ Backpath
+21256 2677 -2623 œreœ Backpath
+19972 2712 -2623 œreœ Backpath
+20384 3728 -2623 œreœ Backpath
+20703 5220 -2623 œreœ Backpath
+20718 6240 -2751 œreœ Backpath
+21683 6401 -2751 œreœ Backpath
+23478 6378 -3007 œreœ Backpath
+25449 6354 -3007 œreœ Backpath
+26484 6342 -3007 œreœ Backpath
+27285 6427 -3007 œreœ Backpath
+27156 5666 -3007 œreœ Ramp to Backpath
+27211 4457 -3141 œreœ Ramp to Backpath
+27289 2740 -3360 œreœ Ramp to Backpath
+27234 998 -3582 œreœ Ramp to Backpath
+27287 -170 -3732 œreœ Ramp to Backpath
+27406 -1078 -6095 œreœ Cellar <ramp>
+26284 -1071 -5553 œreœ Cellar <ramp>
+24506 -1060 -4695 œreœ Cellar <ramp>
+23152 -1052 -3919 œreœ Cellar <ramp>
+23909 -1472 -3775 œreœ Cellar <ramp>
+23745 -706 -3775 œreœ Cellar <ramp>
+24392 -640 -3775 œreœ Spiralroom
+25691 -640 -3775 œreœ Spiralroom
+27383 -888 -3775 œreœ Spiralroom
+27647 -2189 -3775 œreœ Spiralroom
+26473 -3327 -3775 œreœ Spiralroom
+24843 -3133 -3775 œreœ Spiralroom
+24576 -1577 -3775 œreœ Spiralroom
+23785 -3124 -3354 œreœ Bottom Spiral
+22101 -3035 -2751 œreœ Bottom Spiral
+22001 -1024 -2751 œreœ Bottom Spiral
+23302 -1296 -2270 œreœ Spiral
+24987 -1349 -1727 œreœ Spiral
+24843 -3327 -1727 œreœ Spiral
+22081 -3039 -703 œreœ Spiral
+22216 -1244 -703 œreœ Spiral
+23322 -1299 -211 œreœ Spiral
+25023 -1263 320 œreœ Spiral
+24964 -3038 320 œreœ Top Spiral
+22031 -2999 1344 œreœ Top Spiral
+21888 -2086 1344 œreœ Top Spiral
+21888 -1024 1344 œreœ Top Spiral
+24959 3711 832 œreœ Caproom
+24928 1838 832 œreœ Caproom
+24959 -639 832 œreœ Caproom
+21888 -626 832 œreœ Caproom
+22114 708 1344 œreœ Caproom
+22099 2930 1344 œreœ Caproom
+21888 3647 832 œreœ Caproom
+23617 1298 832 œreœ Caproom
+17101 3327 1344 œreœ RR
+18599 3327 1344 œreœ RR
+21439 3327 1344 œreœ RR
+21440 1622 1344 œreœ RR
+21440 294 1344 œreœ RR
+21503 -848 1344 œreœ RR
+21503 -1968 1344 œreœ RR
+21503 -3135 1344 œreœ RR
+19563 -3327 1344 œreœ RR
+17210 -3327 1344 œreœ RR
+17024 -2617 1344 œreœ RR
+14592 -3327 1344 œreœ Top Respawn
+16534 -3327 1344 œreœ Top Respawn
+16639 -1664 1344 œreœ Top Respawn
+15598 -2939 1344 œreœ Top Respawn
+17024 175 192 œreœ RR
+17024 -1345 192 œreœ RR
+21503 3327 -831 œreœ RR
+21503 283 -831 œreœ RR
+21503 -2089 -831 œreœ RR
+20098 -2053 -831 œreœ RR
+18584 -2013 -831 œreœ RR
+17082 -1974 -831 œreœ RR
+19481 32 -831 œreœ RR
+17024 3327 -831 œreœ RR
+17024 1172 -831 œreœ RR
+21375 -3135 -831 œreœ Eng CMD Point
+20249 -2872 -831 œreœ Eng CMD Point
+18834 -3107 -831 œreœ Eng CMD Point
+17567 -3072 -831 œreœ Eng CMD Point
+17024 -3967 -831 œreœ Eng CMD Point
+19072 -3712 192 œreœ Quad
+21183 -3710 256 œreœ Quad
+21627 -5119 192 œreœ Quad
+20096 -5119 192 œreœ Quad
+14720 -1279 192 œreœ > Way to RR
+16639 -1271 192 œreœ > Way to RR
+16639 167 192 œreœ > Way to RR
+16639 2091 256 œreœ > Way to RR
+16639 3583 192 œreœ > Way to RR
+14720 3327 192 œreœ > Way to RR
+14720 2020 192 œreœ > Way to RR
+16639 4991 192 œreœ > Way to RR
+14814 3969 192 œreœ > Way to RR
+14841 4991 192 œreœ > Way to RR
+14720 5504 -63 œreœ < Way to RR
+14720 8346 64 œreœ < Way to RR
+14720 9983 64 œreœ < Way to RR
+15994 9983 64 œreœ < Way to RR
+15999 7571 64 œreœ < Way to RR
+17151 6656 64 œreœ < Way to RR
+17791 6271 -63 œreœ < Way to RR
+17791 3878 150 œreœ < Way to RR
+17060 3712 192 œreœ < Way to RR
+17459 3105 192 œreœ RR
+14271 10170 64 œreœ Entrance
+14271 8028 64 œreœ Entrance
+14335 6056 64 œreœ Entrance
+14335 5156 64 œreœ Entrance
+14323 3898 64 œreœ Entrance
+14335 2816 64 œreœ Entrance
+12672 2821 64 œreœ Entrance
+12841 3857 64 œreœ Entrance
+12672 4907 64 œreœ Entrance
+12672 6459 64 œreœ Entrance
+12862 7624 64 œreœ Entrance
+12672 9289 64 œreœ Entrance
+12672 10367 64 œreœ Entrance
+22020 1722 1344 œreœ Caproom
+16312 3058 1344 œreœ Top Way to RR
+14824 3263 1344 œreœ Top Way to RR
+12672 2816 1088 œreœ Top Way to RR
+12672 4223 1088 œreœ Top Way to RR
+14335 4054 1088 œreœ Top Way to RR
+12672 4608 1088 œreœ Sniperdeck
+14335 4601 1088 œreœ Sniperdeck
+14335 7100 1088 œreœ Sniperdeck
+14335 10367 1088 œreœ Sniperdeck
+12672 10367 1088 œreœ Sniperdeck
+11382 9208 1216 œreœ Sniperdeck
+12655 7513 1216 œreœ Sniperdeck
+13588 5978 1088 œreœ Sniperdeck

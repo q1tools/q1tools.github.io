@@ -1,0 +1,83 @@
+//
+// e4m3.loc
+//
+// Elder God Shrine locations
+//
+// For distribution with ProQuake+
+//
+// By Jonathan Wheeler
+// HDz Avalanche
+// e-mail: wheeler@odsy.net
+// irc: irc.enterthegame.com #clan_hdz
+//
+// Created  January 20, 2001
+// Modified August 15, 2001
+//
+// This file must be in the id1/locs subdirectory (you need to create this
+// subdirectory).  Each line assigns a name to a 3D rectangle in the map.
+// The format is:
+//
+// x1, y1, z1, x2, y2, z2, name
+//
+// where (x1, y1, z1), (x2, y2, z2) are opposite corners of a 3D rectangle.
+// When Proquake encounters the %l format specifier, it searches this list
+// of rectangles IN ORDER to find one that you are inside.  So it is 
+// perfectly reasonable to have overlapping rectangles or even one rectangle
+// inside another (e.g. "SNG mega" and "super nailgun" below), but you must
+// get the order correct for it to work as expected.  If you aren't in 
+// any rectangles, it just prints out "somewhere".
+//
+// You can use the administrator "spot" command in crmod to get coordinates
+// in observer fly mode (that's what I did), or use your favority level
+// editing tool.  Minor note: Proquake enlarges each rectangle by 32 
+// units in the +z and -z directions (up and down) to make it a bit
+// more robust.
+//
+
+879, -207, 94, 881, -209, 94, "Ava's Jerkoff Corner"
+-1840, 2032, 278, -1232, 1360, 38, "Elevator"
+-1312, 16, 174, -1072, 496, 342, "Exit"
+-1280, 496, 174, -1712, 16, 342, "Exit Hiding"
+-672, -480, 174, -1184, -832, 278, "Yellow Armor"
+-1408, -256, 174, -448, -832, 278, "Yellow Armor Area"
+-1232, 1565.8, 102, -828.6, -432, 278, "Exit Hallway"
+-176, 128, 163, -448, -432, 278, "100 Health"
+-359.8, 976, 174, -184, 416, 278, "Nailgun Hallway"
+-994, -234, 278, 304, 592, 46, "Nailgun"
+16, -432, 174, 315, -656, 278, "Red Base Doorway"
+300, -432, 174, 16, -1440, 278, "Red Base Hallway"
+-448.8, -640, 174, 16, -829.9, 278, "YA Hallway"
+1264, -1024, 174, 1104, -1264, 278, "Red Base Quad"
+1264, -1664, 174, 1104, -1424, 278, "Red Flag"
+1104, -1648, 174, 1408, -1040, 278, "Red Base"
+16, -1240, 46, 1089.5, -1424, 278, "Lava"
+880, -208, 46, 314.5, -816, 262, "Green Armor"
+882, -608, 174, 1936, -271.9, 374, "RL Back Hallway"
+1952, -271.9, 174, 1776, 272, 374, "Rocket Launcher"
+1952, 272, 174, 1756, 1152, 374, "RL Middle Hallway"
+1756, 1152, 374, 1128, 960, 174, "RL Front Hallway"
+1344, 528, 174, 1764, 704, 374, "RL Quad"
+464, 1008, -50, 1072, 720, 14, "RA Water"
+672, 480, 46, 864, 720, 182, "RA Teleport Exit"
+889, 745, 244, 672, 472, 342, "Red Armor"
+880, 1280, 326, 656, 1192, 190, "RA Windows Hiding"
+1128, 1280, 374, 408, 418, -50, "Red Armor Area"
+408, 1152, 174, -1072, 317, 342, "RA Hallway"
+1712, 103.1, 134, 1784, -108, -66, "Blue Windows Hiding"
+976, -312, 134, 1296, -88, 30, "Blue Ledge Right"
+976, 312, 134, 1296, 88, 30, "Blue Ledge Left"
+976, -312, 255, 1296, 312, 30, "Blue Ledge Center"
+976, -312, -98, 1296, 288, 0, "Blue Under Ledge"
+984, -312, 260, 1784, 312, -98, "Blue Front"
+984, 480, 30, 296, -216, 250, "CENTER"
+1632, 96, -178, 2096, -96, -66, "Blue Base Water"
+2080, -656, 78, 2464, -288, -202, "Blue Base GL"
+2880, -416, 78, 2432, -84, -82, "Blue Base Quad"
+2016, 736, -178, 2400, 432, 78, "Blue Flag"
+2672, -32, 78, 2488, 189, 26, "Blue Base Hiding"
+2544, -16, -74, 2672, 208, 78, "Blue Base Nailgun"
+2912, 808, -74, 2682, 362, 78, "Blue Base Teleport"
+2000, 112, 78, 2384, -112, -82, "Blue Base Center"
+2000, -272, 78, 2500, -112, -82, "Blue Base Right"
+2288, 208, -82, 2912, 528, 78, "Blue Base Back"
+2000, 112, -82, 2420, 301, 78, "Blue Base Left"
