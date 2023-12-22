@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Directory Listing</title>
+    <style>
+        body {
+            background-color: #333; /* Dark background */
+            color: #fff; /* Light text */
+            font-family: Arial, sans-serif;
+        }
+        a {
+            color: #4fa3f7; /* Light blue links for better visibility */
+        }
+    </style>
+</head>
+<body>
+    <h1>Files in Directory</h1>
+    <ul id="fileList"></ul>
+
+    <script>
+        // Change these variables to point to your repository and directory
+        const user = 'q1tools'; // Your GitHub username
+        const repo = 'q1tools.github.io';     // Your repository name
+        const path = 'maps'; // Path to the directory in your repository
+
+        fetch(`https://api.github.com/repos/${user}/${repo}/contents/${path}`)
+            .then(response => response.json())
+            .then(data => {
+                const fileList = document.getElementById('fileList');
+                data.forEach(file => {
+                    const listItem = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = file.html_url; // Link to view the file on GitHub
+                    link.textContent = file.name; // File name
+                    listItem.appendChild(link);
+                    fileList.appendChild(listItem);
+                });
+            })
+            .catch(error => console.error('Error fetching directory contents:', error));
+    </script>
+</body>
+</html>
