@@ -1,0 +1,67 @@
+==================
+ukpak9 for Quake 1
+==================
+
+Title                   : ukpak9
+Filename                : ukpak9.bsp
+Author                  : Brick
+Web Page		: http://www.gamesinferno.com/brick
+Description             : A teamplay map designed for 4v4.
+
+===============================
+Play Information / Construction
+===============================
+
+Single Player           : no
+Cooperative             : no
+Deathmatch              : yes, 11 respawns
+Difficulty Settings     : no
+New Sounds              : no
+New Graphics            : assortment of q1, q2 and other textures
+New Music               : no
+Demos Supplied          : no
+
+Base                    : new level from scratch
+Editor(s) used          : Qoole 2.50, Qoole '99 and various text editors
+Known Bugs              : none
+Texture Wad used        : several
+
+Compile machine         : P166MMX, 96Mb Ram
+qbsp Time               : 6 minutes
+vis Time (-level 4)     : 5 minutes
+hlight Time (-extra)    : 40 minutes
+
+Total production time   : 1.5 years (not full time, thankfully)
+
+====================
+Summary of the level
+====================
+
+This map was started at the same time as the rest of the UKPAK maps,
+and was finished *way* after the rest. The map began life from within
+Qoole 2.50 and was later transferred to Qoole '99. For what its worth,
+I wouldn't advise anyone else to try doing that.
+
+There are a couple of interesting features. Firstly, there are a couple
+ladders. To move up them, just walk into them (don't press or hold jump).
+Secondly, you might notice that nearly all stairs are actually ramps. Do
+"r_drawentities 0" and you'll see that the steps are for decoration.
+
+================
+Acknowledgements
+================
+
+Thanks to rest of the UKPAK team for support like encouragement,
+testing, comments, textures, and of course having faith that I'd
+eventually finish it :) Cheers guys.
+
+============
+Distribution
+============
+
+The contents of this archive, and the archive itself, are not to be
+modified in any form. This archive is freely distributable; no
+permission required. I am not liable for anything that happens as
+a result of using this archive.
+
+Brick (07/06/2000)

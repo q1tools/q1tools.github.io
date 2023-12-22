@@ -2,12 +2,13 @@
 <html>
 <head>
     <title>Directory Listing</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon.png">
     <style>
         body {
             background-color: #333;
             color: #fff;
             font-family: Arial, sans-serif;
+            font-size: 12px;
             margin: 0;
             padding: 20px;
         }
@@ -18,7 +19,7 @@
         th, td {
             text-align: left;
             padding: 8px;
-            border-bottom: 1px solid #8b8b8b;
+            border-bottom: 1px solid #5b5b5b;
         }
         th {
             cursor: pointer;
@@ -29,6 +30,9 @@
     </style>
 </head>
 <body>
+    <div class="directory-path">
+        <h1 id="directoryHeading">Index of /</h1>
+    </div>
     <table id="fileTable">
         <thead>
             <tr>
@@ -43,6 +47,9 @@
         const user = 'q1tools'; // Your GitHub username
         const repo = 'q1tools.github.io'; // Your repository name
         const path = 'maps'; // Path to the directory in your repository
+
+        document.getElementById('directoryHeading').textContent += path;
+
 
         function sortTable(column) {
             let table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
@@ -88,28 +95,29 @@
             else if (size < 1024 * 1024) return (size / 1024).toFixed(2) + ' KB'; // Less than 1 MB
             else return (size / 1024 / 1024).toFixed(2) + ' MB'; // In MB
         }
-
         fetch(`https://api.github.com/repos/${user}/${repo}/contents/${path}`)
             .then(response => response.json())
             .then(data => {
                 const fileList = document.getElementById('fileList');
                 data.forEach(file => {
-                    const row = document.createElement('tr');
-                    const nameCell = document.createElement('td');
-                    const sizeCell = document.createElement('td');
+                    if (file.name.toLowerCase() !== 'index.html') { // Exclude 'index.html'
+                        const row = document.createElement('tr');
+                        const nameCell = document.createElement('td');
+                        const sizeCell = document.createElement('td');
 
-                    const link = document.createElement('a');
-                    link.href = `https://raw.githubusercontent.com/${user}/${repo}/master/${file.path}`;
-                    link.textContent = file.name;
-                    link.setAttribute('download', '');
-                    nameCell.appendChild(link);
+                        const link = document.createElement('a');
+                        link.href = `https://raw.githubusercontent.com/${user}/${repo}/master/${file.path}`;
+                        link.textContent = file.name;
+                        link.setAttribute('download', '');
+                        nameCell.appendChild(link);
 
-                    sizeCell.textContent = formatSize(file.size);
+                        sizeCell.textContent = formatSize(file.size);
 
-                    row.appendChild(nameCell);
-                    row.appendChild(sizeCell);
+                        row.appendChild(nameCell);
+                        row.appendChild(sizeCell);
 
-                    fileList.appendChild(row);
+                        fileList.appendChild(row);
+                    }
                 });
             })
             .catch(error => console.error('Error fetching directory contents:', error));
