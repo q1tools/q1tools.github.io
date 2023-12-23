@@ -1,0 +1,1853 @@
+{
+"classname" "worldspawn"
+"_sunlight" "270"
+"_sun_mangle" "0 -90 0"
+"message" "Uzuldaroum by Vondur"
+"angle" "270"
+}
+{
+"sounds" "1"
+"message" "You have found the secret button!"
+"classname" "trigger_secret"
+"model" "*1"
+}
+{
+"light" "250"
+"origin" "-224 -96 -40"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "-224 160 -40"
+"light" "250"
+}
+{
+"light" "180"
+"origin" "-96 736 112"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "656 752 40"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "832 0 64"
+"light" "300"
+}
+{
+"classname" "light"
+"origin" "928 352 48"
+"light" "250"
+}
+{
+"classname" "light"
+"origin" "304 -232 312"
+"light" "200"
+}
+{
+"light" "150"
+"origin" "-56 288 328"
+"classname" "light"
+}
+{
+"light" "200"
+"origin" "-192 -24 328"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "72 384 328"
+"light" "250"
+}
+{
+"delay" "0.8"
+"light" "200"
+"origin" "-128 -432 328"
+"classname" "light"
+}
+{
+"light" "350"
+"origin" "1088 704 72"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "320 1008 280"
+"light" "180"
+"delay" "0.8"
+}
+{
+"origin" "768 560 408"
+"classname" "item_artifact_invulnerability"
+}
+{
+"classname" "light"
+"origin" "64 824 160"
+"light" "200"
+"delay" "0.8"
+}
+{
+"origin" "1024 800 120"
+"classname" "ambient_suck_wind"
+}
+{
+"angle" "45"
+"targetname" "t2"
+"origin" "-32 -352 72"
+"classname" "info_teleport_destination"
+}
+{
+"target" "t2"
+"classname" "trigger_teleport"
+"spawnflags" "1"
+"model" "*2"
+}
+{
+"origin" "-96 -224 88"
+"classname" "info_player_start"
+"angle" "45"
+}
+{
+"delay" "0.8"
+"light" "250"
+"origin" "64 0 192"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "928 672 72"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "-32 -640 216"
+"light" "200"
+"delay" "0.7"
+}
+{
+"classname" "light"
+"origin" "416 32 112"
+"light" "220"
+}
+{
+"classname" "ambient_suck_wind"
+"origin" "320 -712 112"
+}
+{
+"classname" "ambient_drip"
+"origin" "368 -400 16"
+}
+{
+"classname" "light"
+"origin" "320 -576 48"
+"light" "250"
+}
+{
+"classname" "trigger_teleport"
+"target" "t1"
+"spawnflags" "1"
+"model" "*3"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "1088 896 200"
+"targetname" "t1"
+"angle" "225"
+}
+{
+"classname" "light"
+"origin" "72 -328 136"
+"light" "250"
+"delay" "0.8"
+}
+{
+"wait" "2"
+"classname" "light"
+"origin" "-264 0 104"
+"light" "300"
+}
+{
+"classname" "light"
+"origin" "1536 288 192"
+"light" "250"
+}
+{
+"light" "250"
+"origin" "1568 32 192"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "1144 -40 72"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "160 672 136"
+"light" "200"
+"delay" "0.8"
+}
+{
+"delay" "0.8"
+"light" "190"
+"origin" "88 1024 200"
+"classname" "light"
+}
+{
+"wait" "2"
+"classname" "light"
+"origin" "-152 640 320"
+"light" "300"
+}
+{
+"classname" "light"
+"origin" "544 -208 296"
+"light" "200"
+}
+{
+"light" "200"
+"origin" "336 560 328"
+"classname" "light"
+}
+{
+"delay" "0.8"
+"light" "200"
+"origin" "64 368 136"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "1080 888 256"
+"light" "200"
+"wait" "2"
+}
+{
+"delay" "0.9"
+"light" "200"
+"origin" "384 664 72"
+"classname" "light"
+}
+{
+"classname" "weapon_grenadelauncher"
+"origin" "-192 0 256"
+}
+{
+"classname" "weapon_rocketlauncher"
+"origin" "896 640 0"
+}
+{
+"classname" "weapon_lightning"
+"origin" "128 0 -192"
+}
+{
+"classname" "weapon_rocketlauncher"
+"origin" "320 -672 0"
+}
+{
+"classname" "item_rockets"
+"origin" "208 -688 0"
+}
+{
+"classname" "item_armor1"
+"origin" "864 -208 0"
+}
+{
+"classname" "item_health"
+"origin" "1616 176 112"
+}
+{
+"classname" "info_player_deathmatch"
+"origin" "1632 352 136"
+"angle" "180"
+}
+{
+"classname" "info_player_deathmatch"
+"origin" "32 1056 152"
+"angle" "270"
+}
+{
+"classname" "info_player_deathmatch"
+"origin" "160 -352 88"
+"angle" "90"
+}
+{
+"classname" "info_player_deathmatch"
+"origin" "800 -224 24"
+"angle" "90"
+}
+{
+"classname" "item_artifact_super_damage"
+"origin" "-192 640 280"
+}
+{
+"origin" "-104 0 120"
+"classname" "light"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "320 -832 72"
+"light" "350"
+}
+{
+"origin" "-88 -96 32"
+"classname" "ambient_drip"
+}
+{
+"classname" "ambient_drip"
+"origin" "544 560 -16"
+}
+{
+"classname" "item_cells"
+"origin" "176 -16 -192"
+"spawnflags" "1"
+}
+{
+"classname" "item_rockets"
+"origin" "592 208 -192"
+"spawnflags" "1"
+}
+{
+"classname" "item_health"
+"origin" "400 -688 0"
+}
+{
+"classname" "item_health"
+"origin" "-288 48 -192"
+}
+{
+"classname" "weapon_supershotgun"
+"origin" "1568 160 112"
+}
+{
+"classname" "item_shells"
+"origin" "1616 144 112"
+"spawnflags" "1"
+}
+{
+"classname" "item_shells"
+"origin" "-40 288 64"
+}
+{
+"classname" "item_spikes"
+"origin" "-40 320 64"
+}
+{
+"origin" "-40 352 64"
+"classname" "item_spikes"
+}
+{
+"classname" "item_health"
+"origin" "400 720 0"
+}
+{
+"classname" "item_cells"
+"origin" "528 976 192"
+}
+{
+"origin" "560 976 192"
+"classname" "item_cells"
+}
+{
+"classname" "item_rockets"
+"origin" "80 -368 256"
+"spawnflags" "1"
+}
+{
+"classname" "item_health"
+"origin" "144 -368 256"
+}
+{
+"classname" "item_spikes"
+"origin" "592 976 192"
+"spawnflags" "1"
+}
+{
+"classname" "weapon_supernailgun"
+"origin" "-32 640 64"
+}
+{
+"classname" "item_armor2"
+"origin" "1056 352 192"
+}
+{
+"classname" "item_armorInv"
+"origin" "-272 0 32"
+}
+{
+"classname" "item_health"
+"origin" "-48 -432 448"
+"spawnflags" "2"
+}
+{
+"classname" "info_player_deathmatch"
+"origin" "936 -232 216"
+"angle" "90"
+}
+{
+"classname" "item_rockets"
+"origin" "144 -336 64"
+}
+{
+"classname" "item_shells"
+"origin" "144 -368 64"
+}
+{
+"classname" "item_rockets"
+"origin" "912 784 0"
+}
+{
+"classname" "info_player_deathmatch"
+"origin" "224 -416 24"
+"angle" "270"
+}
+{
+"classname" "func_door_secret"
+"angle" "360"
+"sounds" "2"
+"t_width" "-16"
+"t_length" "70"
+"targetname" "secret"
+"wait" "-1"
+"model" "*4"
+}
+{
+"classname" "item_artifact_invisibility"
+"origin" "-400 512 -40"
+}
+{
+"classname" "light"
+"origin" "-384 512 -32"
+"light" "250"
+}
+{
+"classname" "ambient_drip"
+"origin" "-160 352 -24"
+}
+{
+"mangle" "-20 100 5"
+"origin" "-304 400 -48"
+"classname" "info_intermission"
+}
+{
+"classname" "trigger_teleport"
+"target" "t3"
+"model" "*5"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "-352 0 64"
+"targetname" "t3"
+"angle" "360"
+}
+{
+"classname" "func_button"
+"angle" "360"
+"target" "secret"
+"speed" "50"
+"wait" "-1"
+"sounds" "2"
+"message" "Seek in the depths for the answers..."
+"model" "*6"
+}
+{
+"classname" "info_intermission"
+"origin" "864 672 192"
+"mangle" "10 260 5"
+}
+{
+"classname" "light"
+"origin" "224 -112 112"
+"light" "180"
+}
+{
+"light" "200"
+"origin" "144 464 80"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "-640 512 -8"
+"light" "250"
+}
+{
+"light" "150"
+"origin" "-384 688 -8"
+"classname" "light"
+}
+{
+"classname" "light"
+"origin" "-256 -192 328"
+"light" "180"
+}
+{
+"classname" "light"
+"origin" "168 0 -152"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "1416 -64 152"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "640 224 48"
+"light" "200"
+}
+{
+"classname" "light"
+"origin" "192 216 112"
+"light" "250"
+}
+{
+"classname" "item_rockets"
+"origin" "-40 384 64"
+}
+{
+"classname" "item_rockets"
+"origin" "1616 112 112"
+}
+{
+"classname" "monster_tarbaby"
+"origin" "-1664 -1344 88"
+"target" "endoor_trig"
+}
+{
+"origin" "-1600 -1344 88"
+"classname" "monster_tarbaby"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_tarbaby"
+"origin" "-1536 -1344 88"
+"target" "endoor_trig"
+}
+{
+"origin" "-1472 -1344 88"
+"classname" "monster_tarbaby"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_tarbaby"
+"origin" "-1408 -1344 88"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_shambler"
+"origin" "-1664 -1440 88"
+"target" "endoor_trig"
+}
+{
+"origin" "-1536 -1440 88"
+"classname" "monster_shambler"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_shalrath"
+"origin" "-1664 -1664 88"
+"target" "endoor_trig"
+}
+{
+"origin" "-1536 -1664 88"
+"classname" "monster_shalrath"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_wizard"
+"origin" "-1296 -1360 112"
+"target" "endoor_trig"
+}
+{
+"origin" "-1232 -1360 112"
+"classname" "monster_wizard"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_wizard"
+"origin" "-1232 -1424 112"
+"target" "endoor_trig"
+}
+{
+"origin" "-1296 -1424 112"
+"classname" "monster_wizard"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_wizard"
+"origin" "-1296 -1488 112"
+"target" "endoor_trig"
+}
+{
+"origin" "-1232 -1488 112"
+"classname" "monster_wizard"
+"target" "endoor_trig"
+}
+{
+"classname" "monster_demon1"
+"origin" "-1344 -1728 88"
+"target" "endoor_trig"
+}
+{
+"origin" "-1248 -1728 88"
+"classname" "monster_demon1"
+"target" "endoor_trig"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t4"
+"model" "*7"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t5"
+"model" "*8"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t6"
+"model" "*9"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t7"
+"model" "*10"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t8"
+"model" "*11"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t19"
+"model" "*12"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t20"
+"model" "*13"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t18"
+"model" "*14"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t17"
+"model" "*15"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t16"
+"model" "*16"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t15"
+"model" "*17"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t14"
+"model" "*18"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t13"
+"model" "*19"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t12"
+"model" "*20"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t10"
+"model" "*21"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t9"
+"model" "*22"
+}
+{
+"classname" "trigger_teleport"
+"spawnflags" "2"
+"targetname" "invasion"
+"target" "t11"
+"model" "*23"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "-312 -104 -176"
+"targetname" "t4"
+"angle" "45"
+}
+{
+"origin" "-160 160 -176"
+"classname" "info_teleport_destination"
+"targetname" "t5"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "160 96 -176"
+"targetname" "t6"
+}
+{
+"origin" "416 -608 8"
+"classname" "info_teleport_destination"
+"targetname" "t7"
+"angle" "135"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "608 520 -176"
+"targetname" "t8"
+"angle" "315"
+}
+{
+"origin" "-40 768 440"
+"classname" "info_teleport_destination"
+"targetname" "t9"
+"angle" "360"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "192 168 440"
+"targetname" "t10"
+"angle" "225"
+}
+{
+"origin" "-288 -128 496"
+"classname" "info_teleport_destination"
+"targetname" "t14"
+"angle" "360"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "872 -160 440"
+"targetname" "t13"
+"angle" "135"
+}
+{
+"origin" "1120 352 440"
+"classname" "info_teleport_destination"
+"targetname" "t12"
+"angle" "180"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "448 960 440"
+"targetname" "t11"
+"angle" "270"
+}
+{
+"origin" "1120 -32 8"
+"classname" "info_teleport_destination"
+"targetname" "t15"
+"angle" "180"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "928 736 8"
+"targetname" "t16"
+"angle" "225"
+}
+{
+"origin" "1600 32 128"
+"classname" "info_teleport_destination"
+"targetname" "t17"
+"angle" "180"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "-248 184 264"
+"targetname" "t18"
+"angle" "315"
+}
+{
+"origin" "-120 640 72"
+"classname" "info_teleport_destination"
+"targetname" "t19"
+"angle" "360"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "928 352 8"
+"targetname" "t20"
+"angle" "180"
+}
+{
+"classname" "func_button"
+"angle" "90"
+"sounds" "1"
+"health" "10"
+"wait" "-1"
+"speed" "100"
+"target" "invasion"
+"spawnflags" "2048"
+"model" "*24"
+}
+{
+"classname" "light"
+"origin" "-320 512 -416"
+"light" "300"
+}
+{
+"classname" "trigger_changelevel"
+"map" "uzul"
+"model" "*25"
+}
+{
+"classname" "func_door_secret"
+"spawnflags" "4"
+"speed" "100"
+"angle" "180"
+"wait" "-1"
+"t_length" "150"
+"targetname" "endoor"
+"sounds" "1"
+"model" "*26"
+}
+{
+"classname" "trigger_counter"
+"target" "endoor"
+"targetname" "endoor_trig"
+"message" "The exit is free now..."
+"count" "20"
+"model" "*27"
+}
+{
+"delay" "5"
+"classname" "trigger_once"
+"message" "So, you noclipped here...\n\nWhat now?"
+"model" "*28"
+}
+{
+"classname" "monster_shalrath"
+"origin" "-1664 -1760 96"
+"target" "endoor_trig"
+}
+{
+"origin" "-1536 -1760 96"
+"classname" "monster_shalrath"
+"target" "endoor_trig"
+}
+{
+"origin" "-136 -648 176"
+"classname" "info_teleport_destination"
+"targetname" "t22"
+"angle" "45"
+}
+{
+"classname" "trigger_teleport"
+"target" "t21"
+"targetname" "invasion"
+"spawnflags" "2"
+"model" "*29"
+}
+{
+"classname" "trigger_teleport"
+"target" "t22"
+"targetname" "invasion"
+"spawnflags" "2"
+"model" "*30"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "344 1016 200"
+"targetname" "t21"
+"angle" "270"
+}
+{
+"classname" "monster_zombie"
+"origin" "-1216 -1568 88"
+"target" "endoor_trig"
+}
+{
+"classname" "info_teleport_destination"
+"origin" "64 1024 136"
+"targetname" "t23"
+"angle" "270"
+}
+{
+"classname" "trigger_teleport"
+"target" "t23"
+"targetname" "invasion"
+"spawnflags" "2"
+"model" "*31"
+}
+{
+ "classname" "waypoint"
+ "origin" "846.8 449.5 2.0"
+ "waypointnumber" "104"
+ "waypointtype" "3"
+ "wp0" "90"
+ "wp1" "102"
+}
+{
+ "classname" "waypoint"
+ "origin" "602.2 185.1 2.0"
+ "waypointnumber" "103"
+ "waypointtype" "3"
+ "wp0" "86"
+}
+{
+ "classname" "waypoint"
+ "origin" "900.4 683.7 2.0"
+ "waypointnumber" "102"
+ "waypointtype" "3"
+ "wp0" "41"
+ "wp1" "52"
+ "wp2" "104"
+ "wp3" "53"
+ "wp4" "24"
+}
+{
+ "classname" "waypoint"
+ "origin" "1556.2 80.0 114.0"
+ "waypointnumber" "101"
+ "waypointtype" "3"
+ "wp0" "100"
+ "wp1" "2"
+}
+{
+ "classname" "waypoint"
+ "origin" "1372.8 -82.5 98.0"
+ "waypointnumber" "100"
+ "waypointtype" "3"
+ "wp0" "99"
+ "wp1" "101"
+}
+{
+ "classname" "waypoint"
+ "origin" "1325.7 -80.7 74.0"
+ "waypointnumber" "99"
+ "waypointtype" "3"
+ "wp0" "98"
+}
+{
+ "classname" "waypoint"
+ "origin" "1276.4 -66.9 50.0"
+ "waypointnumber" "98"
+ "waypointtype" "3"
+ "wp0" "97"
+ "wp1" "101"
+ "wp2" "3"
+ "wp3" "100"
+}
+{
+ "classname" "waypoint"
+ "origin" "1227.5 -54.3 26.0"
+ "waypointnumber" "97"
+ "waypointtype" "3"
+ "wp0" "3"
+}
+{
+ "classname" "waypoint"
+ "origin" "-318.1 82.2 -180.5"
+ "waypointnumber" "96"
+ "waypointtype" "3"
+ "wp0" "95"
+}
+{
+ "classname" "waypoint"
+ "origin" "-336.8 -138.2 -181.3"
+ "waypointnumber" "95"
+ "waypointtype" "3"
+ "wp0" "93"
+}
+{
+ "classname" "waypoint"
+ "origin" "-80.0 -80.4 -111.9"
+ "waypointnumber" "94"
+ "waypointtype" "3"
+ "wp0" "93"
+ "wp1" "73"
+ "wp2" "66"
+ "wp3" "10"
+ "wp4" "11"
+}
+{
+ "classname" "waypoint"
+ "origin" "-227.6 -239.9 11.6"
+ "waypointnumber" "93"
+ "waypointtype" "3"
+ "wp0" "11"
+}
+{
+ "classname" "waypoint"
+ "origin" "657.0 293.7 -36.2"
+ "waypointnumber" "92"
+ "waypointtype" "3"
+ "wp0" "51"
+ "wp1" "86"
+ "wp2" "64"
+ "wp3" "63"
+}
+{
+ "classname" "waypoint"
+ "origin" "915.4 -107.6 2.0"
+ "waypointnumber" "91"
+ "waypointtype" "3"
+ "wp0" "28"
+ "wp1" "4"
+ "wp2" "3"
+ "wp3" "5"
+}
+{
+ "classname" "waypoint"
+ "origin" "664.5 455.5 -21.5"
+ "waypointnumber" "90"
+ "waypointtype" "3"
+ "wp0" "55"
+ "wp1" "54"
+}
+{
+ "classname" "waypoint"
+ "origin" "224.0 -416.0 2.0"
+ "waypointnumber" "89"
+ "waypointtype" "3"
+ "wp0" "70"
+}
+{
+ "classname" "waypoint"
+ "origin" "649.6 34.3 2.0"
+ "waypointnumber" "88"
+ "waypointtype" "3"
+ "wp0" "28"
+ "wp1" "51"
+ "wp2" "5"
+ "wp3" "7"
+ "wp4" "4"
+ "wp5" "8"
+ "wp6" "103"
+}
+{
+ "classname" "waypoint"
+ "origin" "-296.7 166.1 -137.9"
+ "waypointnumber" "87"
+ "waypointtype" "3"
+ "wp0" "11"
+ "wp1" "67"
+}
+{
+ "classname" "waypoint"
+ "origin" "592.0 257.2 -33.0"
+ "waypointnumber" "86"
+ "waypointtype" "3"
+ "wp0" "6"
+ "wp1" "90"
+ "wp2" "88"
+ "wp3" "92"
+}
+{
+ "classname" "waypoint"
+ "origin" "1268.5 379.3 186.0"
+ "waypointnumber" "85"
+ "waypointtype" "3"
+ "wp0" "84"
+ "wp1" "25"
+}
+{
+ "classname" "waypoint"
+ "origin" "1325.6 360.5 162.0"
+ "waypointnumber" "84"
+ "waypointtype" "3"
+ "wp0" "26"
+ "wp1" "83"
+ "wp2" "85"
+ "wp3" "50"
+}
+{
+ "classname" "waypoint"
+ "origin" "1374.9 325.8 138.0"
+ "waypointnumber" "83"
+ "waypointtype" "3"
+ "wp0" "50"
+ "wp1" "24"
+ "wp2" "2"
+ "wp3" "85"
+ "wp4" "84"
+}
+{
+ "classname" "waypoint"
+ "origin" "950.6 85.0 2.0"
+ "waypointnumber" "82"
+ "waypointtype" "3"
+ "wp0" "3"
+ "wp1" "51"
+ "wp2" "27"
+ "wp3" "4"
+ "wp4" "91"
+}
+{
+ "classname" "waypoint"
+ "origin" "119.4 54.9 66.0"
+ "waypointnumber" "81"
+ "waypointtype" "3"
+ "wp0" "37"
+ "wp1" "80"
+ "wp2" "9"
+ "wp3" "12"
+ "wp4" "10"
+ "wp5" "8"
+}
+{
+ "classname" "waypoint"
+ "origin" "56.8 -100.2 66.0"
+ "waypointnumber" "80"
+ "waypointtype" "3"
+ "wp0" "10"
+ "wp1" "74"
+ "wp2" "42"
+}
+{
+ "classname" "waypoint"
+ "origin" "181.9 528.2 66.0"
+ "waypointnumber" "79"
+ "waypointtype" "3"
+ "wp0" "13"
+ "wp1" "58"
+ "wp2" "14"
+}
+{
+ "classname" "waypoint"
+ "origin" "303.9 568.5 242.0"
+ "waypointnumber" "78"
+ "waypointtype" "3"
+ "wp0" "77"
+ "wp1" "39"
+}
+{
+ "classname" "waypoint"
+ "origin" "365.1 597.0 226.0"
+ "waypointnumber" "77"
+ "waypointtype" "3"
+ "wp0" "40"
+ "wp1" "39"
+ "wp2" "41"
+}
+{
+ "classname" "waypoint"
+ "origin" "215.3 168.8 66.0"
+ "waypointnumber" "76"
+ "waypointtype" "3"
+ "wp0" "8"
+ "wp1" "81"
+ "wp2" "12"
+ "wp3" "9"
+ "wp4" "37"
+}
+{
+ "classname" "waypoint"
+ "origin" "5.5 -115.9 66.0"
+ "waypointnumber" "75"
+ "waypointtype" "3"
+ "wp0" "42"
+ "wp1" "34"
+ "wp2" "10"
+}
+{
+ "classname" "waypoint"
+ "origin" "1052.0 704.0 2.0"
+ "waypointnumber" "74"
+ "waypointtype" "4"
+ "wp0" "53"
+ "wp1" "52"
+ "wp2" "102"
+}
+{
+ "classname" "waypoint"
+ "origin" "-65.6 -89.0 -157.1"
+ "waypointnumber" "73"
+ "waypointtype" "3"
+ "wp0" "10"
+ "wp1" "67"
+ "wp2" "66"
+ "wp3" "94"
+}
+{
+ "classname" "waypoint"
+ "origin" "320.0 -764.0 2.0"
+ "waypointnumber" "72"
+ "waypointtype" "4"
+ "wp0" "71"
+}
+{
+ "classname" "waypoint"
+ "origin" "320.0 -672.0 2.0"
+ "waypointnumber" "71"
+ "waypointtype" "5"
+ "waypointitem" "weapon_rocketlauncher"
+ "wp0" "70"
+ "wp1" "89"
+}
+{
+ "classname" "waypoint"
+ "origin" "320.4 -556.4 -22.4"
+ "waypointnumber" "70"
+ "waypointtype" "3"
+ "wp0" "69"
+ "wp1" "71"
+ "wp2" "89"
+}
+{
+ "classname" "waypoint"
+ "origin" "311.9 -432.0 -45.9"
+ "waypointnumber" "69"
+ "waypointtype" "3"
+ "wp0" "68"
+ "wp1" "70"
+ "wp2" "71"
+}
+{
+ "classname" "waypoint"
+ "origin" "323.0 -191.6 -109.2"
+ "waypointnumber" "68"
+ "waypointtype" "3"
+ "wp0" "69"
+}
+{
+ "classname" "waypoint"
+ "origin" "-117.5 46.5 -189.9"
+ "waypointnumber" "67"
+ "waypointtype" "3"
+ "wp0" "66"
+ "wp1" "87"
+ "wp2" "94"
+ "wp3" "96"
+}
+{
+ "classname" "waypoint"
+ "origin" "128.0 0.0 -189.9"
+ "waypointnumber" "66"
+ "waypointtype" "5"
+ "waypointitem" "weapon_lightning"
+ "wp0" "65"
+ "wp1" "73"
+ "wp2" "67"
+ "wp3" "94"
+}
+{
+ "classname" "waypoint"
+ "origin" "310.0 34.4 -189.9"
+ "waypointnumber" "65"
+ "waypointtype" "3"
+ "wp0" "64"
+ "wp1" "66"
+ "wp2" "68"
+}
+{
+ "classname" "waypoint"
+ "origin" "512.5 177.4 -189.9"
+ "waypointnumber" "64"
+ "waypointtype" "3"
+ "wp0" "63"
+ "wp1" "65"
+ "wp2" "92"
+}
+{
+ "classname" "waypoint"
+ "origin" "643.4 374.1 -108.9"
+ "waypointnumber" "63"
+ "waypointtype" "3"
+ "wp0" "52"
+ "wp1" "86"
+ "wp2" "64"
+ "wp3" "92"
+}
+{
+ "classname" "waypoint"
+ "origin" "815.8 576.3 2.0"
+ "waypointnumber" "62"
+ "waypointtype" "3"
+ "wp0" "22"
+ "wp1" "52"
+ "wp2" "54"
+ "wp3" "53"
+ "wp4" "102"
+}
+{
+ "classname" "waypoint"
+ "origin" "-25.6 451.5 258.0"
+ "waypointnumber" "61"
+ "waypointtype" "3"
+ "wp0" "60"
+ "wp1" "37"
+}
+{
+ "classname" "waypoint"
+ "origin" "-192.0 640.0 258.0"
+ "waypointnumber" "60"
+ "waypointtype" "5"
+ "waypointitem" "item_artifact_super_damage"
+ "wp0" "38"
+}
+{
+ "classname" "waypoint"
+ "origin" "-32.0 -416.0 450.0"
+ "waypointnumber" "59"
+ "waypointtype" "5"
+ "waypointitem" "item_health"
+}
+{
+ "classname" "waypoint"
+ "origin" "211.9 694.7 50.0"
+ "waypointnumber" "58"
+ "waypointtype" "3"
+ "wp0" "57"
+}
+{
+ "classname" "waypoint"
+ "origin" "274.2 698.0 34.0"
+ "waypointnumber" "57"
+ "waypointtype" "3"
+ "wp0" "56"
+ "wp1" "14"
+ "wp2" "79"
+}
+{
+ "classname" "waypoint"
+ "origin" "336.5 699.6 18.0"
+ "waypointnumber" "56"
+ "waypointtype" "3"
+ "wp0" "55"
+ "wp1" "14"
+ "wp2" "79"
+}
+{
+ "classname" "waypoint"
+ "origin" "403.2 699.4 2.0"
+ "waypointnumber" "55"
+ "waypointtype" "3"
+ "wp0" "54"
+ "wp1" "57"
+ "wp2" "56"
+ "wp3" "58"
+}
+{
+ "classname" "waypoint"
+ "origin" "648.3 667.6 2.0"
+ "waypointnumber" "54"
+ "waypointtype" "3"
+ "wp0" "53"
+ "wp1" "55"
+ "wp2" "62"
+}
+{
+ "classname" "waypoint"
+ "origin" "896.0 640.0 2.0"
+ "waypointnumber" "53"
+ "waypointtype" "5"
+ "waypointitem" "weapon_rocketlauncher"
+ "wp0" "52"
+ "wp1" "62"
+ "wp2" "54"
+ "wp3" "21"
+}
+{
+ "classname" "waypoint"
+ "origin" "865.2 410.3 2.0"
+ "waypointnumber" "52"
+ "waypointtype" "3"
+ "wp0" "51"
+ "wp1" "62"
+ "wp2" "53"
+ "wp3" "85"
+ "wp4" "25"
+ "wp5" "104"
+}
+{
+ "classname" "waypoint"
+ "origin" "835.7 162.8 2.0"
+ "waypointnumber" "51"
+ "waypointtype" "3"
+ "wp0" "5"
+ "wp1" "82"
+ "wp2" "52"
+ "wp3" "88"
+ "wp4" "29"
+}
+{
+ "classname" "waypoint"
+ "origin" "1400.3 367.1 122.2"
+ "waypointnumber" "50"
+ "waypointtype" "3"
+ "wp0" "26"
+ "wp1" "1"
+ "wp2" "83"
+ "wp3" "84"
+}
+{
+ "classname" "waypoint"
+ "origin" "-144.9 -464.4 234.0"
+ "waypointnumber" "49"
+ "waypointtype" "3"
+ "wp0" "48"
+}
+{
+ "classname" "waypoint"
+ "origin" "-146.6 -515.7 210.0"
+ "waypointnumber" "48"
+ "waypointtype" "3"
+ "wp0" "47"
+}
+{
+ "classname" "waypoint"
+ "origin" "-137.3 -564.8 186.0"
+ "waypointnumber" "47"
+ "waypointtype" "3"
+ "wp0" "46"
+}
+{
+ "classname" "waypoint"
+ "origin" "-57.6 -649.0 162.0"
+ "waypointnumber" "46"
+ "waypointtype" "3"
+ "wp0" "45"
+}
+{
+ "classname" "waypoint"
+ "origin" "68.6 -494.4 138.0"
+ "waypointnumber" "45"
+ "waypointtype" "3"
+ "wp0" "44"
+}
+{
+ "classname" "waypoint"
+ "origin" "69.6 -445.3 114.0"
+ "waypointnumber" "44"
+ "waypointtype" "3"
+ "wp0" "43"
+}
+{
+ "classname" "waypoint"
+ "origin" "70.4 -398.3 90.0"
+ "waypointnumber" "43"
+ "waypointtype" "3"
+ "wp0" "42"
+ "wp1" "74"
+}
+{
+ "classname" "waypoint"
+ "origin" "140.6 -239.5 66.0"
+ "waypointnumber" "42"
+ "waypointtype" "3"
+ "wp0" "9"
+ "wp1" "74"
+ "wp2" "80"
+ "wp3" "43"
+ "wp4" "45"
+ "wp5" "75"
+ "wp6" "81"
+}
+{
+ "classname" "waypoint"
+ "origin" "508.9 903.7 194.0"
+ "waypointnumber" "41"
+ "waypointtype" "3"
+ "wp0" "40"
+ "wp1" "20"
+ "wp2" "21"
+ "wp3" "78"
+}
+{
+ "classname" "waypoint"
+ "origin" "428.2 669.6 210.0"
+ "waypointnumber" "40"
+ "waypointtype" "3"
+ "wp0" "39"
+ "wp1" "41"
+}
+{
+ "classname" "waypoint"
+ "origin" "218.4 503.0 258.0"
+ "waypointnumber" "39"
+ "waypointtype" "3"
+ "wp0" "38"
+ "wp1" "78"
+}
+{
+ "classname" "waypoint"
+ "origin" "65.4 403.9 258.0"
+ "waypointnumber" "38"
+ "waypointtype" "3"
+ "wp0" "37"
+ "wp1" "61"
+ "wp2" "39"
+}
+{
+ "classname" "waypoint"
+ "origin" "-114.5 233.5 258.0"
+ "waypointnumber" "37"
+ "waypointtype" "3"
+ "wp0" "36"
+ "wp1" "38"
+}
+{
+ "classname" "waypoint"
+ "origin" "-192.0 0.0 258.0"
+ "waypointnumber" "36"
+ "waypointtype" "5"
+ "waypointitem" "weapon_grenadelauncher"
+ "wp0" "35"
+ "wp1" "34"
+ "wp2" "37"
+}
+{
+ "classname" "waypoint"
+ "origin" "-179.7 -126.3 258.0"
+ "waypointnumber" "35"
+ "waypointtype" "3"
+ "wp0" "34"
+ "wp1" "36"
+}
+{
+ "classname" "waypoint"
+ "origin" "-84.8 -280.4 258.0"
+ "waypointnumber" "34"
+ "waypointtype" "3"
+ "wp0" "33"
+ "wp1" "49"
+ "wp2" "59"
+ "wp3" "35"
+}
+{
+ "classname" "waypoint"
+ "origin" "159.9 -326.7 258.0"
+ "waypointnumber" "33"
+ "waypointtype" "3"
+ "wp0" "32"
+ "wp1" "34"
+}
+{
+ "classname" "waypoint"
+ "origin" "400.7 -262.5 242.0"
+ "waypointnumber" "32"
+ "waypointtype" "3"
+ "wp0" "31"
+ "wp1" "33"
+}
+{
+ "classname" "waypoint"
+ "origin" "465.9 -248.8 226.0"
+ "waypointnumber" "31"
+ "waypointtype" "3"
+ "wp0" "30"
+ "wp1" "32"
+}
+{
+ "classname" "waypoint"
+ "origin" "531.6 -236.7 210.0"
+ "waypointnumber" "30"
+ "waypointtype" "3"
+ "wp0" "29"
+ "wp1" "32"
+ "wp2" "33"
+}
+{
+ "classname" "waypoint"
+ "origin" "602.1 -226.9 194.0"
+ "waypointnumber" "29"
+ "waypointtype" "3"
+ "wp0" "28"
+ "wp1" "32"
+ "wp2" "30"
+ "wp3" "31"
+}
+{
+ "classname" "waypoint"
+ "origin" "847.6 -180.4 194.0"
+ "waypointnumber" "28"
+ "waypointtype" "3"
+ "wp0" "27"
+ "wp1" "29"
+}
+{
+ "classname" "waypoint"
+ "origin" "987.3 -66.1 194.0"
+ "waypointnumber" "27"
+ "waypointtype" "3"
+ "wp0" "26"
+ "wp1" "28"
+}
+{
+ "classname" "waypoint"
+ "origin" "1128.4 135.6 194.0"
+ "waypointnumber" "26"
+ "waypointtype" "3"
+ "wp0" "25"
+ "wp1" "27"
+}
+{
+ "classname" "waypoint"
+ "origin" "1056.0 352.0 194.0"
+ "waypointnumber" "25"
+ "waypointtype" "5"
+ "waypointitem" "item_armor2"
+ "wp0" "24"
+ "wp1" "85"
+}
+{
+ "classname" "waypoint"
+ "origin" "1134.1 426.5 194.0"
+ "waypointnumber" "24"
+ "waypointtype" "3"
+ "wp0" "23"
+ "wp1" "85"
+ "wp2" "25"
+}
+{
+ "classname" "waypoint"
+ "origin" "1115.4 675.4 194.0"
+ "waypointnumber" "23"
+ "waypointtype" "3"
+ "wp0" "22"
+ "wp1" "72"
+ "wp2" "24"
+}
+{
+ "classname" "waypoint"
+ "origin" "966.1 875.1 194.0"
+ "waypointnumber" "22"
+ "waypointtype" "3"
+ "wp0" "21"
+ "wp1" "23"
+ "wp2" "72"
+}
+{
+ "classname" "waypoint"
+ "origin" "735.0 965.8 194.0"
+ "waypointnumber" "21"
+ "waypointtype" "3"
+ "wp0" "20"
+ "wp1" "22"
+ "wp2" "41"
+}
+{
+ "classname" "waypoint"
+ "origin" "486.8 984.7 194.0"
+ "waypointnumber" "20"
+ "waypointtype" "3"
+ "wp0" "19"
+ "wp1" "41"
+}
+{
+ "classname" "waypoint"
+ "origin" "237.9 1003.1 186.0"
+ "waypointnumber" "19"
+ "waypointtype" "3"
+ "wp0" "18"
+ "wp1" "20"
+}
+{
+ "classname" "waypoint"
+ "origin" "189.1 999.3 162.0"
+ "waypointnumber" "18"
+ "waypointtype" "3"
+ "wp0" "17"
+}
+{
+ "classname" "waypoint"
+ "origin" "140.4 993.8 138.0"
+ "waypointnumber" "17"
+ "waypointtype" "3"
+ "wp0" "16"
+ "wp1" "19"
+}
+{
+ "classname" "waypoint"
+ "origin" "46.3 925.8 114.0"
+ "waypointnumber" "16"
+ "waypointtype" "3"
+ "wp0" "15"
+ "wp1" "17"
+}
+{
+ "classname" "waypoint"
+ "origin" "34.6 878.6 90.0"
+ "waypointnumber" "15"
+ "waypointtype" "3"
+ "wp0" "14"
+ "wp1" "17"
+ "wp2" "16"
+}
+{
+ "classname" "waypoint"
+ "origin" "-32.0 640.0 66.0"
+ "waypointnumber" "14"
+ "waypointtype" "5"
+ "waypointitem" "weapon_supernailgun"
+ "wp0" "13"
+ "wp1" "15"
+ "wp2" "58"
+}
+{
+ "classname" "waypoint"
+ "origin" "-20.7 417.4 66.0"
+ "waypointnumber" "13"
+ "waypointtype" "3"
+ "wp0" "12"
+ "wp1" "14"
+ "wp2" "79"
+}
+{
+ "classname" "waypoint"
+ "origin" "35.3 174.0 66.0"
+ "waypointnumber" "12"
+ "waypointtype" "3"
+ "wp0" "10"
+ "wp1" "13"
+ "wp2" "9"
+ "wp3" "76"
+ "wp4" "81"
+ "wp5" "80"
+ "wp6" "39"
+}
+{
+ "classname" "waypoint"
+ "origin" "-272.0 0.0 34.0"
+ "waypointnumber" "11"
+ "waypointtype" "5"
+ "waypointitem" "item_armorInv"
+ "wp0" "10"
+ "wp1" "36"
+ "wp2" "75"
+}
+{
+ "classname" "waypoint"
+ "origin" "-144.6 3.0 49.8"
+ "waypointnumber" "10"
+ "waypointtype" "3"
+ "wp0" "9"
+ "wp1" "11"
+ "wp2" "12"
+ "wp3" "75"
+ "wp4" "81"
+}
+{
+ "classname" "waypoint"
+ "origin" "153.1 9.6 66.0"
+ "waypointnumber" "9"
+ "waypointtype" "3"
+ "wp0" "8"
+ "wp1" "12"
+ "wp2" "75"
+ "wp3" "80"
+ "wp4" "81"
+}
+{
+ "classname" "waypoint"
+ "origin" "401.8 19.7 50.0"
+ "waypointnumber" "8"
+ "waypointtype" "3"
+ "wp0" "7"
+ "wp1" "9"
+}
+{
+ "classname" "waypoint"
+ "origin" "464.1 20.1 34.0"
+ "waypointnumber" "7"
+ "waypointtype" "3"
+ "wp0" "6"
+ "wp1" "8"
+ "wp2" "76"
+}
+{
+ "classname" "waypoint"
+ "origin" "531.0 16.8 18.0"
+ "waypointnumber" "6"
+ "waypointtype" "3"
+ "wp0" "5"
+ "wp1" "8"
+ "wp2" "7"
+ "wp3" "88"
+}
+{
+ "classname" "waypoint"
+ "origin" "701.6 -46.7 2.0"
+ "waypointnumber" "5"
+ "waypointtype" "3"
+ "wp0" "4"
+ "wp1" "6"
+ "wp2" "7"
+ "wp3" "51"
+ "wp4" "88"
+}
+{
+ "classname" "waypoint"
+ "origin" "927.5 -153.7 2.0"
+ "waypointnumber" "4"
+ "waypointtype" "3"
+ "wp0" "3"
+ "wp1" "6"
+ "wp2" "5"
+ "wp3" "91"
+}
+{
+ "classname" "waypoint"
+ "origin" "1152.6 -47.7 2.0"
+ "waypointnumber" "3"
+ "waypointtype" "3"
+ "wp0" "2"
+ "wp1" "4"
+ "wp2" "82"
+ "wp3" "98"
+}
+{
+ "classname" "waypoint"
+ "origin" "1568.0 160.0 114.0"
+ "waypointnumber" "2"
+ "waypointtype" "5"
+ "waypointitem" "weapon_supershotgun"
+ "wp0" "1"
+ "wp1" "50"
+ "wp2" "101"
+}
+{
+ "classname" "waypoint"
+ "origin" "1632.0 352.0 114.4"
+ "waypointnumber" "1"
+ "waypointtype" "3"
+ "wp0" "50"
+ "wp1" "2"
+ "wp2" "83"
+}
