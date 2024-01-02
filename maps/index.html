@@ -96,31 +96,36 @@
             else return (size / 1024 / 1024).toFixed(2) + ' MB'; // In MB
         }
         fetch(`https://api.github.com/repos/${user}/${repo}/contents/${path}`)
-            .then(response => response.json())
-            .then(data => {
-                const fileList = document.getElementById('fileList');
-                data.forEach(file => {
-                    if (file.name.toLowerCase() !== 'index.html') { // Exclude 'index.html'
-                        const row = document.createElement('tr');
-                        const nameCell = document.createElement('td');
-                        const sizeCell = document.createElement('td');
+    .then(response => response.json())
+    .then(data => {
+        const fileList = document.getElementById('fileList');
+        data.forEach(file => {
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            const sizeCell = document.createElement('td');
+            const link = document.createElement('a');
 
-                        const link = document.createElement('a');
-                        link.href = `https://raw.githubusercontent.com/${user}/${repo}/master/${file.path}`;
-                        link.textContent = file.name;
-                        link.setAttribute('download', '');
-                        nameCell.appendChild(link);
+            if (file.type === "dir") {
+    // If it's a directory, point to the specific directory on the github.io page
+    link.href = `https://${user}.github.io/${path}/${file.name}`;
+            } else {
+                // If it's a file, point to the raw content
+                link.href = `https://raw.githubusercontent.com/${user}/${repo}/master/${path}/${file.name}`;
+                link.setAttribute('download', '');
+                sizeCell.textContent = formatSize(file.size);
+            }
 
-                        sizeCell.textContent = formatSize(file.size);
+            link.textContent = file.name;
+            nameCell.appendChild(link);
+            row.appendChild(nameCell);
+            row.appendChild(sizeCell);
+            fileList.appendChild(row);
+        });
+    })
+    .catch(error => console.error('Error fetching directory contents:', error));
 
-                        row.appendChild(nameCell);
-                        row.appendChild(sizeCell);
 
-                        fileList.appendChild(row);
-                    }
-                });
-            })
-            .catch(error => console.error('Error fetching directory contents:', error));
+
     </script>
 </body>
 </html>
