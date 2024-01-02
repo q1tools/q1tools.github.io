@@ -100,6 +100,12 @@
     .then(data => {
         const fileList = document.getElementById('fileList');
         data.forEach(file => {
+
+                // Skip 'index.html'
+    if (file.name.toLowerCase() === 'index.html') {
+        return; // Skip this iteration
+    }
+
             const row = document.createElement('tr');
             const nameCell = document.createElement('td');
             const sizeCell = document.createElement('td');
