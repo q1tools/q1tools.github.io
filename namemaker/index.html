@@ -786,7 +786,7 @@
 
                     <div id="saveContainer">
                         <input type="text" id="filename" placeholder="Enter file name" value="QuakeName.txt">
-                        <input type="button" id="saveButton" class="input-button fa" value="&#xf019;" onclick="saveName();">
+                        <input type="button" id="saveButton" class="input-button fa" value="&#xf019;" onclick="downloadAsWindows1252();">
                     </div>
 
                     <div id="dropZone">
@@ -807,6 +807,280 @@
                     buttonClick(buttonNumber);
                 });
             });
+
+            const utf8ToWindows1252Map = {
+                '\u001C': 0x1C, // File Separator
+                '\u0001': 0x01, // Start of Heading
+                '\u0002': 0x02, // Start of Text
+                '\u0003': 0x03, // End of Text
+                '\u201E': [0xE2, 0x80, 0x9E], // Double Low-9 Quotation Mark, UTF-8 encoded as 3 bytes
+                '\u0005': 0x05, // Enquiry
+                '\u2020': [0xE2, 0x80, 0xA0], // Dagger, UTF-8 encoded as 3 bytes
+                '\u2021': [0xE2, 0x80, 0xA1], // Double Dagger, UTF-8 encoded as 3 bytes
+                '\u02C6': [0xCB, 0x86], // Modifier Letter Circumflex Accent, UTF-8 encoded as 2 bytes
+                '\u2030': [0xE2, 0x80, 0xB0], // Per Mille Sign, UTF-8 encoded as 3 bytes
+                // disabled
+                '\u000B': 0x0B, // Vertical Tab
+                '\u000C': 0x0C, // Form Feed
+                // disabled
+                '\u000E': 0x0E, // Shift Out
+                '\u000F': 0x0F, // Shift In
+
+                '\u0010': 0x10, // Data Link Escape
+                '\u0011': 0x11, // Device Control 1 (often XON)
+                '\u0012': 0x12, // Device Control 2
+                '\u0013': 0x13, // Device Control 3 (often XOFF)
+                '\u0014': 0x14, // Device Control 4
+                '\u0015': 0x15, // Negative Acknowledgement
+                '\u0016': 0x16, // Synchronous Idle
+                '\u0017': 0x17, // End of Transmission Block
+                '\u0018': 0x18, // Cancel
+                '\u0019': 0x19, // End of Medium
+                '\u001A': 0x1A, // Substitute
+                '\u001B': 0x1B, // Escape
+                '\u001C': 0x1C, // File Separator
+                '\u001D': 0x1D, // Group Separator
+                '\u001E': 0x1E, // Record Separator
+                '\u001F': 0x1F, // Unit Separator
+
+                // normal chars ! - ~
+                '\u007F': 0x7F, // DELETE control character
+
+                '\u20AC': [0xE2, 0x82, 0xAC], // Euro Sign (€)
+                '\u0081': [0xC2, 0x81],       // <control character>
+                '\u201A': [0xE2, 0x80, 0x9A], // Single Low-9 Quotation Mark (‚)
+                '\u0192': [0xC6, 0x92],       // Latin Small Letter F With Hook (ƒ)
+                '\u201E': [0xE2, 0x80, 0x9E], // Double Low-9 Quotation Mark („)
+                '\u2026': [0xE2, 0x80, 0xA6], // Horizontal Ellipsis (…)
+                // '\u2021': [0xE2, 0x80, 0xA1], // Double Dagger (‡)
+                // '\u2021': [0xE2, 0x80, 0xA1], // Duplicate of above
+                '\u02C6': [0xCB, 0x86],       // Modifier Letter Circumflex Accent (ˆ)
+                '\u2030': [0xE2, 0x80, 0xB0], // Per Mille Sign (‰)
+                '\u0160': [0xC5, 0xA0],       // Latin Capital Letter S With Caron (Š)
+                '\u2039': [0xE2, 0x80, 0xB9], // Single Left-Pointing Angle Quotation Mark (‹)
+                '\u0152': [0xC5, 0x92],       // Latin Capital Ligature OE (Œ)
+                '\u008D': [0xC2, 0x8D],       // <control character>
+                '\u017D': [0xC5, 0xBD],       // Latin Capital Letter Z With Caron (Ž)
+                '\u008F': [0xC2, 0x8F],       // <control character>
+
+                '\u0090': [0xC2, 0x90],       // <control character>
+                '\u2018': [0xE2, 0x80, 0x98], // Left Single Quotation Mark (‘)
+                '\u2019': [0xE2, 0x80, 0x99], // Right Single Quotation Mark (’)
+                '\u201C': [0xE2, 0x80, 0x9C], // Left Double Quotation Mark (“)
+                '\u201D': [0xE2, 0x80, 0x9D], // Right Double Quotation Mark (”)
+                '\u2022': [0xE2, 0x80, 0xA2], // Bullet (•)
+                '\u2013': [0xE2, 0x80, 0x93], // En Dash (–)
+                '\u2014': [0xE2, 0x80, 0x94], // Em Dash (—)
+                '\u02DC': [0xCB, 0x9C],       // Small Tilde (˜)
+                '\u2122': [0xE2, 0x84, 0xA2], // Trade Mark Sign (™)
+                '\u0161': [0xC5, 0xA1],       // Latin Small Letter S With Caron (š)
+                '\u203A': [0xE2, 0x80, 0xBA], // Single Right-Pointing Angle Quotation Mark (›)
+                '\u0153': [0xC5, 0x93],       // Latin Small Ligature OE (œ)
+                '\u009D': [0xC2, 0x9D],       // <control character>
+                '\u017E': [0xC5, 0xBE],       // Latin Small Letter Z With Caron (ž)
+                '\u0178': [0xC5, 0xB8],       // Latin Capital Letter Y With Diaeresis (Ÿ)
+
+                '\u00A0': [0xC2, 0xA0],       // No-Break Space
+                '\u00A1': [0xC2, 0xA1],       // Inverted Exclamation Mark (¡)
+                '\u00A2': [0xC2, 0xA2],       // Cent Sign (¢)
+                '\u00A3': [0xC2, 0xA3],       // Pound Sign (£)
+                '\u00A4': [0xC2, 0xA4],       // Currency Sign (¤)
+                '\u00A5': [0xC2, 0xA5],       // Yen Sign (¥)
+                '\u00A6': [0xC2, 0xA6],       // Broken Bar (¦)
+                '\u00A7': [0xC2, 0xA7],       // Section Sign (§)
+                '\u00A8': [0xC2, 0xA8],       // Diaeresis (¨)
+                '\u00A9': [0xC2, 0xA9],       // Copyright Sign (©)
+                '\u00AA': [0xC2, 0xAA],       // Feminine Ordinal Indicator (ª)
+                '\u00AB': [0xC2, 0xAB],       // Left-Pointing Double Angle Quotation Mark («)
+                '\u00AC': [0xD0, 0xBD],       // Not Sign (¬)
+                '\u00AD': [0xC2, 0xAD],       // Soft Hyphen (­)
+                '\u00AE': [0xC2, 0xAE],       // Registered Sign (®)
+                '\u00AF': [0xC2, 0xAF],       // Macron (¯)
+
+                '\u00B0': [0xC2, 0xB0], // Degree Sign (°)
+                '\u00B1': [0xC2, 0xB1], // Plus-Minus Sign (±)
+                '\u00B2': [0xC2, 0xB2], // Superscript Two (²)
+                '\u00B3': [0xC2, 0xB3], // Superscript Three (³)
+                '\u00B4': [0xC2, 0xB4], // Acute Accent (´)
+                '\u00B5': [0xC2, 0xB5], // Micro Sign (µ)
+                '\u00B6': [0xC2, 0xB6], // Pilcrow Sign (¶)
+                '\u00B7': [0xC2, 0xB7], // Middle Dot (·)
+                '\u00B8': [0xC2, 0xB8], // Cedilla (¸)
+                '\u00B9': [0xC2, 0xB9], // Superscript One (¹)
+                '\u00BA': [0xC2, 0xBA], // Masculine Ordinal Indicator (º)
+                '\u00BB': [0xC2, 0xBB], // Right-Pointing Double Angle Quotation Mark (»)
+                '\u00BC': [0xC2, 0xBC], // Vulgar Fraction One Quarter (¼)
+                '\u00BD': [0xC2, 0xBD], // Vulgar Fraction One Half (½)
+                '\u00BE': [0xC2, 0xBE], // Vulgar Fraction Three Quarters (¾)
+                '\u00BF': [0xC2, 0xBF], // Inverted Question Mark (¿)
+
+                '\u00C0': [0xC3, 0x80], // Latin Capital Letter A With Grave (À)
+                '\u00C1': [0xC3, 0x81], // Latin Capital Letter A With Acute (Á)
+                '\u00C2': [0xC3, 0x82], // Latin Capital Letter A With Circumflex (Â)
+                '\u00C3': [0xC3, 0x83], // Latin Capital Letter A With Tilde (Ã)
+                '\u00C4': [0xC3, 0x84], // Latin Capital Letter A With Diaeresis (Ä)
+                '\u00C5': [0xC3, 0x85], // Latin Capital Letter A With Ring Above (Å)
+                '\u00C6': [0xC3, 0x86], // Latin Capital Letter AE (Æ)
+                '\u00C7': [0xC3, 0x87], // Latin Capital Letter C With Cedilla (Ç)
+                '\u00C8': [0xC3, 0x88], // Latin Capital Letter E With Grave (È)
+                '\u00C9': [0xC3, 0x89], // Latin Capital Letter E With Acute (É)
+                '\u00CA': [0xC3, 0x8A], // Latin Capital Letter E With Circumflex (Ê)
+                '\u00CB': [0xC3, 0x8B], // Latin Capital Letter E With Diaeresis (Ë)
+                '\u00CC': [0xC3, 0x8C], // Latin Capital Letter I With Grave (Ì)
+                '\u00CD': [0xC3, 0x8D], // Latin Capital Letter I With Acute (Í)
+                '\u00CE': [0xC3, 0x8E], // Latin Capital Letter I With Circumflex (Î)
+                '\u00CF': [0xC3, 0x8F], // Latin Capital Letter I With Diaeresis (Ï)
+
+                '\u00D0': [0xC3, 0x90], // Latin Capital Letter Eth (Ð)
+                '\u00D1': [0xC3, 0x91], // Latin Capital Letter N With Tilde (Ñ)
+                '\u00D2': [0xC3, 0x92], // Latin Capital Letter O With Grave (Ò)
+                '\u00D3': [0xC3, 0x93], // Latin Capital Letter O With Acute (Ó)
+                '\u00D4': [0xC3, 0x94], // Latin Capital Letter O With Circumflex (Ô)
+                '\u00D5': [0xC3, 0x95], // Latin Capital Letter O With Tilde (Õ)
+                '\u00D6': [0xC3, 0x96], // Latin Capital Letter O With Diaeresis (Ö)
+                '\u00D7': [0xC3, 0x97], // Multiplication Sign (×)
+                '\u00D8': [0xC3, 0x98], // Latin Capital Letter O With Stroke (Ø)
+                '\u00D9': [0xC3, 0x99], // Latin Capital Letter U With Grave (Ù)
+                '\u00DA': [0xC3, 0x9A], // Latin Capital Letter U With Acute (Ú)
+                '\u00DB': [0xC3, 0x9B], // Latin Capital Letter U With Circumflex (Û)
+                '\u00DC': [0xC3, 0x9C], // Latin Capital Letter U With Diaeresis (Ü)
+                '\u00DD': [0xC3, 0x9D], // Latin Capital Letter Y With Acute (Ý)
+                '\u00DE': [0xC3, 0x9E], // Latin Capital Letter Thorn (Þ)
+                '\u00DF': [0xC3, 0x9F], // Latin Small Letter Sharp S (ß)
+
+                '\u00E0': [0xC3, 0xA0], // Latin Small Letter A With Grave (à)
+                '\u00E1': [0xC3, 0xA1], // Latin Small Letter A With Acute (á)
+                '\u00E2': [0xC3, 0xA2], // Latin Small Letter A With Circumflex (â)
+                '\u00E3': [0xC3, 0xA3], // Latin Small Letter A With Tilde (ã)
+                '\u00E4': [0xC3, 0xA4], // Latin Small Letter A With Diaeresis (ä)
+                '\u00E5': [0xC3, 0xA5], // Latin Small Letter A With Ring Above (å)
+                '\u00E6': [0xC3, 0xA6], // Latin Small Letter AE (æ)
+                '\u00E7': [0xC3, 0xA7], // Latin Small Letter C With Cedilla (ç)
+                '\u00E8': [0xC3, 0xA8], // Latin Small Letter E With Grave (è)
+                '\u00E9': [0xC3, 0xA9], // Latin Small Letter E With Acute (é)
+                '\u00EA': [0xC3, 0xAA], // Latin Small Letter E With Circumflex (ê)
+                '\u00EB': [0xC3, 0xAB], // Latin Small Letter E With Diaeresis (ë)
+                '\u00EC': [0xC3, 0xAC], // Latin Small Letter I With Grave (ì)
+                '\u00ED': [0xC3, 0xAD], // Latin Small Letter I With Acute (í)
+                '\u00EE': [0xC3, 0xAE], // Latin Small Letter I With Circumflex (î)
+                '\u00EF': [0xC3, 0xAF], // Latin Small Letter I With Diaeresis (ï)
+
+                '\u00F0': [0xC3, 0xB0], // Latin Small Letter Eth (ð)
+                '\u00F1': [0xC3, 0xB1], // Latin Small Letter N With Tilde (ñ)
+                '\u00F2': [0xC3, 0xB2], // Latin Small Letter O With Grave (ò)
+                '\u00F3': [0xC3, 0xB3], // Latin Small Letter O With Acute (ó)
+                '\u00F4': [0xC3, 0xB4], // Latin Small Letter O With Circumflex (ô)
+                '\u00F5': [0xC3, 0xB5], // Latin Small Letter O With Tilde (õ)
+                '\u00F6': [0xC3, 0xB6], // Latin Small Letter O With Diaeresis (ö)
+                '\u00F7': [0xC3, 0xB7], // Division Sign (÷)
+                '\u00F8': [0xC3, 0xB8], // Latin Small Letter O With Stroke (ø)
+                '\u00F9': [0xC3, 0xB9], // Latin Small Letter U With Grave (ù)
+                '\u00FA': [0xC3, 0xBA], // Latin Small Letter U With Acute (ú)
+                '\u00FB': [0xC3, 0xBB], // Latin Small Letter U With Circumflex (û)
+                '\u00FC': [0xC3, 0xBC], // Latin Small Letter U With Diaeresis (ü)
+                '\u00FD': [0xC3, 0xBD], // Latin Small Letter Y With Acute (ý)
+                '\u00FE': [0xC3, 0xBE], // Latin Small Letter Thorn (þ)
+                '\u00FF': [0xC3, 0xBF] // Latin Small Letter Y With Diaeresis (ÿ)
+            };
+
+            function downloadAsWindows1252() {
+                var quakename = document.oqnm.name.value;
+                console.log("Quake Name:", quakename); // Debug print
+
+                var dequakename = translateName(document.oqnm.name.value);
+                console.log("Dequaked Name:", dequakename); // Debug print
+
+                var formattedName = `// dequake readable preview\n// ${dequakename}\n\nname "${quakename}"`;
+                console.log("Formatted Name:", formattedName); // Debug print
+
+                var filename = document.getElementById('filename').value;
+                console.log("Filename:", filename); // Debug print
+
+                convertAndDownload(formattedName, filename);
+            }
+
+            function convertAndDownload(text, filename) {
+                console.log("Converting and Downloading:", text, filename); // Debug print
+
+                // Step 1: Encode as UTF-8
+                let encoder = new TextEncoder();
+                let utf8Array = encoder.encode(text);
+
+                // Step 2: Convert UTF-8 to Windows-1252
+                let windows1252Array = convertUtf8ToWindows1252(utf8Array);
+
+                // Step 3: Create a Blob with Windows-1252 data
+                let blob = new Blob([new Uint8Array(windows1252Array)], { type: 'text/plain;charset=windows-1252' });
+
+                // Step 4: Trigger download
+                let url = URL.createObjectURL(blob);
+                let a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                console.log("Triggering download for:", url); // Debug print
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function convertUtf8ToWindows1252(utf8Array) {
+    const windows1252Array = [];
+    let i = 0;
+    while (i < utf8Array.length) {
+        let utf8Char = utf8Array[i];
+
+        // Single-byte characters (less than 128) are the same in UTF-8 and Windows-1252
+        if (utf8Char < 128) {
+            windows1252Array.push(utf8Char);
+            i++;
+            continue;
+        }
+
+        // Determine the number of bytes in the UTF-8 character
+        let byteCount = 1;
+        if (utf8Char >= 0xF0) byteCount = 4; // 11110xxx
+        else if (utf8Char >= 0xE0) byteCount = 3; // 1110xxxx
+        else if (utf8Char >= 0xC0) byteCount = 2; // 110xxxxx
+
+        // Read the full UTF-8 character
+        let utf8Bytes = utf8Array.slice(i, i + byteCount);
+        console.log("UTF-8 Bytes:", utf8Bytes.map(b => '0x' + b.toString(16).toUpperCase()).join(' '));
+
+        let mapped = false;
+
+        for (let key in utf8ToWindows1252Map) {
+            if (arraysEqual(utf8ToWindows1252Map[key], utf8Bytes)) {
+                // For multi-byte sequences, append each byte in the sequence
+                if (Array.isArray(utf8ToWindows1252Map[key])) {
+                    windows1252Array.push(...utf8ToWindows1252Map[key]);
+                } else {
+                    windows1252Array.push(utf8ToWindows1252Map[key]);
+                }
+                mapped = true;
+                break;
+            }
+        }
+
+        if (!mapped) {
+            // If no mapping found, handle as needed (e.g., discard or use placeholder)
+            console.warn("No mapping for UTF-8 character:", utf8Bytes);
+        }
+
+        i += byteCount;
+    }
+
+    console.log("Final Windows-1252 Array:", windows1252Array);
+    return windows1252Array;
+}
+
+function arraysEqual(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+
 
             function saveName() {
                 var quakename = document.oqnm.name.value;
