@@ -49,6 +49,7 @@ body a:visited {
     justify-content: center; /* Center the items horizontally */
     max-width: 80%; /* Ensure container takes full width */
     margin: auto; /* Center the container */
+    padding: 30px 0; /* Add padding to top and bottom */
 }
 
 .row {
