@@ -91,7 +91,7 @@ footer {
 }
 
 /* Responsive styles for mobile */
-@media screen and (max-width: 550px) {
+@media screen and (max-width: 580px) {
     .container {
         flex-direction: column;
         max-width: 100%;
