@@ -1,0 +1,86 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000000; /* Dark background */
+    color: #4f4f4f; /* Light text */
+    font-family: Arial, sans-serif;
+    font-size: 12pt;;
+    justify-content: center;
+    align-items: center;
+}
+
+::selection {
+    background: #787878;
+    /* Background color for the selected text */
+    color: #7a7a7a;
+    /* Text color for the selected text */
+}
+
+/* For Mozilla Firefox, you need to use the vendor prefix */
+::-moz-selection {
+    background: #787878;
+    color: #7a7a7a;
+}
+
+body a {
+    color: #989898;
+    text-decoration: none;
+}
+
+body a:active {
+    color: #989898;
+}
+
+body a:hover {
+    text-decoration-color: #989898;
+}
+
+body a:visited {
+    color: #989898;
+}
+
+.header-image {
+    width: 35px;
+    height: auto;
+    /* This will maintain the aspect ratio */
+    margin-right: 12px;
+}
+
+.header-container {
+    display: flex;
+    align-items: center;
+    /* This aligns the items vertically in the center */
+    margin: 12px;
+    color: #7a7a7a
+
+}
+
+.drop-zone {
+    border: 2px dashed #747474;
+    border-radius: 10px;
+    text-align: center;
+    padding: 20px;
+    cursor: pointer;
+    margin: 16px;
+}
+
+.drop-zone.highlight {
+    background-color: #444444; /* Change as needed */
+}
+
+input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+}
+
+footer {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    color: inherit; /* White text */
+    font-size: 0.6em; /* Smaller font size */
+}
