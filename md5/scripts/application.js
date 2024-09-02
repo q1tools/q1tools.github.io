@@ -1756,7 +1756,19 @@ Application = function () {
 
     let textureSrc = ''; // Global variable to store the selected texture file name
 
+    function resetScene() {
+        entities.length = 0;
+        textureSrc = 0;
+        // Reset the impModel and impAnims arrays to ensure no leftover data from previous models
+        impModel = null;
+        impAnims.length = 0;
+        document.getElementById('dropZone').style.backgroundColor = "#000";
+    }
+
     function handleFiles(files) {
+
+        resetScene(); // Reset the scene for new models
+
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
             console.log("Processing file:", file.name);
@@ -1832,6 +1844,10 @@ Application = function () {
                 console.warn("No animation found to run frame for model:", this.model);
             }
         };
+
+        document.getElementById('dropZone').style.backgroundColor = "#000";
+
+
     }
     
     
