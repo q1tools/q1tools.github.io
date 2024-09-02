@@ -1757,11 +1757,22 @@ Application = function () {
     let textureSrc = ''; // Global variable to store the selected texture file name
 
     function resetScene() {
-        entities.length = 0;
-        textureSrc = 0;
-        // Reset the impModel and impAnims arrays to ensure no leftover data from previous models
-        impModel = null;
-        impAnims.length = 0;
+        // Clear all entities and reset the scene variables
+        entities.length = 0;  // Clear the entities array
+    
+        // Revoke any previously created object URLs to avoid memory leaks
+        if (textureSrc) {
+            URL.revokeObjectURL(textureSrc);
+        }
+        textureSrc = '';  // Reset the texture source to an empty string
+    
+        // Clear out the impModel and impAnims arrays
+        if (impModel) {
+            impModel = null;  // Explicitly set to null to ensure it's cleared
+        }
+        impAnims.length = 0;  // Clear the impAnims array
+    
+        // Reset the background color after resetting the scene
         document.getElementById('dropZone').style.backgroundColor = "#000";
     }
 
