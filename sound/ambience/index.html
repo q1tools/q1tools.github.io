@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Directory Listing</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon.png">
+    <style>
+        body {
+            background-color: #333;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #5b5b5b;
+        }
+        th {
+            cursor: pointer;
+        }
+        a {
+            color: #b7b7b7;
+        }
+    </style>
+</head>
+<body>
+    <div class="directory-path">
+        <h1 id="directoryHeading">Index of /</h1>
+    </div>
+    <table id="fileTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable('name')">Name</th>
+                <th onclick="sortTable('size')">Size</th>
+            </tr>
+        </thead>
+        <tbody id="fileList"></tbody>
+    </table>
+
+    <script>
+        const user = 'q1tools'; // Your GitHub username
+        const repo = 'q1tools.github.io'; // Your repository name
+        const path = 'sounds/ambience'; // Path to the directory in your repository
+
+        document.getElementById('directoryHeading').textContent += path;
+
+
+        function sortTable(column) {
+            let table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+            table = document.getElementById("fileTable");
+            switching = true;
+            dir = "asc"; 
+            while (switching) {
+                switching = false;
+                rows = table.getElementsByTagName("TR");
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    x = rows[i].getElementsByTagName("TD")[column === 'name' ? 0 : 1];
+                    y = rows[i + 1].getElementsByTagName("TD")[column === 'name' ? 0 : 1];
+                    if (dir == "asc") {
+                        if ((column === 'name' && x.textContent.toLowerCase() > y.textContent.toLowerCase()) ||
+                            (column === 'size' && parseFloat(x.textContent) > parseFloat(y.textContent))) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else if (dir == "desc") {
+                        if ((column === 'name' && x.textContent.toLowerCase() < y.textContent.toLowerCase()) ||
+                            (column === 'size' && parseFloat(x.textContent) < parseFloat(y.textContent))) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchcount++;
+                } else {
+                    if (switchcount == 0 && dir == "asc") {
+                        dir = "desc";
+                        switching = true;
+                    }
+                }
+            }
+        }
+
+        function formatSize(size) {
+            if (size < 1024) return size + ' bytes'; // Less than 1 KB
+            else if (size < 1024 * 1024) return (size / 1024).toFixed(2) + ' KB'; // Less than 1 MB
+            else return (size / 1024 / 1024).toFixed(2) + ' MB'; // In MB
+        }
+        fetch(`https://api.github.com/repos/${user}/${repo}/contents/${path}`)
+    .then(response => response.json())
+    .then(data => {
+        const fileList = document.getElementById('fileList');
+        data.forEach(file => {
+
+                // Skip 'index.html'
+    if (file.name.toLowerCase() === 'index.html') {
+        return; // Skip this iteration
+    }
+
+            const row = document.createElement('tr');
+            const nameCell = document.createElement('td');
+            const sizeCell = document.createElement('td');
+            const link = document.createElement('a');
+
+            if (file.type === "dir") {
+    // If it's a directory, point to the specific directory on the github.io page
+    link.href = `https://${user}.github.io/${path}/${file.name}`;
+            } else {
+                // If it's a file, point to the raw content
+                link.href = `https://raw.githubusercontent.com/${user}/${repo}/master/${path}/${file.name}`;
+                link.setAttribute('download', '');
+                sizeCell.textContent = formatSize(file.size);
+            }
+
+            link.textContent = file.name;
+            nameCell.appendChild(link);
+            row.appendChild(nameCell);
+            row.appendChild(sizeCell);
+            fileList.appendChild(row);
+        });
+    })
+    .catch(error => console.error('Error fetching directory contents:', error));
+
+
+
+    </script>
+</body>
+</html>
