@@ -1,0 +1,27 @@
+-2236 -3641  416 lg
+2121  911  768 $loc_name_mh
+1085 -1546 2336 gl$loc_name_separatorbridge
+-4042 -6745 2624 sng$loc_name_separatorquad button
+1819 -6671  224 ssg$loc_name_separatorteleport
+-2617 -1862 2048 $loc_name_ra$loc_name_separatorroom
+2401 -4820 2400 ammo ledge
+1509 -3623  416 lower lava
+-1640  504  512 lg$loc_name_separatorback hall
+ 408 3341 2528 $loc_name_ya
+1559  -13 2336 gl$loc_name_separatorbridge
+-3969  642 1184 back stairs$loc_name_separatorrl
+-5599  101 1568 back stairs$loc_name_separatorrl
+-5385 -2046 1568 $loc_name_ra$loc_name_separatorroom
+-3735 -8384 1184 $loc_name_ra$loc_name_separatorteleport
+-4050 -5675 1568 $loc_name_ra$loc_name_separatorroom
+-4011 -6821 1568 $loc_name_ra$loc_name_separatorteleport
+-1681 -4135 2048 $loc_name_ra$loc_name_separatorroom
+ 214 -3956 4992 $loc_name_quad
+-2273 -1420  512 lg$loc_name_separatorback hall
+1366    3  704 $loc_name_mh
+4006 1940 2048 $loc_name_ya$loc_name_separatorrl
+5518 -2126  512 $loc_name_ga
+4925 -3800  512 $loc_name_ga
+3587 -5282  224 ssg$loc_name_separatorteleport
+-6207 -5864 2496 $loc_name_ra
+ 984 -3697 1824 ammo ledge
