@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>MD3 Viewer</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <h1 class="header-container"><img src="md3.png" class="header-image" alt="">MD3 Viewer</h1>
+    <div id="md3DropZone" class="drop-zone">Drag or click to select md3 model (.md3) <span style="color:#e85860;">and</span> a texture (.png or .jpg). Textures are not embedded in md3 models.</div>
+    <input type="file" id="md3Input" accept=".md3, .jpg, .png" hidden multiple>
+    <!-- Add this viewer div -->
+    <div id="viewer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.129.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.129.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        class MD3Loader {
+            constructor(manager) {
+                this.manager = manager !== undefined ? manager : THREE.DefaultLoadingManager;
+                this.scale = 1;
+            }
+
+            load(url, onLoad, onProgress, onError) {
+                const loader = new THREE.FileLoader(this.manager);
+                loader.setResponseType('arraybuffer');
+                loader.load(url, (buffer) => {
+                    onLoad(this.parse(buffer));
+                }, onProgress, onError);
+            }
+
+            parse(buffer) {
+                const data = new DataView(buffer);
+                const header = this.parseHeader(data);
+
+                if (header.ident !== "IDP3") {
+                    console.error('MD3Loader: Not a valid MD3 file.');
+                    return null;
+                }
+
+                const geometry = new THREE.BufferGeometry();
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    transparent: false, // Ensure the material is not transparent
+                    opacity: 1, // Set full opacity
+                    alphaTest: 0.5, // Increased alpha test value
+                    depthWrite: true, // Ensure depth writing is enabled
+                    depthTest: true,  // Ensure depth testing is enabled
+                    side: THREE.DoubleSide, // Render both sides of the mesh
+                    blending: THREE.NoBlending, // Disable blending to avoid transparency issues
+                });
+                const vertices = [];
+                const normals = [];
+                const uvs = [];
+                const indices = [];
+
+                this.parseFrames(data, header);
+                this.parseTags(data, header);
+                this.parseSurfaces(data, header, vertices, normals, uvs, indices);
+
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                geometry.setIndex(indices);
+
+                geometry.computeVertexNormals(); // Ensure normals are correctly computed
+                geometry.computeBoundingBox();   // Compute bounding box for additional safety
+
+                const mesh = new THREE.Mesh(geometry, material);
+                return mesh;
+            }
+
+            parseHeader(data) {
+                return {
+                    ident: this.readString(data, 0, 4),
+                    version: data.getInt32(4, true),
+                    name: this.readString(data, 8, 64),
+                    flags: data.getInt32(72, true),
+                    numFrames: data.getInt32(76, true),
+                    numTags: data.getInt32(80, true),
+                    numSurfaces: data.getInt32(84, true),
+                    numSkins: data.getInt32(88, true),
+                    ofsFrames: data.getInt32(92, true),
+                    ofsTags: data.getInt32(96, true),
+                    ofsSurfaces: data.getInt32(100, true),
+                    ofsEnd: data.getInt32(104, true)
+                };
+            }
+
+            parseFrames(data, header) {
+                const frames = [];
+                let offset = header.ofsFrames;
+
+                for (let i = 0; i < header.numFrames; i++) {
+                    const frame = {
+                        minBounds: this.readVector3(data, offset),
+                        maxBounds: this.readVector3(data, offset + 12),
+                        localOrigin: this.readVector3(data, offset + 24),
+                        radius: data.getFloat32(offset + 36, true),
+                        name: this.readString(data, offset + 40, 16)
+                    };
+                    frames.push(frame);
+                    offset += 56;
+                }
+
+                return frames;
+            }
+
+            parseTags(data, header) {
+                const tags = [];
+                let offset = header.ofsTags;
+
+                for (let i = 0; i < header.numTags * header.numFrames; i++) {
+                    const tag = {
+                        name: this.readString(data, offset, 64),
+                        origin: this.readVector3(data, offset + 64),
+                        axis: [
+                            this.readVector3(data, offset + 76),
+                            this.readVector3(data, offset + 88),
+                            this.readVector3(data, offset + 100)
+                        ]
+                    };
+                    tags.push(tag);
+                    offset += 112;
+                }
+
+                return tags;
+            }
+
+            parseSurfaces(data, header, vertices, normals, uvs, indices) {
+                let offset = header.ofsSurfaces;
+
+                for (let i = 0; i < header.numSurfaces; i++) {
+                    const surfaceHeader = this.parseSurfaceHeader(data, offset);
+
+                    this.parseSurfaceTriangles(data, surfaceHeader, indices, offset);
+                    this.parseSurfaceUVs(data, surfaceHeader, uvs, offset);
+                    this.parseSurfaceVertices(data, surfaceHeader, vertices, normals, offset);
+
+                    offset += surfaceHeader.ofsEnd;
+                }
+            }
+
+            parseSurfaceHeader(data, offset) {
+                return {
+                    ident: this.readString(data, offset, 4),
+                    name: this.readString(data, offset + 4, 64),
+                    flags: data.getInt32(offset + 68, true),
+                    numFrames: data.getInt32(offset + 72, true),
+                    numShaders: data.getInt32(offset + 76, true),
+                    numVerts: data.getInt32(offset + 80, true),
+                    numTriangles: data.getInt32(offset + 84, true),
+                    ofsTriangles: data.getInt32(offset + 88, true),
+                    ofsShaders: data.getInt32(offset + 92, true),
+                    ofsSt: data.getInt32(offset + 96, true),
+                    ofsXyzNormal: data.getInt32(offset + 100, true),
+                    ofsEnd: data.getInt32(offset + 104, true)
+                };
+            }
+
+            parseSurfaceTriangles(data, surfaceHeader, indices, offset) {
+                let triangleOffset = offset + surfaceHeader.ofsTriangles;
+
+                for (let i = 0; i < surfaceHeader.numTriangles; i++) {
+                    indices.push(
+                        data.getInt32(triangleOffset, true),
+                        data.getInt32(triangleOffset + 4, true),
+                        data.getInt32(triangleOffset + 8, true)
+                    );
+                    triangleOffset += 12;
+                }
+            }
+
+            parseSurfaceUVs(data, surfaceHeader, uvs, offset) {
+                let uvOffset = offset + surfaceHeader.ofsSt;
+
+                for (let i = 0; i < surfaceHeader.numVerts; i++) {
+                    uvs.push(
+                        data.getFloat32(uvOffset, true),
+                        data.getFloat32(uvOffset + 4, true)
+                    );
+                    uvOffset += 8;
+                }
+            }
+
+            parseSurfaceVertices(data, surfaceHeader, vertices, normals, offset) {
+                let vertexOffset = offset + surfaceHeader.ofsXyzNormal;
+
+                for (let i = 0; i < surfaceHeader.numVerts * surfaceHeader.numFrames; i++) {
+                    vertices.push(
+                        data.getInt16(vertexOffset, true) * this.scale,
+                        data.getInt16(vertexOffset + 2, true) * this.scale,
+                        data.getInt16(vertexOffset + 4, true) * this.scale
+                    );
+
+                    const normal = data.getInt16(vertexOffset + 6, true);
+                    normals.push(...this.decodeNormal(normal));
+
+                    vertexOffset += 8;
+                }
+            }
+
+            decodeNormal(normal) {
+                const lat = (normal >> 8) & 0xff;
+                const lng = normal & 0xff;
+
+                const latRad = lat * Math.PI / 128;
+                const lngRad = lng * Math.PI / 128;
+
+                const x = Math.cos(latRad) * Math.sin(lngRad);
+                const y = Math.sin(latRad) * Math.sin(lngRad);
+                const z = Math.cos(lngRad);
+
+                return [x, y, z];
+            }
+
+            readString(data, offset, length) {
+                let str = '';
+                for (let i = 0; i < length; i++) {
+                    const char = data.getUint8(offset + i);
+                    if (char === 0) break;
+                    str += String.fromCharCode(char);
+                }
+                return str;
+            }
+
+            readVector3(data, offset) {
+                return [
+                    data.getFloat32(offset, true),
+                    data.getFloat32(offset + 4, true),
+                    data.getFloat32(offset + 8, true)
+                ];
+            }
+        }
+
+        // Set up the scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: false }); // Ensure alpha is false
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x333333, 1); // Fully opaque background
+        document.getElementById('viewer').appendChild(renderer.domElement);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); // Increased intensity for better visibility
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 1).normalize(); // Position light to simulate sunlight
+        scene.add(directionalLight);
+
+        camera.position.z = 5;
+
+        let model; // Variable to store the current model
+        let texture; // Variable to store the current texture
+
+        // Drag-and-Drop Setup
+        const dropArea = document.getElementById('md3DropZone');
+
+        dropArea.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropArea.classList.add('highlight');
+        });
+
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.classList.remove('highlight');
+        });
+
+        dropArea.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropArea.classList.remove('highlight');
+
+            const files = event.dataTransfer.files;
+            let md3File = null;
+            let textureFile = null;
+
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.endsWith('.md3')) {
+                    md3File = files[i];
+                } else if (files[i].name.endsWith('.jpg') || files[i].name.endsWith('.png')) {
+                    textureFile = files[i];
+                }
+            }
+
+            if (md3File) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const arrayBuffer = e.target.result;
+                    const loader = new MD3Loader(); // Use the MD3Loader defined above
+                    try {
+                        const object = loader.parse(arrayBuffer);
+
+                        if (model) {
+                            scene.remove(model);
+                        }
+
+                        model = object;
+                        model.scale.set(0.0015, 0.0015, 0.0015); // Scale down the model
+
+                        if (texture) {
+                            model.traverse(function(child) {
+                                if (child.isMesh) {
+                                    child.material.map = texture; // Apply texture to all meshes
+                                    child.material.transparent = false; // Ensure no transparency
+                                    child.material.opacity = 1; // Set full opacity
+                                    child.material.needsUpdate = true;
+                                }
+                            });
+                        }
+
+                        scene.add(model);
+
+                    } catch (err) {
+                        console.error('Error parsing MD3 file:', err);
+                    }
+                };
+                reader.readAsArrayBuffer(md3File);
+            }
+
+            if (textureFile) {
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(URL.createObjectURL(textureFile), function(loadedTexture) {
+                    loadedTexture.flipY = false; // Prevent flipping the texture
+                    texture = loadedTexture;
+
+                    if (model) {
+                        model.traverse(function(child) {
+                            if (child.isMesh) {
+                                child.material.map = texture; // Apply texture to all meshes
+                                child.material.transparent = false; // Ensure no transparency
+                                child.material.opacity = 1; // Set full opacity
+                                child.material.needsUpdate = true;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        dropArea.addEventListener('click', () => {
+            document.getElementById('md3Input').click();
+        });
+
+        document.getElementById('md3Input').addEventListener('change', (event) => {
+            const files = event.target.files;
+            let md3File = null;
+            let textureFile = null;
+
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.endsWith('.md3')) {
+                    md3File = files[i];
+                } else if (files[i].name.endsWith('.jpg') || files[i].name.endsWith('.png')) {
+                    textureFile = files[i];
+                }
+            }
+
+            if (md3File) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const arrayBuffer = e.target.result;
+                    const loader = new MD3Loader();
+                    try {
+                        const object = loader.parse(arrayBuffer);
+
+                        if (model) {
+                            scene.remove(model);
+                        }
+
+                        model = object;
+                        model.scale.set(0.0015, 0.0015, 0.0015);
+
+                        if (texture) {
+                            model.traverse(function(child) {
+                                if (child.isMesh) {
+                                    child.material.map = texture;
+                                    child.material.transparent = false;
+                                    child.material.opacity = 1;
+                                    child.material.needsUpdate = true;
+                                }
+                            });
+                        }
+
+                        scene.add(model);
+
+                    } catch (err) {
+                        console.error('Error parsing MD3 file:', err);
+                    }
+                };
+                reader.readAsArrayBuffer(md3File);
+            }
+
+            if (textureFile) {
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(URL.createObjectURL(textureFile), function(loadedTexture) {
+                    loadedTexture.flipY = false;
+                    texture = loadedTexture;
+
+                    if (model) {
+                        model.traverse(function(child) {
+                            if (child.isMesh) {
+                                child.material.map = texture;
+                                child.material.transparent = false;
+                                child.material.opacity = 1;
+                                child.material.needsUpdate = true;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            if (model) {
+                model.rotation.y += 0.005; // Rotation speed
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+
+    <footer>
+        Created by woods &nbsp;&nbsp;|&nbsp;&nbsp; <a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </footer>
+</body>
+
+</html>

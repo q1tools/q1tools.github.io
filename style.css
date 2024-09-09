@@ -1,36 +1,35 @@
 body {
     margin: 0;
     padding: 0;
-    background-color: #333; /* Dark background */
-    color: #8f8f8f; /* Light text */
+    background-color: #333;
+    color: #8f8f8f;
     font-family: Arial, sans-serif;
-    font-size: 10pt;;
+    font-size: 10pt;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh; /* Full viewport height */
+    min-height: 100vh; /* Ensure content takes at least the full viewport height */
 }
 
-
+/* Selection styles */
 ::selection {
     background: #787878;
-    /* Background color for the selected text */
     color: #b0b0b0;
-    /* Text color for the selected text */
 }
 
-/* For Mozilla Firefox, you need to use the vendor prefix */
 ::-moz-selection {
     background: #787878;
     color: #b0b0b0;
 }
 
+/* Link styles */
 body a {
     color: #989898;
     text-decoration: none;
 }
 
-body a:active {
+body a:active, body a:visited {
     color: #989898;
 }
 
@@ -38,29 +37,26 @@ body a:hover {
     text-decoration-color: #989898;
 }
 
-body a:visited {
-    color: #989898;
-}
-
+/* Container and Row styles */
 .container {
     display: flex;
-    flex-wrap: wrap; /* Allow wrapping */
-    gap: 30px; /* Space between rows and divs */
-    justify-content: center; /* Center the items horizontally */
-    max-width: 80%; /* Ensure container takes full width */
-    margin: auto; /* Center the container */
-    padding: 30px 0; /* Add padding to top and bottom */
+    flex-wrap: wrap;
+    gap: 30px;
+    justify-content: center;
+    max-width: 100%;
+    margin: auto;
+    padding: 30px 0;
+    text-decoration: none;
 }
 
 .row {
     display: flex;
-    flex-direction: row; /* Align items horizontally */
-    gap: 30px; /* Space between divs */
+    flex-direction: row;
+    gap: 30px;
 }
 
+/* Clickable div styles */
 .clickable-div {
-    width: calc(50% - 15px); /* Adjust width to fit two per row, accounting for gap */
-
     width: 30vh;
     height: 30vh;
     font-size: 3vh;
@@ -74,27 +70,117 @@ body a:visited {
     color: inherit;
     border: 2px solid #4f4f4f;
     padding: 10px;
-    
+}
+
+.clickable-div-no-image {
+    width: 34vh;
+    height: 10vh;
+    font-size: 4vh;
+    background-color: #383838;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+    border: 2px solid #4f4f4f;
+    padding: 10px;
 }
 
 .clickable-div img {
-    width: 20vh; /* Image width */
-    height: auto; /* Maintain aspect ratio */
-    margin-bottom: 14px; /* Space between image and text */
-}
-
-.clickable-div span {
-    margin-top: 0; /* Adjust if needed */
+    width: 20vh;
+    height: auto;
+    margin-bottom: 14px;
 }
 
 .clickable-div:hover {
     background-color: #474747;
+    text-decoration: none;
 }
 
+.clickable-div-no-image:hover {
+    background-color: #474747;
+    text-decoration: none;
+}
+
+/* Footer styles */
 footer {
     position: fixed;
     right: 10px;
     bottom: 10px;
-    color: inherit; /* White text */
-    font-size: 0.8em; /* Smaller font size */
+    color: inherit;
+    font-size: 0.8em;
+}
+
+/* Responsive styles for mobile */
+@media screen and (max-width: 580px) {
+    .container {
+        flex-direction: column;
+        max-width: 100%;
+        padding: 20px;
+    }
+
+    .row {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .clickable-div {
+        width: 80vw;
+        height: auto;
+        font-size: 4vw;
+        padding: 15px;
+    }
+
+    .clickable-div img {
+        width: 60vw;
+    }
+
+    footer {
+        font-size: 1em;
+        position: relative;
+        text-align: center;
+        margin-top: 20px;
+    }
+}
+
+
+/* Back arrow styles */
+.back-arrow {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #8f8f8f;
+    font-size: 24px;
+    text-decoration: none;
+}
+
+.back-arrow:hover {
+    color: #bababa;
+}
+
+.back-arrow i {
+    margin-right: 8px;
+}
+
+
+@font-face {
+    font-family: 'q1';
+    src: url('namemaker/Quake1.ttf') format('truetype');
+}
+
+#quakefontheader
+{
+    font-family: 'q1', sans-serif;
+    text-shadow: 0.2vw 0.26vw 0.13vw rgba(0, 0, 0, 0.3), -1px 1px 0px #955544;
+    opacity: .9;
+    letter-spacing: 1px;
+    word-spacing: -10px;
+    color: #8f5748;
+}
+
+#quakefontheader a {
+    color: #955544; /* Ensure links within #quakefontheader use the same color */
+    text-decoration: none; /* Remove text decoration from links */
 }
