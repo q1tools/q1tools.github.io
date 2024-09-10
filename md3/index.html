@@ -244,6 +244,13 @@
         renderer.setClearColor(0x333333, 1); // Fully opaque background
         document.getElementById('viewer').appendChild(renderer.domElement);
 
+        // Add OrbitControls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        controls.screenSpacePanning = false;
+        controls.maxPolarAngle = Math.PI / 2;
+        
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 2); // Increased intensity for better visibility
         scene.add(ambientLight);
@@ -299,6 +306,7 @@
 
                         model = object;
                         model.scale.set(0.0015, 0.0015, 0.0015); // Scale down the model
+                        model.rotation.set(Math.PI / 2, Math.PI, 0); // Rotate 90 degrees around X-axis and 180 degrees around Y-axis
 
                         if (texture) {
                             model.traverse(function(child) {
@@ -415,12 +423,19 @@
         // Render loop
         function animate() {
             requestAnimationFrame(animate);
-            if (model) {
-                model.rotation.y += 0.005; // Rotation speed
-            }
+            controls.update(); // Required if controls.enableDamping = true
             renderer.render(scene, camera);
         }
         animate();
+
+         // Add window resize handler
+         window.addEventListener('resize', onWindowResize, false);
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
     </script>
 
     <footer>
