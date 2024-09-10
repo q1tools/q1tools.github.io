@@ -1399,7 +1399,11 @@ Application = function () {
                     //specularSrc = shaderName + "_s" + ".png";
 
                    // var mesh = allocMesh(verts.length, tris.length, diffuseSrc, bumpSrc, specularSrc);
-                   var mesh = allocMesh(verts.length, tris.length, textureSrc, textureSrc, textureSrc);
+                   if (textureSrc) {
+                    var mesh = allocMesh(verts.length, tris.length, textureSrc, textureSrc, textureSrc);
+                } else {
+                    console.warn("Texture source is invalid or missing.");
+                }
 
                     model.meshes.push(mesh);
 
@@ -1779,19 +1783,33 @@ Application = function () {
     function handleFiles(files) {
 
         resetScene(); // Reset the scene for new models
-
+    
+        // First, process the texture file to make sure it's set
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            if (file.name.endsWith(".png") || file.name.endsWith(".jpg")) {
+                console.log("Texture file selected:", file.name);
+                textureSrc = URL.createObjectURL(file); // Store the selected texture file
+            }
+        }
+    
+        // Now, process the model and animation files
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
             console.log("Processing file:", file.name);
     
             if (file.name.endsWith(".md5mesh")) {
-                console.log("Loading MD5 model:", file.name);
-                let model = loadModelMD5mesh(URL.createObjectURL(file), textureSrc);
-                if (model) {
-                    impModel = model;
-                    console.log("MD5 model loaded successfully:", file.name);
+                if (textureSrc) {
+                    console.log("Loading MD5 model with texture:", file.name);
+                    let model = loadModelMD5mesh(URL.createObjectURL(file), textureSrc);
+                    if (model) {
+                        impModel = model;
+                        console.log("MD5 model loaded successfully:", file.name);
+                    } else {
+                        console.warn("Failed to load MD5 model:", file.name);
+                    }
                 } else {
-                    console.warn("Failed to load MD5 model:", file.name);
+                    console.error("Texture source is invalid or missing for MD5 model:", file.name);
                 }
             } else if (file.name.endsWith(".md5anim")) {
                 console.log("Loading MD5 animation:", file.name);
@@ -1802,10 +1820,7 @@ Application = function () {
                 } else {
                     console.warn("Failed to load MD5 animation:", file.name);
                 }
-            } else if (file.name.endsWith(".png") || file.name.endsWith(".jpg")) {
-                console.log("Texture file selected:", file.name);
-                textureSrc = URL.createObjectURL(file); // Store the selected texture file
-            } else {
+            } else if (!(file.name.endsWith(".png") || file.name.endsWith(".jpg"))) {
                 console.warn("Unsupported file type:", file.name);
                 alert(`Unsupported file type: ${file.name}. Only .png, .md5anim, and .md5mesh files are allowed.`);
                 document.getElementById('dropZone').style.backgroundColor = "#000"; // Reset background color after error
@@ -1813,11 +1828,15 @@ Application = function () {
             }
         }
     
+        // Initialize the scene only if both model and animation are loaded
         if (impModel && impAnims.length > 0) {
             console.log("All assets loaded successfully, initializing scene...");
             initializeScene();
+        } else {
+            console.warn("Model or animation is missing, unable to initialize the scene.");
         }
     }
+    
     
     
     
