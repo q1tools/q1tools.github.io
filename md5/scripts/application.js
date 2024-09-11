@@ -1780,68 +1780,188 @@ Application = function () {
         document.getElementById('dropZone').style.backgroundColor = "#000";
     }
 
-    function handleFiles(files) {
+    
+      // Global variables for color conversion
+    let last_px = { r: 0, g: 0, b: 0 };
+    let c_last = 0;
+    let customPalette = null;
 
-        resetScene(); // Reset the scene for new models
-    
-        // First, process the texture file to make sure it's set
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            if (file.name.endsWith(".png") || file.name.endsWith(".jpg")) {
-                console.log("Texture file selected:", file.name);
-                textureSrc = URL.createObjectURL(file); // Store the selected texture file
-            }
-        }
-    
-        // Now, process the model and animation files
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            console.log("Processing file:", file.name);
-    
-            if (file.name.endsWith(".md5mesh")) {
-                if (textureSrc) {
-                    console.log("Loading MD5 model with texture:", file.name);
-                    let model = loadModelMD5mesh(URL.createObjectURL(file), textureSrc);
-                    if (model) {
-                        impModel = model;
-                        console.log("MD5 model loaded successfully:", file.name);
-                    } else {
-                        console.warn("Failed to load MD5 model:", file.name);
-                    }
-                } else {
-                    console.error("Texture source is invalid or missing for MD5 model:", file.name);
+    const cust_pal = [
+        0x000000, 0x0f0f0f, 0x1f1f1f, 0x2f2f2f, 0x3f3f3f, 0x4b4b4b, 0x5b5b5b, 0x6b6b6b,
+        0x7b7b7b, 0x8b8b8b, 0x9b9b9b, 0xababab, 0xbbbbbb, 0xcbcbcb, 0xdbdbdb, 0xebebeb,
+        0x0f0b07, 0x170f0b, 0x1f170b, 0x271b0f, 0x2f2313, 0x372b17, 0x3f2f17, 0x4b371b,
+        0x533b1b, 0x5b431f, 0x634b1f, 0x6b531f, 0x73571f, 0x7b5f23, 0x836723, 0x8f6f23,
+        0x0b0b0f, 0x13131b, 0x1b1b27, 0x272733, 0x2f2f3f, 0x37374b, 0x3f3f57, 0x474767,
+        0x4f4f73, 0x5b5b7f, 0x63638b, 0x6b6b97, 0x7373a3, 0x7b7baf, 0x8383bb, 0x8b8bcb,
+        0x000000, 0x070700, 0x0b0b00, 0x131300, 0x1b1b00, 0x232300, 0x2b2b07, 0x2f2f07,
+        0x373707, 0x3f3f07, 0x474707, 0x4b4b0b, 0x53530b, 0x5b5b0b, 0x63630b, 0x6b6b0f,
+        0x070000, 0x0f0000, 0x170000, 0x1f0000, 0x270000, 0x2f0000, 0x370000, 0x3f0000,
+        0x470000, 0x4f0000, 0x570000, 0x5f0000, 0x670000, 0x6f0000, 0x770000, 0x7f0000,
+        0x131300, 0x1b1b00, 0x232300, 0x2f2b00, 0x372f00, 0x433700, 0x4b3b07, 0x574307,
+        0x5f4707, 0x6b4b0b, 0x77530f, 0x835713, 0x8b5b13, 0x975f1b, 0xa3631f, 0xaf6723,
+        0x231307, 0x2f170b, 0x3b1f0f, 0x4b2313, 0x572b17, 0x632f1f, 0x733723, 0x7f3b2b,
+        0x8f4333, 0x9f4f33, 0xaf632f, 0xbf772f, 0xcf8f2b, 0xdfab27, 0xefcb1f, 0xfff31b,
+        0x0b0700, 0x1b1300, 0x2b230f, 0x372b13, 0x47331b, 0x533723, 0x633f2b, 0x6f4733,
+        0x7f533f, 0x8b5f47, 0x9b6b53, 0xa77b5f, 0xb7876b, 0xc3937b, 0xd3a38b, 0xe3b397,
+        0xab8ba3, 0x9f7f97, 0x937387, 0x8b677b, 0x7f5b6f, 0x775363, 0x6b4b57, 0x5f3f4b,
+        0x573743, 0x4b2f37, 0x43272f, 0x371f23, 0x2b171b, 0x231313, 0x170b0b, 0x0f0707,
+        0xbb739f, 0xaf6b8f, 0xa35f83, 0x975777, 0x8b4f6b, 0x7f4b5f, 0x734353, 0x6b3b4b,
+        0x5f333f, 0x532b37, 0x47232b, 0x3b1f23, 0x2f171b, 0x231313, 0x170b0b, 0x0f0707,
+        0xdbc3bb, 0xcbb3a7, 0xbfa39b, 0xaf978b, 0xa3877b, 0x977b6f, 0x876f5f, 0x7b6353,
+        0x6b5747, 0x5f4b3b, 0x533f33, 0x433327, 0x372b1f, 0x271f17, 0x1b130f, 0x0f0b07,
+        0x6f837b, 0x677b6f, 0x5f7367, 0x576b5f, 0x4f6357, 0x475b4f, 0x3f5347, 0x374b3f,
+        0x2f4337, 0x2b3b2f, 0x233327, 0x1f2b1f, 0x172317, 0x0f1b13, 0x0b130b, 0x070b07,
+        0xfff31b, 0xefdf17, 0xdbcb13, 0xcbb70f, 0xbba70f, 0xab970b, 0x9b8307, 0x8b7307,
+        0x7b6307, 0x6b5300, 0x5b4700, 0x4b3700, 0x3b2b00, 0x2b1f00, 0x1b0f00, 0x0b0700,
+        0x0000ff, 0x0b0bef, 0x1313df, 0x1b1bcf, 0x2323bf, 0x2b2baf, 0x2f2f9f, 0x2f2f8f,
+        0x2f2f7f, 0x2f2f6f, 0x2f2f5f, 0x2b2b4f, 0x23233f, 0x1b1b2f, 0x13131f, 0x0b0b0f,
+        0x2b0000, 0x3b0000, 0x4b0700, 0x5f0700, 0x6f0f00, 0x7f1707, 0x931f07, 0xa3270b,
+        0xb7330f, 0xc34b1b, 0xcf632b, 0xdb7f3b, 0xe3974f, 0xe7ab5f, 0xefbf77, 0xf7d38b,
+        0xa77b3b, 0xb79b37, 0xc7c337, 0xe7e357, 0x7fbfff, 0xabe7ff, 0xd7ffff, 0x670000,
+        0x8b0000, 0xb30000, 0xd70000, 0xff0000, 0xfff393, 0xfff7c7, 0xffffff, 0x9f5b53
+    ];
+
+    const convertedPalette = [];
+    cust_pal.forEach(color => {
+        const r = (color >> 16) & 0xFF; // Extract Red component
+        const g = (color >> 8) & 0xFF;  // Extract Green component
+        const b = color & 0xFF;         // Extract Blue component
+        convertedPalette.push(r, g, b);
+    });
+
+    function processLmpToPng(lmpArrayBuffer, customPalette) {
+                const lmpDataView = new DataView(lmpArrayBuffer);
+                const width = lmpDataView.getUint32(0, true);
+                const height = lmpDataView.getUint32(4, true);
+                const imageSize = width * height;
+                const lmpPixels = new Uint8Array(lmpArrayBuffer, 8, imageSize);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = width;
+                canvas.height = height;
+                const imageData = ctx.createImageData(width, height);
+                const paletteToUse = convertedPalette;
+
+                for (let i = 0; i < imageSize; i++) {
+                    const colorIndex = lmpPixels[i];
+                    const r = paletteToUse[colorIndex * 3 + 0];
+                    const g = paletteToUse[colorIndex * 3 + 1];
+                    const b = paletteToUse[colorIndex * 3 + 2];
+                    const offset = i * 4;
+                    imageData.data[offset] = r;
+                    imageData.data[offset + 1] = g;
+                    imageData.data[offset + 2] = b;
+                    imageData.data[offset + 3] = 255; // Opaque alpha
                 }
-            } else if (file.name.endsWith(".md5anim")) {
-                console.log("Loading MD5 animation:", file.name);
-                let anim = loadMD5anim(URL.createObjectURL(file));
-                if (anim) {
-                    impAnims.push(anim);
-                    console.log("MD5 animation loaded successfully:", file.name);
-                } else {
-                    console.warn("Failed to load MD5 animation:", file.name);
-                }
-            } else if (!(file.name.endsWith(".png") || file.name.endsWith(".jpg"))) {
-                console.warn("Unsupported file type:", file.name);
-                alert(`Unsupported file type: ${file.name}. Only .png, .md5anim, and .md5mesh files are allowed.`);
-                document.getElementById('dropZone').style.backgroundColor = "#000"; // Reset background color after error
-                return; // Exit the function to prevent further processing
+
+                ctx.putImageData(imageData, 0, 0);
+                return canvas.toDataURL('image/png');
             }
-        }
-    
-        // Initialize the scene only if both model and animation are loaded
-        if (impModel && impAnims.length > 0) {
-            console.log("All assets loaded successfully, initializing scene...");
-            initializeScene();
-        } else {
-            console.warn("Model or animation is missing, unable to initialize the scene.");
-        }
+
+    function processLmpFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lmpArrayBuffer = e.target.result;
+                const pngDataUrl = processLmpToPng(lmpArrayBuffer, convertedPalette);
+                resolve(pngDataUrl);
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
     }
+
+    function handleFiles(files) {
+        resetScene(); // Reset the scene for new models
+        
+        let lmpFiles = [];
+        let textureFiles = [];
+        let modelFiles = [];
+        let animationFiles = [];
     
+        // Categorize files
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            if (file.name.endsWith(".lmp")) {
+                lmpFiles.push(file);
+            } else if (file.name.endsWith(".png") || file.name.endsWith(".jpg")) {
+                textureFiles.push(file);
+            } else if (file.name.endsWith(".md5mesh")) {
+                modelFiles.push(file);
+            } else if (file.name.endsWith(".md5anim")) {
+                animationFiles.push(file);
+            } else {
+                console.warn("Unsupported file type:", file.name);
+                alert(`Unsupported file type: ${file.name}. Only .png, .jpg, .lmp, .md5anim, and .md5mesh files are allowed.`);
+                return;
+            }
+        }
     
+        // Process LMP files first
+        Promise.all(lmpFiles.map(processLmpFile))
+            .then(pngDataUrls => {
+                // Convert LMP files to PNG files
+                const pngFiles = pngDataUrls.map((dataUrl, index) => {
+                    const binary = atob(dataUrl.split(',')[1]);
+                    const array = [];
+                    for (let i = 0; i < binary.length; i++) {
+                        array.push(binary.charCodeAt(i));
+                    }
+                    const blob = new Blob([new Uint8Array(array)], {type: 'image/png'});
+                    return new File([blob], lmpFiles[index].name.replace('.lmp', '.png'), { type: 'image/png' });
+                });
     
+                // Add converted PNG files to textureFiles
+                textureFiles = textureFiles.concat(pngFiles);
     
+                // Process texture files
+                for (let file of textureFiles) {
+                    console.log("Texture file selected:", file.name);
+                    textureSrc = URL.createObjectURL(file);
+                }
     
+                // Process model files
+                for (let file of modelFiles) {
+                    if (textureSrc) {
+                        console.log("Loading MD5 model with texture:", file.name);
+                        let model = loadModelMD5mesh(URL.createObjectURL(file), textureSrc);
+                        if (model) {
+                            impModel = model;
+                            console.log("MD5 model loaded successfully:", file.name);
+                        } else {
+                            console.warn("Failed to load MD5 model:", file.name);
+                        }
+                    } else {
+                        console.error("Texture source is invalid or missing for MD5 model:", file.name);
+                    }
+                }
     
+                // Process animation files
+                for (let file of animationFiles) {
+                    console.log("Loading MD5 animation:", file.name);
+                    let anim = loadMD5anim(URL.createObjectURL(file));
+                    if (anim) {
+                        impAnims.push(anim);
+                        console.log("MD5 animation loaded successfully:", file.name);
+                    } else {
+                        console.warn("Failed to load MD5 animation:", file.name);
+                    }
+                }
+    
+                // Initialize the scene only if both model and animation are loaded
+                if (impModel && impAnims.length > 0) {
+                    console.log("All assets loaded successfully, initializing scene...");
+                    initializeScene();
+                } else {
+                    console.warn("Model or animation is missing, unable to initialize the scene.");
+                }
+            })
+            .catch(error => {
+                console.error("Error processing files:", error);
+                alert("An error occurred while processing files. Please try again.");
+            });
+    }
+
     function initializeScene() {
         // Initialize the scene after all necessary assets are loaded
         var entity = createEntity([0, 0, 50]); // model height
@@ -1856,13 +1976,6 @@ Application = function () {
         }
         entity.skinningJoints = new Float32Array(entity.model.joints.length * 12);
         entity.time = Math.random() * 10;
-
-
-
-   
-
-
-
 
         entity.runFrame = function (frametime) {
             const animationSpeedMultiplier = 0.5; // Adjust this value to slow down the animation (0.5 for half speed)
