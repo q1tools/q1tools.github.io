@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon.png">
+    <link rel="stylesheet" type="text/css" href="../style.css">
+    <title>Qrack Downloads</title>
+    <script>
+        function redirectToTarget() {
+            // Get the current path from the URL
+            const path = window.location.pathname; // e.g., /qrack/maps/100m.bsp
+            const segments = path.split("/"); // Split path into parts
+            const isMapsPath = segments[1] === "qrack" && segments[2] === "maps";
+            const isProgsPath = segments[1] === "qrack" && segments[2] === "progs";
+            const isSoundPath = segments[1] === "qrack" && segments[2] === "sound";
+
+            if (isMapsPath && segments.length > 3) {
+                // Maps functionality
+                const fileName = segments[3]; // Extract the file name (e.g., 100m.bsp)
+                const firstChar = fileName.charAt(0).toUpperCase();
+                let folder = '';
+
+                // Determine the folder based on the first character
+                if (/^[A-Z]$/.test(firstChar)) {
+                    folder = firstChar; // Redirect to the corresponding letter folder
+                } else if (/^\d$/.test(firstChar)) {
+                    folder = '0-9'; // Redirect numbers to 0-9
+                } else {
+                    folder = 'misc'; // Optional fallback for other characters
+                }
+
+                // Construct the target URL
+                const targetUrl = `https://q1tools.github.io/maps/${folder}/${fileName}`;
+                window.location.href = targetUrl;
+            } else if (isProgsPath) {
+                // Redirect /qrack/progs to /progs
+                window.location.href = "https://q1tools.github.io/progs";
+            } else if (isSoundPath) {
+                // Redirect /qrack/sound to /sound
+                window.location.href = "https://q1tools.github.io/sound";
+            } else {
+                // Default redirect to the main site
+                window.location.href = "https://q1tools.github.io/";
+            }
+        }
+
+        // Redirect on page load
+        window.onload = redirectToTarget;
+    </script>
+</head>
+<body>
+    <h1>Redirecting...</h1>
+</body>
+</html>
