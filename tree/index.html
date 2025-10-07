@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quake Tree</title>
+  <link rel="icon" type="image/png" href="tree.png" />
+  <style>
+     :root {
+       --bg: #0c0a07;
+       --fg: #f5ead6;
+       --muted: #a89878;
+       --accent: #d4a574;
+       --edge: #5A4A2F;
+       --edge-strong: #e6c896;
+      --ring-gap: 200px;    /* distance between generations */
+      --node-size: 0px;    /* dot size */
+      --label-pad: 6px 8px; /* label pill padding */
+      --label-radius: 8px;  /* label pill radius */
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    @media (max-width: 900px) {
+      :root { --ring-gap: 90px; }
+    }
+
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body {
+      background: radial-gradient(1200px 1200px at 50% 50%, #0e141b, var(--bg));
+      color: var(--fg); font-family: var(--font);
+    }
+
+    .wrap { 
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .radial-tree {
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      top: 0;
+      left: 0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(212,165,116,0.10), transparent 45%),
+        radial-gradient(circle at 50% 50%, rgba(230,200,150,0.08) 0 1px, transparent 1px) 0 0/ 100% 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35) inset, 0 10px 40px rgba(0,0,0,0.25);
+      overflow: hidden;
+      --cx: 50%;
+      --cy: 50%;
+      cursor: grab;
+    }
+
+    .radial-tree.dragging {
+      cursor: grabbing;
+    }
+
+    .tree-content {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-origin: center center;
+    }
+
+    /* Optional ring guides for generations */
+    .radial-tree::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background:
+       radial-gradient(circle at 50% 50%, rgba(212,165,116,.2) 0 1px, transparent 1px) 0 0 / calc(var(--ring-gap)) calc(var(--ring-gap));
+      mask: radial-gradient(circle at 50% 50%, black, transparent 75%);
+      opacity: .25; filter: saturate(0.8);
+    }
+
+    .node { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; }
+    .node:hover { z-index: 1000; }
+     .node:hover .label { background: rgba(230,200,150,0.25); border-color: var(--edge-strong); color: #ffffff; }
+     .node:hover .dot { background: var(--edge-strong); box-shadow: 0 0 0 3px rgba(230,200,150,.5), 0 0 30px rgba(230,200,150,.7); }
+
+    .node .dot { display: none !important; }
+
+    .node .label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+                   color: var(--fg); background: rgba(90,74,47,0.08); border: 1px solid rgba(212,165,116,0.35);
+                   border-radius: var(--label-radius); padding: var(--label-pad);
+                   font-size: 12px; white-space: nowrap; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+                   transition: background .2s ease, border-color .2s ease, color .2s ease; }
+
+     .node .label:hover { background: rgba(212,165,116,0.12); border-color: var(--edge-strong); }
+
+    .node .label.root { font-size: 20px; font-weight: 600; }
+    .node .label.main-branch { font-size: 16px; font-weight: 600; }
+
+    .node .label.has-link { cursor: pointer; }
+     .node .label.has-link:hover { background: rgba(212,165,116,0.18); }
+
+    .edge { position: absolute; height: 2px; transform-origin: 0% 50%;
+            background: linear-gradient(90deg, var(--edge), var(--edge-strong)); opacity: .9; }
+
+    .edge::after { display: none !important; }
+
+    /* Label auto-orientation (keep text readable around the circle) */
+    .label[data-angle] { transform-origin: center; }
+    .label.flip { transform: translate(-50%, -50%) rotate(180deg); }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="tree" class="radial-tree" role="img" aria-label="Radial family tree"></div>
+  </div>
+
+  <script>
+    // =============================
+    // EDIT THIS DATA to match yours
+    // (nested form: { name, children: [...] })
+    // =============================
+const DATA = {
+  name: "Quake",
+  children: [
+    {
+      name: "WinQuake",
+      url: "https://github.com/Jason2Brownlee/QuakeOfficialArchive",
+      children: [
+        {
+          name: "TyrQuake",
+          url: "https://github.com/sezero/tyrquake",
+          children: [
+            { name: "Libretro TyrQuake", url: "https://github.com/libretro/tyrquake" }
+          ]
+        },
+        {
+          name: "CleanQuake",
+          children: [
+            { name: "Miniracer" },
+            { name: "Q2K4" },
+            { name: "Vengeance", url: "https://github.com/OrphicAbyss/Vengeance-r2" }
+          ]
+        },
+        { name: "ToChris", url: "https://github.com/viciious/tochris" },
+        {
+          name: "Mark V",
+          url: "https://quakeone.com/markv/",
+          children: [
+            { name: "ChadQuake", url: "https://github.com/adolfintel/ChadQuake" }
+          ]
+        },
+        {
+          name: "vitaQuake",
+          url: "https://github.com/Rinnegatamante/vitaQuake",
+          children: [
+            { name: "vitaHexenII" }
+          ]
+        },
+        { name: "DirectQ", url: "https://steamcommunity.com/linkfilter/?u=https%3A%2F%2Fwww.quaddicted.com%2Ffiles%2Fengines%2Fdirectq%2FDirectQ%25201.9.0%2520Executable.zip" },
+        {
+          name: "Makaqu",
+          url: "https://code.google.com/archive/p/makaqu/downloads",
+          children: [
+            { name: "Retroquad", url: "https://www.patreon.com/mankrip" },
+            { name: "super8", url: "https://github.com/qbism/super8" }
+          ]
+        },
+        {
+          name: "QIP",
+          children: [
+            { name: "Engoo", url: "https://github.com/leilei-/Engoo" }
+          ]
+        },
+        { name: "AudioQuake", url: "https://github.com/matatk/agrip" },
+        { name: "Fisheye Quake", url: "https://strlen.com/gfxengine/fisheyequake/" },
+        { name: "Chocolate Quake", url: "https://github.com/Henrique194/chocolate-quake" },
+        {
+          name: "NakedWinQuake",
+          url: "https://github.com/atsb/NakedWinQuake",
+          children: [
+            { name: "qrustyquake", url: "https://github.com/cyanbun96/qrustyquake" }
+          ]
+        },
+        {
+          name: "PyQuake",
+          url: "https://github.com/matthewearl/pyquake",
+          children: [
+            { name: "PyQuake-M", url: "https://github.com/timbergeron/pyquake-m" }
+          ]
+        }
+      ]
+    },
+    {
+      name: "GLQuake",
+      url: "https://github.com/Jason2Brownlee/QuakeOfficialArchive",
+      children: [
+        { name: "reQuiem", url: "https://www.quaddicted.com/engines/requiem" },
+        { name: "PanQuake", url: "https://strlen.com/gfxengine/panquake/" },
+        { name: "SharpQuake", url: "https://memorix101.itch.io/sharpquake" },
+        {
+          name: "FitzQuake",
+          url: "https://www.celephais.net/fitzquake/",
+          children: [
+            { name: "FitzQuake Mark V", url: "https://github.com/timbergeron/FitzQuake_Mark_V" },
+                {
+                  name: "QuakeSpasm",
+                  url: "https://quakespasm.sourceforge.net/",
+                  children: [
+                    {
+                      name: "QuakeSpasm-Spiked",
+                      url: "https://triptohell.info/moodles/qss/",
+                      children: [ { name: "QSS-M", url: "https://qssm.quakeone.com/" } ]
+                    },
+                    { name: "quakespasm-shalrathy", url: "https://github.com/shalrathy/quakespasm-shalrathy" },
+                    { name: "QuakeSpasm-OpenVR", url: "https://github.com/gameflorist/quakespasm-openvr" },
+                    { name: "quakespasm-fmod", url: "https://github.com/ndepoel/quakespasm-fmod" },
+                    { name: "vkQuake", url: "https://github.com/Novum/vkQuake" },
+                    { name: "Ironwail", url: "https://github.com/andrei-drexler/ironwail" },
+                    { name: "QSprawl", url: "https://github.com/VoidForce/QSprawl" },
+                    { name: "QuakeSpasmNX", url: "https://github.com/fgsfdsfgs/QuakespasmNX" },
+                    { name: "mhQuakeSpasm", url: "https://github.com/QuakeEngines/MHQuakeSpasm" },
+                    { name: "quakespasm-exp", url: "https://github.com/alexey-lysiuk/quakespasm-exp" }
+                  ]
+                },
+            {
+              name: "Mark V",
+              url: "https://quakeone.com/markv/",
+              children: [
+                { name: "Quakedroid", url: "https://quakeone.com/quakedroid/" }
+              ]
+            },
+            { name: "KatanaEngine", url: "https://github.com/Acidburn0zzz/KatanaEngine" }
+          ]
+        },
+        {
+          name: "TomazQuake",
+          url: "https://tomaz.snowcold.net/",
+          children: [
+            { name: "CheapHack" },
+            { name: "Telejano", url: "https://web.archive.org/web/20050203203823/http://telejano.berlios.de/wiki3/" },
+            { name: "Betwix" }
+          ]
+        },
+        { name: "Tenebrae", url: "https://tenebrae.sourceforge.net/" },
+        { name: "MrGLQuake" },
+        { name: "mhQuake", url: "https://www.quaddicted.com/files/engines/MHQuake_Archive.zip" },
+        { name: "ProQuake", url: "https://www.quaketerminus.com/hosted/proquake/" },
+        { name: "Slip & Frag", url: "https://github.com/Izhido/SlipNFrag" },
+        {
+          name: "JoeQuake",
+          url: "https://github.com/j0zzz/JoeQuake",
+          children: [
+            { name: "QRack", url: "https://quakeone.com/qrack/" },
+            { name: "Tremor" },
+            { name: "DemonQuake" },
+                {
+                  name: "NEAQUAKE",
+                  children: [
+                    { name: "TASQuake", url: "https://github.com/lipsanen/TASQuake" }
+                  ]
+                }
+          ]
+        },
+        {
+          name: "WebQuake",
+          url: "https://github.com/Triang3l/WebQuake",
+          children: [
+            { name: "NetQuake.io", url: "https://www.netquake.io/" }
+          ]
+        },
+        { name: "Hexen II", url: "https://en.wikipedia.org/wiki/Hexen_II" },
+        { name: "QMB", url: "https://github.com/OrphicAbyss/QMB" },
+        { name: "EngineX", url: "https://github.com/timbergeron/Engine-X" },
+        { name: "Quake2000" },
+        { name: "HeffoQuake" },
+        { name: "OmiQuake", url: "https://www.moddb.com/mods/omiquake/downloads/omiquake" },
+        { name: "Fiendhunter" },
+        { name: "QER" },
+        { name: "NetChild" },
+        { name: "GQ" },
+        { name: "NPR Quake", url: "https://research.cs.wisc.edu/graphics/Gallery/NPRQuake/whatIsIt.html" },
+        { name: "Retroquake" },
+        {
+          name: "Quake Arcade Tournament",
+          children: [
+            { name: "QuakeAT decrypted", url: "https://github.com/mills5/quakeat-decrypted" }
+          ]
+        },
+        {
+          name: "DarkPlaces",
+          url: "https://github.com/DarkPlacesEngine/DarkPlaces",
+          children: [
+            { name: "Doombringer", url: "https://github.com/kristus/Doombringer_Darkplaces" },
+            { name: "Steel Storm", url: "https://one.steel-storm.com/" },
+            { name: "Wrath: Aeon of Ruin", url: "https://store.steampowered.com/app/1000410/WRATH_Aeon_of_Ruin/" },
+            { name: "Zircon", url: "https://www.moddb.com/mods/zircon-engine" }
+          ]
+        },
+        { name: "fxQuake", url: "https://github.com/bazilio-ua/fxQuake" },
+        { 
+          name: "Quake_For_OSX", 
+          url: "https://github.com/Izhido/Quake_For_OSX",
+          children: [
+            { name: "Qwatch", url: "https://github.com/MyOwnClone/quake_watch" }
+          ]
+        },
+        { 
+          name: "Fruitz Of Dojo", 
+          url: "https://github.com/fruitz-of-dojo/Quake",
+          children: [
+            { name: "Mac ProQuake", url: "https://www.quaddicted.com/files/engines/MacProQuake399asrc.zip" }
+          ]
+        }
+      ]
+    },
+    {
+      name: "QuakeWorld",
+      url: "https://github.com/Jason2Brownlee/QuakeOfficialArchive",
+      children: [
+        {
+          name: "ZQuake",
+          url: "https://sourceforge.net/p/zquake/code/HEAD/tree/",
+          children: [
+            { name: "KrimZoNQuakeWorld" },
+            { name: "qwex" },
+            { name: "hibred" },
+            {
+              name: "FuhQuake",
+              url: "https://web.archive.org/web/20060207022301/http://www.fuhquake.net/download.html",
+              children: [
+                {
+                  name: "ezQuake",
+                  url: "https://ezquake.com/",
+                  children: [ { name: "unezQuake", url: "https://github.com/dusty-qw/unezquake" } ]
+                },
+                { name: "AMFQuake" },
+                { name: "electroquake" },
+                { name: "Fodquake" }
+              ]
+            }
+          ]
+        },
+        { name: "MoreQuakeWorld" },
+        { name: "FTEQW", url: "https://fte.triptohell.info/" },
+        { name: "Twilight", url: "https://github.com/luaman/twilight" },
+        { name: "QW262" },
+        { name: "QuakeForge", url: "https://github.com/quakeforge/quakeforge" }
+      ]
+    },
+    {
+      name: "PSP Quake",
+      children: [
+        { name: "KUROK", url: "https://www.bladebattles.com/kurok" }
+      ]
+    },
+    { name: "KEX Quake", url: "https://store.steampowered.com/app/2310/Quake/" }
+  ]
+};
+
+
+    // ====== Layout engine (no SVG) ======
+    const treeEl = document.getElementById('tree');
+
+    function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+    // Ensure each node has children array
+    function normalize(node){
+      node.children = Array.isArray(node.children) ? node.children.map(normalize) : [];
+      return node;
+    }
+
+    // Count visual leaves for fair angular allocation
+    function countLeaves(node){
+      if (!node.children.length) return 1;
+      return node.children.reduce((sum, c) => sum + countLeaves(c), 0);
+    }
+
+    // Assign polar coordinates: angle (deg), depth (level)
+    function layout(node, depth, startDeg, endDeg){
+      const leaves = countLeaves(node);
+      const angle = (startDeg + endDeg) / 2;
+      const placed = { ...node, angle, depth, leaves };
+      placed.children = [];
+
+      let acc = startDeg;
+      for (const child of node.children){
+        const w = (countLeaves(child) / leaves) * (endDeg - startDeg);
+        const childPlaced = layout(child, depth + 1, acc, acc + w);
+        placed.children.push(childPlaced);
+        acc += w;
+      }
+      return placed;
+    }
+
+    function polarToXY(cx, cy, r, angleDeg){
+      const a = angleDeg * Math.PI / 180;
+      return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+    }
+
+    function buildList(placed){
+      const nodes = [];
+      const edges = [];
+
+      function walk(node, parent){
+        nodes.push(node);
+        if (parent) edges.push([parent, node]);
+        for (const c of node.children) walk(c, node);
+      }
+      walk(placed, null);
+      return { nodes, edges };
+    }
+
+    let zCounter = 1001; // ensures last hovered stays on top
+    function renderRadial(root){
+      treeEl.innerHTML = '';
+      
+      // Create a wrapper div for all content (so we can transform it)
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'tree-content';
+      contentDiv.id = 'tree-content';
+      treeEl.appendChild(contentDiv);
+      
+      const bbox = treeEl.getBoundingClientRect();
+      const cx = bbox.width * 0.5; const cy = bbox.height * 0.5;
+      const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ring-gap')) || 120;
+
+      // Compute positions
+      const withLayout = layout(root, 0, -90, 270); // start at top, full 360°
+      const { nodes, edges } = buildList(withLayout);
+
+      const pos = new Map();
+      for (const n of nodes){
+        const r = n.depth * gap;
+        const { x, y } = polarToXY(cx, cy, r, n.angle);
+        pos.set(n, { x, y, r, angle: n.angle, depth: n.depth });
+      }
+
+      // Draw edges first (under nodes)
+      const edgeMap = new Map(); // Map nodes to their edges
+      for (const [p, c] of edges){
+        const P = pos.get(p), C = pos.get(c);
+        const dx = C.x - P.x, dy = C.y - P.y;
+        const dist = Math.hypot(dx, dy);
+        const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        const e = document.createElement('div');
+        e.className = 'edge';
+        e.style.left = `${P.x}px`; e.style.top = `${P.y}px`;
+        e.style.width = `${dist}px`; e.style.transform = `translateY(-1px) rotate(${ang}deg)`;
+        contentDiv.appendChild(e);
+        
+        // Store edge reference for child node
+        if (!edgeMap.has(c)) edgeMap.set(c, []);
+        edgeMap.get(c).push(e);
+      }
+
+      // Draw nodes & labels
+      for (const n of nodes){
+        const P = pos.get(n);
+        const nodeEl = document.createElement('div');
+        nodeEl.className = 'node';
+        nodeEl.style.left = `${P.x}px`; nodeEl.style.top = `${P.y}px`;
+
+        const dot = document.createElement('div'); dot.className = 'dot'; nodeEl.appendChild(dot);
+
+        const label = document.createElement('div');
+        label.className = 'label';
+        if (P.depth === 0) label.classList.add('root');
+        if (P.depth === 1 && (n.name === 'GLQuake' || n.name === 'WinQuake' || n.name === 'QuakeWorld' || n.name === 'KEX Quake')) {
+          label.classList.add('main-branch');
+        }
+        if (n.url) {
+          label.classList.add('has-link');
+          label.style.cursor = 'pointer';
+          label.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.open(n.url, '_blank');
+          });
+        }
+        label.textContent = n.name;
+
+        // Offset each label outward a bit from the dot, radial to its angle
+        const labelOffset = 18; // px away from the dot
+        const lx = Math.cos(P.angle * Math.PI/180) * labelOffset;
+        const ly = Math.sin(P.angle * Math.PI/180) * labelOffset;
+        label.style.transform = `translate(calc(-50% + ${lx}px), calc(-50% + ${ly}px))`;
+        label.dataset.angle = String(P.angle.toFixed(1));
+
+        // Flip long labels when on left side (keep upright)
+        const a = ((P.angle % 360) + 360) % 360; // 0..359
+        if (a > 90 && a < 270) label.classList.add('flip');
+
+        nodeEl.appendChild(label);
+        contentDiv.appendChild(nodeEl);
+        
+        // Add hover effect for edges
+        const nodeEdges = edgeMap.get(n) || [];
+        nodeEl.addEventListener('mouseenter', () => {
+          // bring this node to front persistently while hovered last
+          nodeEl.style.zIndex = String(++zCounter);
+          nodeEdges.forEach(edge => {
+             edge.style.background = 'linear-gradient(90deg, var(--edge-strong), #f5ead6)';
+            edge.style.opacity = '1';
+          });
+        });
+        nodeEl.addEventListener('mouseleave', () => {
+          nodeEdges.forEach(edge => {
+            edge.style.background = 'linear-gradient(90deg, var(--edge), var(--edge-strong))';
+            edge.style.opacity = '.9';
+          });
+        });
+      }
+      
+      // Apply the current pan offset
+      updateTransform();
+    }
+
+    // ====== Drag to Pan and Zoom Functionality ======
+    let panX = 0, panY = 0;
+    let zoom = 1;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let dragStartPanX = 0, dragStartPanY = 0;
+
+    function updateTransform(){
+      const contentDiv = document.getElementById('tree-content');
+      if (contentDiv) {
+        contentDiv.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+      }
+    }
+
+    treeEl.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      dragStartPanX = panX;
+      dragStartPanY = panY;
+      treeEl.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      panX = dragStartPanX + dx;
+      panY = dragStartPanY + dy;
+      updateTransform();
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        treeEl.classList.remove('dragging');
+      }
+    });
+
+    // ====== Scroll Wheel Zoom ======
+    treeEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      const zoomSpeed = 0.1;
+      const minZoom = 0.5;
+      const maxZoom = 3.0;
+      
+      // Zoom in/out based on scroll direction
+      if (delta < 0) {
+        zoom = Math.min(zoom + zoomSpeed, maxZoom);
+      } else {
+        zoom = Math.max(zoom - zoomSpeed, minZoom);
+      }
+      
+      updateTransform();
+    });
+
+    function mount(data){
+      const root = normalize(clone(data));
+      renderRadial(root);
+      // Handle resizes
+      let raf;
+      const onResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => renderRadial(root)); };
+      addEventListener('resize', onResize);
+    }
+
+    // Boot
+    mount(DATA);
+  </script>
+</body>
+</html>
