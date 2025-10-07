@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=0.1, minimum-scale=0.1, maximum-scale=5, user-scalable=yes" />
   <title>Quake Tree</title>
   <link rel="icon" type="image/png" href="tree.png" />
   <style>
@@ -198,7 +198,19 @@ const DATA = {
           name: "FitzQuake",
           url: "https://www.celephais.net/fitzquake/",
           children: [
-            { name: "FitzQuake Mark V", url: "https://github.com/timbergeron/FitzQuake_Mark_V" },
+            {
+              name: "FitzQuake Mark V",
+              url: "https://github.com/timbergeron/FitzQuake_Mark_V",
+              children: [
+                {
+                  name: "Mark V",
+                  url: "https://quakeone.com/markv/",
+                  children: [
+                    { name: "Quakedroid", url: "https://quakeone.com/quakedroid/" }
+                  ]
+                }
+              ]
+            },
                 {
                   name: "QuakeSpasm",
                   url: "https://quakespasm.sourceforge.net/",
@@ -219,13 +231,6 @@ const DATA = {
                     { name: "quakespasm-exp", url: "https://github.com/alexey-lysiuk/quakespasm-exp" }
                   ]
                 },
-            {
-              name: "Mark V",
-              url: "https://quakeone.com/markv/",
-              children: [
-                { name: "Quakedroid", url: "https://quakeone.com/quakedroid/" }
-              ]
-            },
             { name: "KatanaEngine", url: "https://github.com/Acidburn0zzz/KatanaEngine" }
           ]
         },
