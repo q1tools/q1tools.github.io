@@ -195,6 +195,8 @@ const DATA = {
         { name: "reQuiem", url: "https://www.quaddicted.com/engines/requiem" },
         { name: "PanQuake", url: "https://strlen.com/gfxengine/panquake/" },
         { name: "SharpQuake", url: "https://memorix101.itch.io/sharpquake" },
+        { name: "trrQuake", url: "https://sourceforge.net/projects/the-rabbit-run/" },
+        { name: "RADQuake", url: "https://github.com/ianmicheal/Radquake5.0" },
         {
           name: "FitzQuake",
           url: "https://www.celephais.net/fitzquake/",
@@ -261,7 +263,8 @@ const DATA = {
                   children: [
                     { name: "TASQuake", url: "https://github.com/lipsanen/TASQuake" }
                   ]
-                }
+                },
+            { name: "Quore", url: "http://quore.free.fr/" }
           ]
         },
         {
@@ -314,6 +317,12 @@ const DATA = {
           children: [
             { name: "Mac ProQuake", url: "https://www.quaddicted.com/files/engines/MacProQuake399asrc.zip" }
           ]
+        },
+        {
+          name: "PSP Quake",
+          children: [
+            { name: "KUROK", url: "https://www.bladebattles.com/kurok" }
+          ]
         }
       ]
     },
@@ -345,16 +354,31 @@ const DATA = {
           ]
         },
         { name: "MoreQuakeWorld" },
-        { name: "FTEQW", url: "https://fte.triptohell.info/" },
+        {
+          name: "FTEQW",
+          url: "https://fte.triptohell.info/",
+          children: [
+            {
+              name: "FTEQW Web",
+              url: "https://www.fteqw.org/demo_q1.html",
+              children: [
+                {
+                  name: "qtube",
+                  url: "https://github.com/qw-ctf/fteqw",
+                  children: [
+                    { name: "Web QTV", url: "https://hub.quakeworld.nu/" }
+                  ]
+                }
+              ]
+            },
+            { name: "FortressOne", url: "https://www.fortressone.org/" }
+          ]
+        },
         { name: "Twilight", url: "https://github.com/luaman/twilight" },
         { name: "QW262" },
-        { name: "QuakeForge", url: "https://github.com/quakeforge/quakeforge" }
-      ]
-    },
-    {
-      name: "PSP Quake",
-      children: [
-        { name: "KUROK", url: "https://www.bladebattles.com/kurok" }
+        { name: "QuakeForge", url: "https://github.com/quakeforge/quakeforge" },
+        { name: "MVDSV", url: "https://github.com/QW-Group/mvdsv" },
+        { name: "QWPython", url: "https://sourceforge.net/projects/qwpython/" }
       ]
     },
     { name: "KEX Quake", url: "https://store.steampowered.com/app/2310/Quake/" }
