@@ -249,7 +249,13 @@ const DATA = {
         { name: "Tenebrae", url: "https://tenebrae.sourceforge.net/" },
         { name: "MrGLQuake" },
         { name: "mhQuake", url: "https://www.quaddicted.com/files/engines/MHQuake_Archive.zip" },
-        { name: "ProQuake", url: "https://www.quaketerminus.com/hosted/proquake/" },
+        {
+          name: "ProQuake",
+          url: "https://www.quaketerminus.com/hosted/proquake/",
+          children: [
+            { name: "ManQuake", url: "https://github.com/slotzero/manquake" }
+          ]
+        },
         { name: "Slip & Frag", url: "https://github.com/Izhido/SlipNFrag" },
         {
           name: "JoeQuake",
