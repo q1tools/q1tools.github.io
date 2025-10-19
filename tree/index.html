@@ -17,7 +17,7 @@
       --node-size: 0px;    /* dot size */
       --label-pad: 6px 8px; /* label pill padding */
       --label-radius: 8px;  /* label pill radius */
-      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      --font: ui-sans-serif, system-ui, a-apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
     }
 
     @media (max-width: 900px) {
@@ -246,8 +246,14 @@ const DATA = {
                     { name: "QuakeSpasm-OpenVR", url: "https://github.com/gameflorist/quakespasm-openvr" },
                     { name: "quakespasm-fmod", url: "https://github.com/ndepoel/quakespasm-fmod" },
                     { name: "vkQuake", url: "https://github.com/Novum/vkQuake" },
-                    { name: "Ironwail", url: "https://github.com/andrei-drexler/ironwail" },
-                    { name: "QSprawl", url: "https://github.com/VoidForce/QSprawl" },
+                    {
+                      name: "Ironwail",
+                      url: "https://github.com/andrei-drexler/ironwail",
+                      children: [
+                        { name: "QSprawl", url: "https://github.com/VoidForce/QSprawl" },
+                        { name: "ironwail_ap", url: "https://github.com/randomcodegen/ironwail_ap" }
+                      ]
+                    },
                     {
                       name: "QuakeSpasmNX",
                       url: "https://github.com/fgsfdsfgs/QuakespasmNX",
@@ -282,7 +288,7 @@ const DATA = {
           name: "ProQuake",
           url: "https://www.quaketerminus.com/hosted/proquake/",
           children: [
-            { name: "ManQuake", url: "https://github.com/slotzero/manquake" }
+            { name: "manquake", url: "https://github.com/slotzero/manquake" }
           ]
         },
         { name: "Slip & Frag", url: "https://github.com/Izhido/SlipNFrag" },
