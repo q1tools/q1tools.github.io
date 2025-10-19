@@ -185,7 +185,22 @@ const DATA = {
             { name: "PyQuake-M", url: "https://github.com/timbergeron/pyquake-m" }
           ]
         },
-        { name: "Qwasm", url: "https://github.com/GMH-Code/Qwasm" }
+        { name: "Qwasm", url: "https://github.com/GMH-Code/Qwasm" },
+        {
+          name: "quakegeneric",
+          url: "https://github.com/erysdren/quakegeneric",
+          children: [
+            { name: "sdl3quake", url: "https://github.com/erysdren/sdl3quake" }
+          ]
+        },
+        { name: "SwitchQuake", url: "https://github.com/Rinnegatamante/SwitchQuake" },
+        {
+          name: "Pocket Quake",
+          url: "https://archive.org/details/tucows_164867_Pocket_Quake",
+          children: [
+            { name: "gpQuake", url: "https://sourceforge.net/projects/gpquake/" }
+          ]
+        }
       ]
     },
     {
@@ -197,6 +212,7 @@ const DATA = {
         { name: "SharpQuake", url: "https://memorix101.itch.io/sharpquake" },
         { name: "trrQuake", url: "https://sourceforge.net/projects/the-rabbit-run/" },
         { name: "RADQuake", url: "https://github.com/ianmicheal/Radquake5.0" },
+        { name: "Direct3D Quake", url: "https://sourceforge.net/projects/direct3dquake/" },
         {
           name: "FitzQuake",
           url: "https://www.celephais.net/fitzquake/",
@@ -221,7 +237,10 @@ const DATA = {
                     {
                       name: "QuakeSpasm-Spiked",
                       url: "https://triptohell.info/moodles/qss/",
-                      children: [ { name: "QSS-M", url: "https://qssm.quakeone.com/" } ]
+                      children: [
+                        { name: "QSS-M", url: "https://qssm.quakeone.com/" },
+                        { name: "Quakespasm-Spiked Vita", url: "https://github.com/Rinnegatamante/Quakespasm" }
+                      ]
                     },
                     { name: "quakespasm-shalrathy", url: "https://github.com/shalrathy/quakespasm-shalrathy" },
                     { name: "QuakeSpasm-OpenVR", url: "https://github.com/gameflorist/quakespasm-openvr" },
@@ -229,9 +248,19 @@ const DATA = {
                     { name: "vkQuake", url: "https://github.com/Novum/vkQuake" },
                     { name: "Ironwail", url: "https://github.com/andrei-drexler/ironwail" },
                     { name: "QSprawl", url: "https://github.com/VoidForce/QSprawl" },
-                    { name: "QuakeSpasmNX", url: "https://github.com/fgsfdsfgs/QuakespasmNX" },
+                    {
+                      name: "QuakeSpasmNX",
+                      url: "https://github.com/fgsfdsfgs/QuakespasmNX",
+                      children: [
+                        { name: "nzp-quakespasm", url: "https://github.com/nzp-team/quakespasm" }
+                      ]
+                    },
                     { name: "mhQuakeSpasm", url: "https://github.com/QuakeEngines/MHQuakeSpasm" },
-                    { name: "quakespasm-exp", url: "https://github.com/alexey-lysiuk/quakespasm-exp" }
+                    { name: "quakespasm-exp", url: "https://github.com/alexey-lysiuk/quakespasm-exp" },
+                    { name: "Quakespasm-Rift", url: "https://github.com/phoboslab/Quakespasm-Rift" },
+                    { name: "Slipgate", url: "https://github.com/KurtLoeffler/Slipgate" },
+                    { name: "D3DQuakeX360", url: "https://github.com/brentdc-nz/D3DQuakeX360" },
+                    { name: "snakespasm", url: "https://github.com/tuorqai/snakespasm" }
                   ]
                 },
             { name: "KatanaEngine", url: "https://github.com/Acidburn0zzz/KatanaEngine" }
@@ -278,7 +307,14 @@ const DATA = {
           name: "WebQuake",
           url: "https://github.com/Triang3l/WebQuake",
           children: [
-            { name: "NetQuake.io", url: "https://www.netquake.io/" }
+            { name: "NetQuake.io", url: "https://www.netquake.io/" },
+            {
+              name: "Quake JS",
+              url: "https://github.com/lrusso/Quake1",
+              children: [
+                { name: "quakeshack", url: "https://github.com/quakeshack/engine" }
+              ]
+            }
           ]
         },
         { name: "Qwasm", url: "https://github.com/GMH-Code/Qwasm" },
