@@ -47,6 +47,15 @@
     .small { font-size:12px; }
     .checkbox-line { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:6px 0 12px; }
     .kbd { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; background:#10151d; border:1px solid #2a3242; padding:1px 6px; border-radius:6px; }
+    .info-icon { display:inline-flex; align-items:center; justify-content:center; margin-left:6px; color:var(--muted); cursor:pointer; position:relative; }
+    .info-icon:hover, .info-icon:focus { color:var(--accent); }
+    .info-icon:focus { outline:1px dashed var(--accent); outline-offset:4px; }
+    .info-icon .tooltip-text { visibility:hidden; opacity:0; position:absolute; left:0; top:24px; width:260px; background:#0a0e14; color:var(--text); border:1px solid #2a3242; border-radius:10px; padding:12px; box-shadow:0 8px 24px rgba(0,0,0,.35); transition:opacity .2s ease; z-index:10; }
+    .info-icon:hover .tooltip-text, .info-icon:focus .tooltip-text { visibility:visible; opacity:1; }
+    .tooltip-text strong { display:block; margin-bottom:6px; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--accent); }
+    .tooltip-text ol { margin:0; padding-left:18px; font-size:13px; }
+    .tooltip-text ol li { margin-bottom:6px; }
+    .tooltip-text ol li:last-child { margin-bottom:0; }
   </style>
 </head>
 <body>
@@ -57,7 +66,20 @@
     <div class="grid">
       <section class="card">
         <h3 style="margin-top:0">Settings</h3>
-        <label for="webhook">Discord Webhook URL</label>
+        <label for="webhook">Discord Webhook URL
+          <span class="info-icon" tabindex="0" aria-label="How to create a Discord webhook">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            <span class="tooltip-text" role="tooltip">
+              <strong>Discord setup</strong>
+              <ol>
+                <li>Open Discord and create or pick the server you want to use.</li>
+                <li>Select the channel, open Settings → Integrations → Webhooks.</li>
+                <li>Click New Webhook (or Edit), choose the channel, then copy the Webhook URL.</li>
+                <li>Paste that URL here so this app can send alerts to your channel.</li>
+              </ol>
+            </span>
+          </span>
+        </label>
         <div class="row">
           <input id="webhook" type="text" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" />
         </div>
@@ -582,7 +604,7 @@
 
         if (shouldSend) {
           const plural = count === 1 ? '' : 's';
-          const msg = `?? ${key} has ${count} player${plural} on **${mapname}**.${hostname ? ' (' + hostname + ')' : ''}\nPlayers: ${names}`;
+          const msg = `🚨 ${key} has ${count} player${plural} on **${mapname}**.${hostname ? ' (' + hostname + ')' : ''}\nPlayers: ${names}`;
           lastCurl = buildCurl(msg);
           try {
             await postWebhook(msg);
@@ -682,7 +704,7 @@
       testBtn.disabled = true;
       const origText = testBtn.textContent;
       testBtn.textContent = 'Sending...';
-      const msg = '?? Test: Quake Server Watch webhook is configured.';
+      const msg = '🚨 Test: Quake Server Watch webhook is configured.';
       lastCurl = buildCurl(msg);
       try { await postWebhook(msg); log('[sent] (test) webhook OK'); }
       catch (e) { log('[error] (test) webhook failed: ' + e); }
