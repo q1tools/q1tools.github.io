@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quake Server Watch → Discord Notification</title>
+  <link rel="icon" type="image/png" sizes="any" href="notify.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    :root { --bg:#0b0d10; --card:#131720; --muted:#9ba3af; --text:#e6e9ee; --accent:#6ee7ff; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+    html, body { height:100%; }
+    body { margin:0; font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:1100px; margin:24px auto; padding:0 16px 24px; }
+    h1 { font-size:22px; margin:0 0 8px; }
+    .sub { color:var(--muted); margin-bottom:18px; }
+    .grid { display:grid; grid-template-columns: 1fr; gap:16px; }
+    .card { background:var(--card); border:1px solid #1f2430; border-radius:14px; padding:16px; box-shadow: 0 4px 20px rgba(0,0,0,.25); }
+    label { display:block; font-weight:600; margin-bottom:6px; }
+    input[type="text"], input[type="number"], textarea { width:100%; box-sizing:border-box; background:#0e131b; color:var(--text); border:1px solid #2a3242; border-radius:10px; padding:10px 12px; outline:none; }
+    textarea { min-height:120px; resize:vertical; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .row > * { flex:1; }
+    .btn { appearance:none; border:1px solid #2a3242; background:#0e131b; color:var(--text); border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
+    .btn:hover { border-color:#3a4358; }
+    .btn.ok { background:#0e1a13; border-color:#1a3b26; color:#b9f6ca; }
+    .btn.ok:hover { border-color:#275437; }
+    .btn.warn { background:#1a150e; border-color:#3a2d16; color:#ffe5b4; }
+    .btn.warn:hover { border-color:#4a371b; }
+    .btn.err { background:#1a0e0e; border-color:#3a1616; color:#ffc1c1; }
+    .btn.err:hover { border-color:#4a1e1e; }
+    .muted { color:var(--muted); }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; font-size:12px; }
+    .pill.ok { background:#0e1a13; color:#9ef0b3; border:1px solid #1a3b26; }
+    .pill.warn { background:#1a150e; color:#ffd89a; border:1px solid #3a2d16; }
+    .pill.err { background:#1a0e0e; color:#ffb3b3; border:1px solid #3a1616; }
+    #stop { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+    .status-dot { width:10px; height:10px; border-radius:50%; border:1px solid #2a3242; background:#2a3242; display:inline-block; transition: background-color .2s ease, border-color .2s ease; }
+    .status-dot.active { background:var(--err); border-color:var(--err); }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #1f2430; vertical-align:top; }
+    th { position:sticky; top:0; background:var(--card); z-index:1; }
+    .scroll { max-height:300px; overflow:auto; border:1px solid #1f2430; border-radius:12px; }
+    .log { white-space:pre-wrap; background:#0a0e14; border:1px solid #1f2430; border-radius:12px; padding:10px; height:180px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+    .checkbox-line .hint { margin-top:0; margin-left:8px; }
+    .inline { display:inline-flex; gap:8px; align-items:center; }
+    .small { font-size:12px; }
+    .checkbox-line { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:6px 0 12px; }
+    .kbd { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; background:#10151d; border:1px solid #2a3242; padding:1px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Quake Server Watch → Discord Notification</h1>
+    <div class="sub">Polls <span class="kbd">servers.quakeone.com</span> and posts alerts to your <i class="fa-brands fa-discord"></i> Discord webhook.</div>
+
+    <div class="grid">
+      <section class="card">
+        <h3 style="margin-top:0">Settings</h3>
+        <label for="webhook">Discord Webhook URL</label>
+        <div class="row">
+          <input id="webhook" type="text" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" />
+        </div>
+
+        <div style="height:8px"></div>
+        <div class="row" style="align-items:flex-start; gap:16px; margin-bottom:12px">
+          <div style="flex:1;">
+            <label for="targets">Servers to watch (one per line, host:port)</label>
+            <textarea id="targets" placeholder="denver.quakeone.com:26000&#10;denver.quakone.com:26003"></textarea>
+          </div>
+          <div style="flex:1;">
+             <label for="watchNames">Alert only for player names (optional)</label>
+             <textarea id="watchNames" placeholder="player1&#10;clan tag&#10;rocketman"></textarea>
+          </div>
+        </div>
+        <div class="row" style="margin-top:0; margin-bottom:12px">
+          <select id="serverDropdown" style="
+            flex:2;
+            appearance:none; -webkit-appearance:none; -moz-appearance:none;
+            background:#0e131b;
+            color:var(--text);
+            border:1px solid #2a3242;
+            border-radius:10px;
+            padding:10px 56px 10px 12px;
+            outline:none;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%239ba3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+            background-repeat:no-repeat;
+            background-position:right 16px center;
+          ">
+            <option value="">Select a server from the list...</option>
+          </select>
+          <button id="addServer" class="btn" style="flex:0 0 auto">Add to watch list</button>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="poll">Poll interval (secs)</label>
+            <input id="poll" type="number" min="30" step="1" value="30" />
+          </div>
+          <div>
+            <label for="minPlayers">Alert threshold (≥ players)</label>
+            <input id="minPlayers" type="number" min="1" step="1" value="1" />
+          </div>
+        </div>
+
+         <label class="checkbox-line small">
+           <input id="stopAfterAlert" type="checkbox" />
+           <span>Stop monitoring after sending an alert</span>
+           <span class="hint small">Default: enabled automatically when watching a single server.</span>
+         </label>
+
+        <div class="row" style="margin-top:8px">
+          <button id="save" class="btn ok">Save settings to cookie</button>
+          <button id="clear" class="btn err">Clear saved cookie</button>
+        </div>
+        <div class="hint">Cookie name: <span class="kbd">quakeWebhookSettings</span>. Persists until cleared.</div>
+
+        <hr style="border:0;border-top:1px solid #1f2430; margin:16px 0" />
+        <div class="row">
+          <button id="start" class="btn ok">▶ Start monitoring</button>
+          <button id="stop" class="btn"><span id="stopIndicator" class="status-dot"></span><span id="stopLabel">Stop</span></button>
+          <button id="testWebhook" class="btn warn">Send test to webhook</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 style="margin-top:0">Live Status</h3>
+        <div class="inline small" id="runState"></div>
+        <div class="inline small" id="clockDisplay" style="margin-left:8px"></div>
+        <div class="scroll" style="margin-top:8px">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:28%">Server</th>
+                <th style="width:10%">Players</th>
+                <th style="width:14%">Map</th>
+                <th>Hostname</th>
+                <th>Names</th>
+                <th style="width:18%">Last change</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div style="height:10px"></div>
+        <div class="log" id="log"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // -------------------- Cookie helpers --------------------
+    const COOKIE_NAME = 'quakeWebhookSettings';
+    function setCookie(name, value) {
+      const d = new Date();
+      d.setTime(d.getTime() + (3650*24*60*60*1000)); // 10 years
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/; SameSite=Lax`;
+    }
+    function getCookie(name) {
+      const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g,'\\$1') + '=([^;]*)'));
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+    function eraseCookie(name) {
+      document.cookie = `${name}=; Max-Age=0; path=/`;
+    }
+
+    // -------------------- UI refs --------------------
+    const el = (id) => document.getElementById(id);
+    const webhook = el('webhook');
+    const targets = el('targets');
+    const poll = el('poll');
+    const minPlayers = el('minPlayers');
+    const watchNames = el('watchNames');
+    const stopAfterAlert = el('stopAfterAlert');
+    const runState = el('runState');
+    const clockDisplay = el('clockDisplay');
+    const tbody = el('tbody');
+    const logEl = el('log');
+    
+    const STATUS_URL = 'https://small-meadow-0085.timbergeron.workers.dev/api/status';
+
+    const saveBtn = el('save');
+    const clearBtn = el('clear');
+    const startBtn = el('start');
+    const stopBtn = el('stop');
+    const stopLabel = el('stopLabel');
+    const stopIndicator = el('stopIndicator');
+    const testBtn = el('testWebhook');
+    const serverDropdown = el('serverDropdown');
+    const addServerBtn = el('addServer');
+
+    // -------------------- Defaults --------------------
+    const DEFAULTS = {
+      webhook: '',
+      targets: 'denver.quakeone.com:26000\ndenver.quakone.com:26003',
+      poll: 30,
+      minPlayers: 1,
+      watchNames: '',
+      stopAfterAlert: null
+    };
+
+    let stopAfterAlertExplicit = false;
+
+    function autoStopAfterAlertValue(rawTargets) {
+      return true; // Always enabled by default
+    }
+
+    // -------------------- Load / Save settings --------------------
+    function loadSettings() {
+      let s = { ...DEFAULTS };
+      try {
+        const raw = getCookie(COOKIE_NAME);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          s = { ...s, ...parsed };
+        }
+      } catch (e) { log('[warn] failed to parse cookie: ' + e); }
+      webhook.value = s.webhook;
+      targets.value = s.targets;
+      poll.value = Math.max(30, Number(s.poll)||30);
+      minPlayers.value = s.minPlayers;
+      watchNames.value = s.watchNames || '';
+      stopAfterAlertExplicit = (typeof s.stopAfterAlert === 'boolean');
+      const stopPref = stopAfterAlertExplicit ? s.stopAfterAlert : autoStopAfterAlertValue(s.targets);
+      stopAfterAlert.checked = Boolean(stopPref);
+      badgeState();
+    }
+    function saveSettings() {
+      const s = JSON.stringify({
+        webhook: webhook.value.trim(),
+        targets: targets.value.trim(),
+        poll: Math.max(30, Number(poll.value)||30),
+        minPlayers: Number(minPlayers.value)||1,
+        watchNames: watchNames.value.trim(),
+        stopAfterAlert: stopAfterAlertExplicit ? stopAfterAlert.checked : null
+      });
+      setCookie(COOKIE_NAME, s);
+      log('[ok] Saved settings to cookie.');
+      badgeState();
+    }
+    function clearSettings() {
+      eraseCookie(COOKIE_NAME);
+      loadSettings();
+      log('[ok] Cleared saved cookie.');
+    }
+
+    saveBtn.addEventListener('click', () => {
+      saveBtn.disabled = true;
+      const origText = saveBtn.textContent;
+      saveBtn.textContent = 'Saving...';
+      saveSettings();
+      setTimeout(() => {
+        saveBtn.textContent = origText;
+        saveBtn.disabled = false;
+      }, 300);
+    });
+    clearBtn.addEventListener('click', () => {
+      clearBtn.disabled = true;
+      const origText = clearBtn.textContent;
+      clearBtn.textContent = 'Clearing...';
+      clearSettings();
+      setTimeout(() => {
+        clearBtn.textContent = origText;
+        clearBtn.disabled = false;
+      }, 300);
+    });
+
+    // -------------------- Server dropdown --------------------
+    async function loadAvailableServers() {
+      try {
+        const json = await fetchStatus();
+        
+        serverDropdown.innerHTML = '<option value="">Select a server from the list...</option>';
+        
+        if (Array.isArray(json)) {
+          const servers = [];
+          for (const s of json) {
+            const addr = String(s?.address || '').trim().toLowerCase();
+            const port = Number(s?.port || 0);
+            if (!addr || !port) continue;
+            const hostname = s?.hostname || '';
+            servers.push({ addr, port, hostname });
+          }
+          
+          servers.sort((a, b) => a.addr.localeCompare(b.addr));
+          
+          for (const s of servers) {
+            const option = document.createElement('option');
+            option.value = `${s.addr}:${s.port}`;
+            option.textContent = `${s.addr}:${s.port}${s.hostname ? ' - ' + s.hostname : ''}`;
+            serverDropdown.appendChild(option);
+          }
+          
+          log(`[ok] Loaded ${servers.length} available servers.`);
+        }
+      } catch (e) {
+        log('[error] Failed to load servers: ' + e);
+      }
+    }
+
+    function addSelectedServer() {
+      const selected = serverDropdown.value;
+      if (!selected) {
+        log('[info] No server selected.');
+        return;
+      }
+      
+      const current = targets.value.trim();
+      const lines = current ? current.split('\n') : [];
+      
+      if (lines.includes(selected)) {
+        log('[info] Server already in watch list: ' + selected);
+        return;
+      }
+      
+      lines.push(selected);
+      targets.value = lines.join('\n');
+      log('[ok] Added server to watch list: ' + selected);
+    }
+
+    addServerBtn.addEventListener('click', () => {
+      addServerBtn.disabled = true;
+      const origText = addServerBtn.textContent;
+      addServerBtn.textContent = 'Adding...';
+      addSelectedServer();
+      setTimeout(() => {
+        addServerBtn.textContent = origText;
+        addServerBtn.disabled = false;
+      }, 300);
+    });
+
+    stopAfterAlert.addEventListener('change', () => {
+      stopAfterAlertExplicit = true;
+    });
+
+    targets.addEventListener('input', () => {
+      if (!stopAfterAlertExplicit) {
+        stopAfterAlert.checked = autoStopAfterAlertValue(targets.value);
+      }
+    });
+
+    // -------------------- Logging --------------------
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      logEl.textContent += `[${ts}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // -------------------- State --------------------
+    let timer = null;
+    let clockTimer = null;
+    let startTime = null;
+    let lastCurl = '';
+    const wasActive = new Map(); // key -> bool
+    const wasAlerted = new Map(); // key -> bool
+
+    function formatElapsedTime(ms) {
+      const seconds = Math.floor(ms / 1000);
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+      } else if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+      } else {
+        return `${secs}s`;
+      }
+    }
+
+    function updateClock() {
+      if (startTime) {
+        const elapsed = Date.now() - startTime;
+        clockDisplay.innerHTML = `<span class="muted">Running for ${formatElapsedTime(elapsed)}</span>`;
+      } else {
+        clockDisplay.innerHTML = '';
+      }
+    }
+
+    function badgeState(text) {
+      const validHook = /^https:\/\/discord\.com\/api\/webhooks\//.test(webhook.value.trim());
+      runState.innerHTML = '';
+      const pill = document.createElement('span');
+      pill.className = 'pill ' + (timer ? 'ok' : 'warn');
+      pill.textContent = timer ? 'Monitoring' : 'Idle';
+      runState.appendChild(pill);
+      if (!validHook) {
+        const warn = document.createElement('span');
+        warn.className = 'pill err';
+        warn.textContent = 'Webhook looks invalid';
+        warn.style.marginLeft = '8px';
+        runState.appendChild(warn);
+      }
+      if (stopIndicator) {
+        stopIndicator.classList.toggle('active', Boolean(timer));
+      }
+    }
+
+    // -------------------- Player helpers --------------------
+    const BANNERS = new Set([ 'Rockets Only', 'Rockets Only (UK)', 'Creepcam FFA/TDM (UK)' ]);
+    const PRINTABLE = /[\x20-\x7E\t\n\r]/;
+
+    function maybeB64Decode(s) {
+      if (!s || typeof s !== 'string') return '';
+      const t = s.trim();
+      if (!t || t.length % 4 !== 0) return s;
+      if (/[^A-Za-z0-9+/=]/.test(t)) return s;
+      try {
+        const txt = atob(t);
+        // require mostly printable
+        const printableCount = [...txt].filter(ch => PRINTABLE.test(ch)).length;
+        if (!txt || printableCount < Math.max(2, Math.floor(txt.length * 0.75))) return s;
+        return txt;
+      } catch { return s; }
+    }
+
+    function nameOf(p) {
+      const name = (p?.name || '').trim();
+      if (name) return name;
+      const raw = (p?.nameRaw || '').trim();
+      if (raw) return (maybeB64Decode(raw).trim() || raw);
+      return '';
+    }
+    function looksLikeBanner(p) {
+      try { if (Number(p?.type ?? -1) === 1) return true; } catch {}
+      const n = nameOf(p);
+      return BANNERS.has(n);
+    }
+    function looksLikeBot(p) {
+      return nameOf(p).toLowerCase().includes('bot');
+    }
+    function parseRealTypes() {
+      return '0,2'.split(',').map(x => x.trim()).filter(x => /^-?\d+$/.test(x)).map(x => Number(x));
+    }
+    function isRealPlayer(p) {
+      if (looksLikeBanner(p)) return false;
+      const t = Number(p?.type ?? -1);
+      if (!parseRealTypes().includes(t)) return false;
+      if (looksLikeBot(p)) return false;
+      return true;
+    }
+    function countPlayers(entry) {
+      const players = Array.isArray(entry?.players) ? entry.players : [];
+      const real = players.filter(isRealPlayer);
+      return [real.length, real];
+    }
+    function formatNames(players) {
+      const seen = new Set();
+      const names = [];
+      for (const p of players) {
+        const n = nameOf(p);
+        if (!n) continue;
+        const key = n.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        names.push(n);
+      }
+      return names.length ? names.join(', ') : '';
+    }
+
+    // -------------------- Fetch + render --------------------
+    async function fetchStatusJson(url) {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+    async function fetchStatus() {
+      return await fetchStatusJson(STATUS_URL);
+    }
+
+    function parseTargets() {
+      const lines = targets.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      const out = [];
+      for (const line of lines) {
+        // Split on last colon to separate host and port
+        const lastColon = line.lastIndexOf(':');
+        if (lastColon === -1) {
+          // No port specified, use default
+          out.push({ host: line.toLowerCase(), port: 26000 });
+        } else {
+          const hostPart = line.substring(0, lastColon).toLowerCase();
+          const portPart = line.substring(lastColon + 1);
+          const port = /^\d{2,5}$/.test(portPart) ? Number(portPart) : 26000;
+          out.push({ host: hostPart, port });
+        }
+      }
+      return out;
+    }
+
+    function parseWatchNames() {
+      return watchNames.value
+        .split(/\r?\n/)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+    }
+
+    function matchesWatchFilter(players, terms) {
+      if (!terms.length) return true;
+      for (const p of players) {
+        const n = nameOf(p).toLowerCase();
+        if (!n) continue;
+        for (const term of terms) {
+          if (n.includes(term)) return true;
+        }
+      }
+      return false;
+    }
+
+    function setRow(key, data) {
+      let tr = document.querySelector(`tr[data-key="${key}"]`);
+      if (!tr) {
+        tr = document.createElement('tr');
+        tr.setAttribute('data-key', key);
+        tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td class="small muted"></td>';
+        tbody.appendChild(tr);
+      }
+      const tds = tr.children;
+      tds[0].textContent = data.server;
+      tds[1].innerHTML = data.playersHtml;
+      tds[2].textContent = data.map || 'unknown';
+      tds[3].textContent = data.hostname || '';
+      tds[4].textContent = data.names || '';
+      tds[5].textContent = data.lastChange || '';
+    }
+
+    function secondsSince(date) {
+      return Math.floor((Date.now() - date.getTime()) / 1000);
+    }
+
+    async function tick() {
+      badgeState();
+      let json;
+      try {
+        json = await fetchStatus();
+      } catch (e) {
+        log('[warn] fetch failed: ' + e);
+        return;
+      }
+
+      const index = new Map();
+      if (Array.isArray(json)) {
+        for (const s of json) {
+          const addr = String(s?.address || '').trim().toLowerCase();
+          const port = Number(s?.port || 0);
+          if (!addr || !port) continue;
+          index.set(addr + ':' + port, s);
+        }
+      }
+
+      const watchTerms = parseWatchNames();
+      const now = new Date();
+      for (const t of parseTargets()) {
+        const key = t.host + ':' + t.port;
+        const entry = index.get(key);
+        if (!entry) {
+          setRow(key, { server: key, playersHtml: '<span class="pill warn">not in feed</span>' });
+          wasActive.set(key, false);
+          wasAlerted.set(key, false);
+          continue;
+        }
+
+        const [count, realPlayers] = countPlayers(entry);
+        const isActive = count >= (Number(minPlayers.value)||1);
+        const matchesFilter = matchesWatchFilter(realPlayers, watchTerms);
+        const was = wasActive.get(key) || false;
+        const wasMatch = wasAlerted.get(key) || false;
+        const shouldSend = isActive && matchesFilter && !wasMatch; // spam guard enabled by default
+
+        const mapname = entry.map || 'unknown';
+        const hostname = entry.hostname || '';
+        const names = formatNames(realPlayers);
+
+        setRow(key, {
+          server: key,
+          playersHtml: count ? `<strong>${count}</strong>` : '0',
+          map: mapname,
+          hostname,
+          names,
+          lastChange: (was !== isActive) ? 'now' : (was ? 'active ' + secondsSince(now) + 's' : '')
+        });
+
+        if (shouldSend) {
+          const plural = count === 1 ? '' : 's';
+          const msg = `?? ${key} has ${count} player${plural} on **${mapname}**.${hostname ? ' (' + hostname + ')' : ''}\nPlayers: ${names}`;
+          lastCurl = buildCurl(msg);
+          try {
+            await postWebhook(msg);
+            log('[sent] ' + msg);
+            if (stopAfterAlert.checked) {
+              log('[info] Auto-stop after alert preference triggered.');
+              stop();
+              break;
+            }
+          }
+          catch (e) { log('[error] webhook failed: ' + e); }
+        }
+        wasActive.set(key, isActive);
+        wasAlerted.set(key, isActive && matchesFilter);
+      }
+    }
+
+    // -------------------- Webhook send --------------------
+    function finalWebhookUrl() {
+      return webhook.value.trim();
+    }
+    async function postWebhook(message) {
+      const url = finalWebhookUrl();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: message })
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error('HTTP ' + res.status + (text ? (': ' + text.slice(0,200)) : ''));
+      }
+    }
+    function buildCurl(message) {
+      const url = finalWebhookUrl();
+      const payload = JSON.stringify({ content: message }).replace(/"/g, '\\"');
+      return `curl -sS -X POST -H "Content-Type: application/json" --data "${payload}" "${url}"`;
+    }
+
+    // -------------------- Controls --------------------
+    async function start() {
+      saveSettings();
+      if (timer) clearInterval(timer);
+      if (clockTimer) clearInterval(clockTimer);
+      wasActive.clear();
+      wasAlerted.clear();
+      tbody.innerHTML = '';
+      startTime = Date.now();
+      log('[ok] Monitoring started. Interval ' + (Math.max(30, Number(poll.value)||30)) + 's, threshold ≥ ' + (Number(minPlayers.value)||1));
+      await tick();
+      if (!startTime) {
+        // Auto-stop triggered during initial tick.
+        return;
+      }
+      timer = setInterval(tick, Math.max(30, Number(poll.value)||30) * 1000);
+      clockTimer = setInterval(updateClock, 1000);
+      updateClock();
+      badgeState();
+    }
+    function stop() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      if (clockTimer) {
+        clearInterval(clockTimer);
+        clockTimer = null;
+      }
+      wasActive.clear();
+      wasAlerted.clear();
+      startTime = null;
+      updateClock();
+      badgeState();
+      log('[ok] Monitoring stopped.');
+    }
+
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      const origText = startBtn.textContent;
+      startBtn.textContent = 'Starting...';
+      await start();
+      startBtn.textContent = origText;
+      startBtn.disabled = false;
+    });
+    stopBtn.addEventListener('click', () => {
+      if (!timer) return;
+      stopBtn.disabled = true;
+      const origText = stopLabel ? stopLabel.textContent : 'Stop';
+      if (stopLabel) stopLabel.textContent = 'Stopping...';
+      stop();
+      setTimeout(() => {
+        if (stopLabel) stopLabel.textContent = origText;
+        stopBtn.disabled = false;
+      }, 300);
+    });
+    testBtn.addEventListener('click', async () => {
+      testBtn.disabled = true;
+      const origText = testBtn.textContent;
+      testBtn.textContent = 'Sending...';
+      const msg = '?? Test: Quake Server Watch webhook is configured.';
+      lastCurl = buildCurl(msg);
+      try { await postWebhook(msg); log('[sent] (test) webhook OK'); }
+      catch (e) { log('[error] (test) webhook failed: ' + e); }
+      setTimeout(() => {
+        testBtn.textContent = origText;
+        testBtn.disabled = false;
+      }, 300);
+    });
+
+    // -------------------- Init --------------------
+    loadSettings();
+    // Auto-load server list on page load
+    loadAvailableServers();
+  </script>
+</body>
+</html>

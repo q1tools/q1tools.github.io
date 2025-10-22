@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=0.1, minimum-scale=0.1, maximum-scale=5, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.1, maximum-scale=10, user-scalable=yes" />
   <title>Quake Tree</title>
   <link rel="icon" type="image/png" href="tree.png" />
   <style>
@@ -154,6 +154,8 @@ const DATA = {
           ]
         },
         { name: "DirectQ", url: "https://steamcommunity.com/linkfilter/?u=https%3A%2F%2Fwww.quaddicted.com%2Ffiles%2Fengines%2Fdirectq%2FDirectQ%25201.9.0%2520Executable.zip" },
+        { name: "squake", url: "https://www.linuxdoc.org/HOWTO/Quake-HOWTO-2.html" },
+        { name: "QDOS", url: "https://github.com/vogonsorg/QDOS" },
         {
           name: "Makaqu",
           url: "https://code.google.com/archive/p/makaqu/downloads",
@@ -213,6 +215,7 @@ const DATA = {
         { name: "trrQuake", url: "https://sourceforge.net/projects/the-rabbit-run/" },
         { name: "RADQuake", url: "https://github.com/ianmicheal/Radquake5.0" },
         { name: "Direct3D Quake", url: "https://sourceforge.net/projects/direct3dquake/" },
+        { name: "QuakeGX", url: "https://github.com/BackupGGCode/quake-gamecube" },
         {
           name: "FitzQuake",
           url: "https://www.celephais.net/fitzquake/",
@@ -230,6 +233,7 @@ const DATA = {
                 }
               ]
             },
+            { name: "FitzProQuake", url: "https://www.quaddicted.com/files/engines/" },
                 {
                   name: "QuakeSpasm",
                   url: "https://quakespasm.sourceforge.net/",
@@ -290,7 +294,8 @@ const DATA = {
           name: "ProQuake",
           url: "https://www.quaketerminus.com/hosted/proquake/",
           children: [
-            { name: "manquake", url: "https://github.com/slotzero/manquake" }
+            { name: "manquake", url: "https://github.com/slotzero/manquake" },
+            { name: "FlashProQuake", url: "https://www.quaddicted.com/files/engines/" }
           ]
         },
         { name: "Slip & Frag", url: "https://github.com/Izhido/SlipNFrag" },
@@ -602,7 +607,7 @@ const DATA = {
 
     // ====== Drag to Pan and Zoom Functionality ======
     let panX = 0, panY = 0;
-    let zoom = 1;
+    let zoom = 0.65;
     let isDragging = false;
     let startX = 0, startY = 0;
     let dragStartPanX = 0, dragStartPanY = 0;
@@ -645,8 +650,8 @@ const DATA = {
       e.preventDefault();
       const delta = e.deltaY;
       const zoomSpeed = 0.1;
-      const minZoom = 0.5;
-      const maxZoom = 3.0;
+      const minZoom = 0.1;
+      const maxZoom = 10.0;
       
       // Zoom in/out based on scroll direction
       if (delta < 0) {
