@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quake Server Watch → Discord Notification</title>
-  <link rel="icon" type="image/png" sizes="any" href="notify.png" />
+  <link rel="icon" type="image/png" sizes="16x16 32x32 48x48 64x64" href="notify.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <style>
     :root { --bg:#0b0d10; --card:#131720; --muted:#9ba3af; --text:#e6e9ee; --accent:#6ee7ff; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
@@ -210,6 +210,36 @@
     const testBtn = el('testWebhook');
     const serverDropdown = el('serverDropdown');
     const addServerBtn = el('addServer');
+
+    // -------------------- Favicon swap (Windows-friendly) --------------------
+    const ICON_IDLE = 'notify.png';
+    const ICON_MONITOR = 'notify2.png'; // pre-tinted PNG, same folder
+    const EMPTY_PNG =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAn8B2g3m1r8AAAAASUVORK5CYII='; // 1x1 transparent
+
+    function ensureLink(rel) {
+      let link = document.querySelector(`link[rel='${rel}']`);
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = rel;
+        document.head.appendChild(link);
+      }
+      link.type = 'image/png';
+      link.sizes = '16x16 32x32 48x48 64x64';
+      return link;
+    }
+
+    function swapFavicon(path) {
+      const l1 = ensureLink('icon');
+      const l2 = ensureLink('shortcut icon'); // some Windows setups still look at this
+      // Step 1: purge to a different URL so Chrome invalidates its cache
+      l1.href = l2.href = EMPTY_PNG;
+      // Force a reflow to make the purge "stick"
+      void l1.offsetWidth;
+      // Step 2: set the real target with a cache-buster
+      const target = path + (path.includes('?') ? '&' : '?') + 'v=' + Date.now();
+      setTimeout(() => { l1.href = l2.href = target; }, 0);
+    }
 
     // -------------------- Defaults --------------------
     const DEFAULTS = {
@@ -417,6 +447,9 @@
       if (stopIndicator) {
         stopIndicator.classList.toggle('active', Boolean(timer));
       }
+      // Favicon: notify2 while monitoring; notify when idle
+      const isMonitoring = Boolean(timer);
+      swapFavicon(isMonitoring ? ICON_MONITOR : ICON_IDLE);
     }
 
     // -------------------- Player helpers --------------------
@@ -679,6 +712,7 @@
       updateClock();
       badgeState();
       log('[ok] Monitoring stopped.');
+      // badgeState() above already reset the favicon to idle
     }
 
     startBtn.addEventListener('click', async () => {
