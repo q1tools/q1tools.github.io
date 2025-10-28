@@ -216,6 +216,9 @@
     const ICON_MONITOR = 'notify2.png'; // pre-tinted PNG, same folder
     const EMPTY_PNG =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAn8B2g3m1r8AAAAASUVORK5CYII='; // 1x1 transparent
+    // ---- Favicon race guard ----
+    let _favNonce = 0;
+    let _favWanted = '';
 
     function ensureLink(rel) {
       let link = document.querySelector(`link[rel='${rel}']`);
@@ -230,15 +233,23 @@
     }
 
     function swapFavicon(path) {
+      // No-op if we're already targeting this icon
+      if (path === _favWanted) return;
+      _favWanted = path;
+      const nonce = ++_favNonce; // mark this request as the newest
+
       const l1 = ensureLink('icon');
       const l2 = ensureLink('shortcut icon'); // some Windows setups still look at this
-      // Step 1: purge to a different URL so Chrome invalidates its cache
+      // Step 1: purge so Chrome/Windows actually refresh the favicon
       l1.href = l2.href = EMPTY_PNG;
-      // Force a reflow to make the purge "stick"
-      void l1.offsetWidth;
+      void l1.offsetWidth; // reflow to make the purge stick
       // Step 2: set the real target with a cache-buster
       const target = path + (path.includes('?') ? '&' : '?') + 'v=' + Date.now();
-      setTimeout(() => { l1.href = l2.href = target; }, 0);
+      setTimeout(() => {
+        // If a newer request happened, skip this one
+        if (nonce !== _favNonce) return;
+        l1.href = l2.href = target;
+      }, 0);
     }
 
     // -------------------- Defaults --------------------
