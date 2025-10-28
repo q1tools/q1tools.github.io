@@ -32,7 +32,8 @@
   <body onload="app_init()" style="width: 540px">
 
     <article>
-      <div id="holder" class="filedrop" style="min-height: 100px">
+      <div id="holder" class="filedrop" style="min-height: 100px; cursor:pointer"
+           role="button" tabindex="0" aria-label="Drop files here or click to select">
         <h1 style="font-size: 2em">DROP FILES HERE</h1>
         <p>Drag Quake file format files (pak, wad, bsp, lmp, spr, mdl, map,
         pal) into this area to load their content in your browser.</p>
@@ -40,6 +41,11 @@
         </div>
       </div> 
       <p id="status">File API and FileReader API not supported</p>
+
+      <!-- Hidden file input to support click-to-select -->
+      <input id="file_input" type="file" style="display:none"
+             multiple
+             accept=".pak,.wad,.bsp,.lmp,.spr,.mdl,.map,.pal" />
     </article>
 
 
@@ -67,21 +73,17 @@ if (0) {
 
 var holder = document.getElementById('holder');
 var state = document.getElementById('status');
+var fileInput = document.getElementById('file_input');
 
 if (typeof window.FileReader === 'undefined') {
   state.className = 'fail';
 } else {
   state.parentNode.removeChild(state);
 }
- 
-holder.ondragover = function () { this.className = 'filedrop-hover'; return false; };
-holder.ondragleave = function () { this.className = 'filedrop'; return false; };
-holder.ondragend = holder.ondragleave;
-holder.ondrop = function (e) {
-  this.className = 'filedrop';
-  e.preventDefault();
 
-  var file = e.dataTransfer.files[0];
+// Shared file handler used by both drag-drop and picker
+function handleFile(file) {
+  if (!file) return;
   var reader = new FileReader();
   reader.onload = function (event) {
     var QWT = QuakeWebTools;
@@ -91,7 +93,7 @@ holder.ondrop = function (e) {
     var filename = file_entry.path;
     var arraybuffer = file_entry.data;
 
-    // will need a proper system to deal with these for multiple viewers
+    // stop any running viewer animation
     if (QWT.ANIMATION_ID != null) {
       console.log("stopping animationFrame " + QWT.ANIMATION_ID);
       cancelAnimationFrame(QWT.ANIMATION_ID);
@@ -99,53 +101,68 @@ holder.ondrop = function (e) {
     }
 
     document.getElementById("file-content").innerHTML = "";
-    
+
     switch (file_entry.type) {
-    case "pak":
-      var pak = file_entry.obj;
-      viewPAK(pak);
-      break;
-    case "wad":
-      var wad = file_entry.obj;
-      QWT.ImageUtil.generateHTMLPreview({image_infos: wad.directory, arraybuffer: wad.ab},
-          QWT.DEFAULT_PALETTE, "file-content");    
-      break;
-    case "bsp":
-      var bsp = file_entry.obj;
-      QWT.ANIMATION_ID = viewBSP(bsp);
-      QWT.ImageUtil.generateHTMLPreview({image_infos: bsp.miptex_directory, arraybuffer: bsp.ab},
+      case "pak":
+        viewPAK(file_entry.obj);
+        break;
+      case "wad":
+        QWT.ImageUtil.generateHTMLPreview({image_infos: file_entry.obj.directory, arraybuffer: file_entry.obj.ab},
           QWT.DEFAULT_PALETTE, "file-content");
-      break;
-    case "spr":
-      var spr = file_entry.obj;
-      var image_datas = spr.getImageData();
-      QWT.ImageUtil.generateHTMLPreview({image_datas: image_datas},
+        break;
+      case "bsp":
+        QWT.ANIMATION_ID = viewBSP(file_entry.obj);
+        QWT.ImageUtil.generateHTMLPreview({image_infos: file_entry.obj.miptex_directory, arraybuffer: file_entry.obj.ab},
           QWT.DEFAULT_PALETTE, "file-content");
-      break;
-    case "lmp":
-      var image_datas = [QWT.ImageUtil.getImageData(filename, arraybuffer)];
-      QWT.ImageUtil.generateHTMLPreview({image_datas: image_datas},
+        break;
+      case "spr":
+        QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.getImageData()},
           QWT.DEFAULT_PALETTE, "file-content");
-      break;
-    case "pal":
-      var image_datas = [QWT.ImageUtil.getImageData(filename, arraybuffer)];
-      QWT.ImageUtil.generateHTMLPreview({image_datas: image_datas},
+        break;
+      case "lmp":
+      case "pal":
+        QWT.ImageUtil.generateHTMLPreview({image_datas: [QWT.ImageUtil.getImageData(filename, arraybuffer)]},
           QWT.DEFAULT_PALETTE, "file-content");
-      break;
-    case "mdl":
-      var mdl = file_entry.obj;
-      QWT.ANIMATION_ID = viewMDL(mdl);
-      QWT.ImageUtil.generateHTMLPreview({image_datas:mdl.skins}, QWT.DEFAULT_PALETTE, "file-content");
-      break;
-    default:
-      var msg = "File type not supported (" + file_entry.type + ")";
-      alert(msg);
+        break;
+      case "mdl":
+        QWT.ANIMATION_ID = viewMDL(file_entry.obj);
+        QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.skins}, QWT.DEFAULT_PALETTE, "file-content");
+        break;
+      default:
+        alert("File type not supported (" + file_entry.type + ")");
     }
   };
-
   reader.readAsArrayBuffer(file);
+}
 
+holder.ondragover = function () { this.className = 'filedrop-hover'; return false; };
+holder.ondragleave = function () { this.className = 'filedrop'; return false; };
+holder.ondragend = holder.ondragleave;
+holder.ondrop = function (e) {
+  this.className = 'filedrop';
+  e.preventDefault();
+  // Support multiple file drops
+  for (const file of e.dataTransfer.files) handleFile(file);
   return false;
 };
+
+// Click-to-select behavior
+holder.addEventListener('click', function () {
+  fileInput && fileInput.click();
+});
+holder.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    fileInput && fileInput.click();
+  }
+});
+
+// Picker ? process selected files
+fileInput.addEventListener('change', function (e) {
+  const files = Array.from(e.target.files || []);
+  files.forEach(handleFile);
+  // reset so selecting the same file again still triggers change
+  e.target.value = '';
+});
 
 </script>
