@@ -63,7 +63,7 @@ QuakeWebTools.FileUtil.getPathComponents = function(path) {
   }
   var index_dot = path.lastIndexOf(".");
   if (index_dot != -1) {
-    components.extension = path.substring(index_dot + 1);
+    components.extension = path.substring(index_dot + 1).toLowerCase();
     path = path.substring(0, index_dot);
   }
   var index_slash = path.lastIndexOf("/");
@@ -113,7 +113,7 @@ QuakeWebTools.FileUtil.getPathInfo = function(path) {
 QuakeWebTools.FileUtil.getExtension = function(path) {
   var index_dot = path.lastIndexOf(".");
   if (index_dot != -1) {
-    return path.substring(index_dot + 1);
+    return path.substring(index_dot + 1).toLowerCase();
   }
   return "";
 }

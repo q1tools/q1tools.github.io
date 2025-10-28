@@ -30,7 +30,7 @@ QuakeWebTools.SPR.FRAME_T = [
 
 QuakeWebTools.SPR.FRAMEGROUP_T = [
   "num_frames",   "int32",
-  "times",        "float32",
+  "times",        ["[]", "float32", function(struct) { return struct.num_frames; }],
   "frames",       ["[]", QuakeWebTools.SPR.PICTURE_T, function(struct, dataStream, type) { return struct.num_frames; }]
 ];
 
