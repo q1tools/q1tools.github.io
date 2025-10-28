@@ -43,6 +43,12 @@ QuakeWebTools.MDL.FRAME_T = [
   "name",             "string:16"
 ];
 
+// legacy QTest (v3) frames omit the trailing name field
+QuakeWebTools.MDL.FRAME_V3_T = [
+  "min",              QuakeWebTools.MDL.VERTEX_T,
+  "max",              QuakeWebTools.MDL.VERTEX_T
+];
+
 QuakeWebTools.MDL.HEADER_T = [
   "mdl_id",           "string:4",                   // IDPO
   "mdl_version",      "int32",                      // 6
@@ -61,14 +67,56 @@ QuakeWebTools.MDL.HEADER_T = [
   "size",             "float32"                     // average triangle size...
 ];
 
+// legacy QTest (v3) header omits synch_type and flags
+QuakeWebTools.MDL.HEADER_V3_T = [
+  "mdl_id",           "string:4",                   // IDPO
+  "mdl_version",      "int32",                      // 3
+  "scale",            QuakeWebTools.MDL.VECTOR3_T,
+  "scale_origin",     QuakeWebTools.MDL.VECTOR3_T,
+  "bounding_radius",  "float32",
+  "eye_position",     QuakeWebTools.MDL.VECTOR3_T,  // eyes position (player...)
+  "num_skins",        "int32",
+  "skin_width",       "int32",
+  "skin_height",      "int32",
+  "num_verts",        "int32",
+  "num_tris",         "int32",
+  "num_frames",       "int32",
+  "size",             "float32"
+];
+
 QuakeWebTools.MDL.prototype.init = function() {
   var QWT = QuakeWebTools;
   var ds = new DataStream(this.ab, 0, DataStream.LITTLE_ENDIAN);
   var trim = QuakeWebTools.FileUtil.trimNullTerminatedString;
+  var isLegacy = false;
+  var isV3 = false;
 
-  // read header
-  var header = ds.readStruct(QWT.MDL.HEADER_T);
+  // detect header version before reading struct
+  var idPreview = ds.readString(4);
+  var verPreview = ds.readInt32();
+  ds.seek(0);
+
+  var header;
+  if (verPreview === 3) {
+    header = ds.readStruct(QWT.MDL.HEADER_V3_T);
+    isV3 = true;
+  } else {
+    header = ds.readStruct(QWT.MDL.HEADER_T);
+  }
   this.header = header;
+  if (header.mdl_version !== 6) {
+    isLegacy = true;
+    if (typeof console !== "undefined" && typeof console.warn === "function") {
+      console.warn("Warning: MDL version " + header.mdl_version + " detected for '" + this.filename + "', enabling legacy parsing.");
+    }
+  }
+  if (idPreview !== "IDPO" && typeof console !== "undefined" && typeof console.warn === "function") {
+    console.warn("Warning: Unexpected MDL magic '" + idPreview + "' for '" + this.filename + "'. Attempting to parse anyway.");
+  }
+  if (isV3) {
+    this.header.synch_type = 0;
+    this.header.flags = 0;
+  }
 
   // read skins
   var skins = []; // image_data (see ImageUtil.newImageData)
@@ -79,15 +127,48 @@ QuakeWebTools.MDL.prototype.init = function() {
   for (var i = 0; i < header.num_skins; ++i) {
     var group = ds.readInt32();
     var num_skins = 1;
-    if (group != 0) {
+    var treatAsLegacy = false;
+
+    if (group !== 0 && group !== 1) {
+      if (isLegacy) {
+        treatAsLegacy = true;
+        ds.seek(ds.position - 4);
+        group = 0;
+      } else {
+        if (typeof console !== "undefined" && typeof console.warn === "function") {
+          console.warn("Warning: Unexpected skin group value " + group + " encountered in '" + this.filename + "'. Treating as standalone skin.");
+        }
+        ds.seek(ds.position - 4);
+        group = 0;
+      }
+    }
+
+    var candidateNumSkins;
+    if (!treatAsLegacy && group != 0) {
       // create and add skin group
-      num_skins = ds.readInt32();
-      var skin_group = {
-        index: skins.length,
-        num_skins: num_skins,
-        times: ds.readType(["[]", "float32", num_skins])
-      };
-      skin_groups[skin_groups.length] = skin_group;
+      candidateNumSkins = ds.readInt32();
+      var invalidNumSkins = (candidateNumSkins <= 0 || candidateNumSkins > 256 || candidateNumSkins > header.num_skins);
+      if (!invalidNumSkins) {
+        var remainingBytes = Math.max(0, ds.byteLength - ds.position);
+        var bytesNeeded = candidateNumSkins * skin_size;
+        if (bytesNeeded > remainingBytes) {
+          invalidNumSkins = true;
+        }
+      }
+
+      if (invalidNumSkins) {
+        treatAsLegacy = true;
+        ds.seek(ds.position - 4);
+        num_skins = 1;
+      } else {
+        num_skins = candidateNumSkins;
+        var skin_group = {
+          index: skins.length,
+          num_skins: num_skins,
+          times: ds.readType(["[]", "float32", num_skins])
+        };
+        skin_groups[skin_groups.length] = skin_group;
+      }
     }
     // add skins
     for (var j = 0; j < num_skins; ++j) {
@@ -112,27 +193,71 @@ QuakeWebTools.MDL.prototype.init = function() {
   // read frames
   var frames = [];
   var frame_groups = [];
+  var frameStruct = isV3 ? QWT.MDL.FRAME_V3_T : QWT.MDL.FRAME_T;
 
   for (var i = 0; i < header.num_frames; ++i) {
     var group = ds.readInt32();
     var num_frames = 1;
-    if (group != 0) {
+    var treatAsLegacy = false;
+    if (group !== 0 && group !== 1) {
+      if (isLegacy) {
+        treatAsLegacy = true;
+        ds.seek(ds.position - 4);
+        group = 0;
+      } else {
+        if (typeof console !== "undefined" && typeof console.warn === "function") {
+          console.warn("Warning: Unexpected frame group value " + group + " encountered in '" + this.filename + "'. Treating as standalone frame.");
+        }
+        ds.seek(ds.position - 4);
+        group = 0;
+      }
+    }
+    var candidateNumFrames;
+    if (!treatAsLegacy && group != 0) {
       // create and add frame group
-      var frame_group = {
-        index: frames.length,
-        num_frames: ds.readInt32(),
-        min: ds.readType(QWT.MDL.VERTEX_T),
-        max: ds.readType(QWT.MDL.VERTEX_T)
-      };
-      num_frames = frame_group.num_frames;
-      frame_group.times = ds.readType(["[]", "float32", num_frames]);
-      frame_groups[frame_groups.length] = frame_group;
+      candidateNumFrames = ds.readInt32();
+      var invalidNumFrames = (candidateNumFrames <= 0 || candidateNumFrames > 512 || candidateNumFrames > header.num_frames);
+      if (!invalidNumFrames) {
+        var vertsPerFrame = header.num_verts || 0;
+        var approxFrameBytes = Math.max(0, vertsPerFrame * 4 * 4); // rough bound per frame
+        var remainingBytes = Math.max(0, ds.byteLength - ds.position);
+        if ((candidateNumFrames * approxFrameBytes) > remainingBytes) {
+          invalidNumFrames = true;
+        }
+      }
+
+      if (invalidNumFrames) {
+        treatAsLegacy = true;
+        ds.seek(ds.position - 4);
+        num_frames = 1;
+      } else {
+        num_frames = candidateNumFrames;
+        var frame_group = {
+          index: frames.length,
+          num_frames: num_frames,
+          min: ds.readType(QWT.MDL.VERTEX_T),
+          max: ds.readType(QWT.MDL.VERTEX_T)
+        };
+        frame_group.times = ds.readType(["[]", "float32", num_frames]);
+        frame_groups[frame_groups.length] = frame_group;
+      }
     }
     // add frames
     for (var j = 0; j < num_frames; ++j) {
-      var frame = ds.readType(QWT.MDL.FRAME_T);
+      var frame = ds.readType(frameStruct);
       frame.verts = ds.readType(["[]", QWT.MDL.VERTEX_T, this.header.num_verts]);
-      frame.name = trim(frame.name);
+      if (!isV3) {
+        frame.name = trim(frame.name);
+      } else {
+        var frameIndex = frames.length;
+        if (!treatAsLegacy && group != 0 && frame_groups.length > 0) {
+          var activeGroup = frame_groups[frame_groups.length - 1];
+          var offset = frameIndex - activeGroup.index;
+          frame.name = "group" + (frame_groups.length - 1) + "_" + offset;
+        } else {
+          frame.name = "frame" + frameIndex;
+        }
+      }
       frames[frames.length] = frame;
     }
   }
@@ -225,13 +350,37 @@ QuakeWebTools.MDL.prototype.expandGeometry = function(geometry) {
 QuakeWebTools.MDL.prototype.detectAnimations = function() {
   var anims = {};
   var frames = this.geometry.frames;
+  var frame_groups = this.geometry.frame_groups || [];
 
   var notNumber = function(charcode) {
     return (charcode < 48 || charcode > 57);
   } 
 
+  var namesMissing = frames.length === 0 || frames.every(function(frame) {
+    if (!frame.name) {
+      return true;
+    }
+    var trimmed = frame.name.trim();
+    return trimmed === "" || /^frame\d+$/.test(trimmed);
+  });
+
+  if (namesMissing) {
+    if (frame_groups.length > 0) {
+      for (var gi = 0; gi < frame_groups.length; ++gi) {
+        var g = frame_groups[gi];
+        anims["group" + gi] = { start: g.index, length: g.num_frames };
+      }
+    } else if (frames.length > 0) {
+      anims["all"] = { start: 0, length: frames.length };
+    }
+    return anims;
+  }
+
   for (var i = 0; i < frames.length; ++i) {
     var name = frames[i].name;
+    if (!name) {
+      continue;
+    }
     for (var c = name.length - 1; c >= 0; --c) {
       if (notNumber(name.charCodeAt(c))) break;
     }
@@ -251,8 +400,12 @@ QuakeWebTools.MDL.prototype.detectAnimations = function() {
 }
 
 QuakeWebTools.MDL.prototype.getAverageCenter = function(frame_id) {
-  frame_id = frame_id || 0;
-  var verts = this.geometry.frames[0].verts;
+  frame_id = (typeof frame_id === "number") ? frame_id : 0;
+  if (!this.geometry.frames || this.geometry.frames.length === 0) {
+    return { x: 0, y: 0, z: 0 };
+  }
+  frame_id = Math.max(0, Math.min(frame_id, this.geometry.frames.length - 1));
+  var verts = this.geometry.frames[frame_id].verts;
   var average = {x: 0, y: 0, z: 0};
 
   var limit = Math.floor(verts.length / 3);
@@ -333,4 +486,3 @@ QuakeWebTools.MDL.prototype.toString = function() {
   var str = "MDL: '" + this.filename + "' " + this.header.mdl_id;
   return str;
 }
-

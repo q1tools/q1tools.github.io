@@ -21,6 +21,14 @@ QuakeWebTools.BSP = function(path, arraybuffer) {
   this.init();
 }
 
+QuakeWebTools.BSP.VERTEX_SIZE = 12;
+QuakeWebTools.BSP.EDGE_SIZE = 4;
+QuakeWebTools.BSP.LEDGE_SIZE = 4;
+QuakeWebTools.BSP.FACE_SIZE = 20;
+QuakeWebTools.BSP.TEXINFO_SIZE = 40;
+QuakeWebTools.BSP.MODEL_SIZE = 64;
+QuakeWebTools.BSP.SURFACE_V23_SIZE = 60;
+
 // 12 bytes
 QuakeWebTools.BSP.VECTOR3_T = [
   "x",            "float32",
@@ -55,6 +63,25 @@ QuakeWebTools.BSP.FACE_T = [
   "light_base",   "uint8",
   "light",        ["[]", "uint8", 2],
   "lightmap",     "int32"
+];
+
+// 60 bytes (combined surface format used by BSP v23)
+QuakeWebTools.BSP.SURFACE_V23_T = [
+  "plane_id",     "uint16",
+  "side",         "uint16",
+  "edge_id",      "int32",
+  "num_edges",    "uint16",
+  "reserved",     "uint16",
+  "light_type",   "uint8",
+  "light_base",   "uint8",
+  "light",        ["[]", "uint8", 2],
+  "lightmap",     "int32",
+  "vec_s",        QuakeWebTools.BSP.VECTOR3_T,
+  "dist_s",       "float32",
+  "vec_t",        QuakeWebTools.BSP.VECTOR3_T,
+  "dist_t",       "float32",
+  "tex_id",       "uint32",
+  "animated",     "uint32"
 ];
 
 // 24 bytes
@@ -97,6 +124,24 @@ QuakeWebTools.BSP.ENTRY_T = [
   "size",         "int32"
 ];
 
+QuakeWebTools.BSP.HEADER_V23_T = [
+  "version",      "int32",
+  "entities",     QuakeWebTools.BSP.ENTRY_T,
+  "planes",       QuakeWebTools.BSP.ENTRY_T,
+  "miptex",       QuakeWebTools.BSP.ENTRY_T,
+  "vertices",     QuakeWebTools.BSP.ENTRY_T,
+  "visilist",     QuakeWebTools.BSP.ENTRY_T,
+  "nodes",        QuakeWebTools.BSP.ENTRY_T,
+  "surfaces",     QuakeWebTools.BSP.ENTRY_T,
+  "lightmaps",    QuakeWebTools.BSP.ENTRY_T,
+  "clipnodes",    QuakeWebTools.BSP.ENTRY_T,
+  "leaves",       QuakeWebTools.BSP.ENTRY_T,
+  "lface",        QuakeWebTools.BSP.ENTRY_T,
+  "edges",        QuakeWebTools.BSP.ENTRY_T,
+  "ledges",       QuakeWebTools.BSP.ENTRY_T,
+  "models",       QuakeWebTools.BSP.ENTRY_T
+];
+
 QuakeWebTools.BSP.HEADER_T = [
   "version",      "int32",    // most likely 29, must check for !29
   "entities",     QuakeWebTools.BSP.ENTRY_T,
@@ -131,25 +176,44 @@ QuakeWebTools.BSP.prototype.init = function() {
 * Initialize the BSP header.
 */
 QuakeWebTools.BSP.prototype.initHeader = function(ds) {
-  var h = ds.readStruct(QuakeWebTools.BSP.HEADER_T);
+  var version = ds.readInt32();
+  var headerStruct;
+
+  if (version === 29) {
+    headerStruct = QuakeWebTools.BSP.HEADER_T;
+  } else if (version === 23) {
+    headerStruct = QuakeWebTools.BSP.HEADER_V23_T;
+  } else {
+    throw "ERROR: BSP version " + version + " is currently unsupported.";
+  }
+
+  ds.seek(0);
+  var h = ds.readStruct(headerStruct);
 
   // get the number of each element. This used total_size / sizeof(type) in C.
-  h.vertices.count = h.vertices.size / 12;
-  h.edges.count = h.edges.size / 4;
-  h.ledges.count = h.ledges.size / 4;
-  h.faces.count = h.faces.size / 20;
-  h.texinfos.count = h.texinfos.size / 40;
-  h.models.count = h.models.size / 64;
-  //h.planes.count
-  //h.nodes.count
-  //h.leaves.count
-  //h.clipnodes.count
+  if (h.vertices) {
+    h.vertices.count = Math.floor(h.vertices.size / QuakeWebTools.BSP.VERTEX_SIZE);
+  }
+  if (h.edges) {
+    h.edges.count = Math.floor(h.edges.size / QuakeWebTools.BSP.EDGE_SIZE);
+  }
+  if (h.ledges) {
+    h.ledges.count = Math.floor(h.ledges.size / QuakeWebTools.BSP.LEDGE_SIZE);
+  }
+  if (h.faces) {
+    h.faces.count = Math.floor(h.faces.size / QuakeWebTools.BSP.FACE_SIZE);
+  }
+  if (h.texinfos) {
+    h.texinfos.count = Math.floor(h.texinfos.size / QuakeWebTools.BSP.TEXINFO_SIZE);
+  }
+  if (h.models) {
+    h.models.count = Math.floor(h.models.size / QuakeWebTools.BSP.MODEL_SIZE);
+  }
+  if (h.surfaces) {
+    h.surfaces.count = Math.floor(h.surfaces.size / QuakeWebTools.BSP.SURFACE_V23_SIZE);
+  }
 
   this.header = h;
-
-  if (h.version != 29) {
-    throw "ERROR: BSP version " + this.header.version + " is currently unsupported.";
-  }
 }
 
 /**
@@ -160,29 +224,187 @@ QuakeWebTools.BSP.prototype.initGeometry = function(ds) {
     expanded: false
   };
   var h = this.header;
+  var surfacesEntry = null;
 
-  ds.seek(h.vertices.offset);
-  geometry.vertices = ds.readType(["[]", QuakeWebTools.BSP.VECTOR3_T, h.vertices.count]);
+  if (h.vertices && h.vertices.count > 0) {
+    ds.seek(h.vertices.offset);
+    geometry.vertices = ds.readType(["[]", QuakeWebTools.BSP.VECTOR3_T, h.vertices.count]);
+  } else {
+    geometry.vertices = [];
+  }
 
-  ds.seek(h.edges.offset);
-  geometry.edges = ds.readType(["[]",  QuakeWebTools.BSP.EDGE_T, h.edges.count]);
+  if (h.edges && h.edges.count > 0) {
+    ds.seek(h.edges.offset);
+    geometry.edges = ds.readType(["[]",  QuakeWebTools.BSP.EDGE_T, h.edges.count]);
+  } else {
+    geometry.edges = [];
+  }
 
-  ds.seek(h.faces.offset);
-  geometry.faces = ds.readType(["[]", QuakeWebTools.BSP.FACE_T, h.faces.count]);
+  var hasFaces = (h.faces && h.faces.count > 0);
+  var hasTexinfos = false;
 
-  ds.seek(h.texinfos.offset);
-  geometry.texinfos = ds.readType(["[]", QuakeWebTools.BSP.TEXINFO_T, h.texinfos.count]);
+  if (hasFaces) {
+    ds.seek(h.faces.offset);
+    geometry.faces = ds.readType(["[]", QuakeWebTools.BSP.FACE_T, h.faces.count]);
+  } else {
+    geometry.faces = [];
+  }
 
-  ds.seek(h.models.offset);
-  geometry.models = ds.readType(["[]", QuakeWebTools.BSP.MODEL_T, h.models.count]);
+  if (h.texinfos && h.texinfos.count > 0) {
+    ds.seek(h.texinfos.offset);
+    geometry.texinfos = ds.readType(["[]", QuakeWebTools.BSP.TEXINFO_T, h.texinfos.count]);
+    hasTexinfos = true;
+  } else {
+    geometry.texinfos = [];
+  }
 
-  ds.seek(h.ledges.offset);
-  geometry.edge_list = ds.readType(["[]", "int32", h.ledges.count]);
+  if (!hasFaces && h.surfaces && h.surfaces.size > 0) {
+    surfacesEntry = h.surfaces;
+  }
+
+  if (h.models && h.models.count > 0) {
+    ds.seek(h.models.offset);
+    geometry.models = ds.readType(["[]", QuakeWebTools.BSP.MODEL_T, h.models.count]);
+  } else {
+    geometry.models = [];
+  }
+
+  if (!hasFaces && surfacesEntry) {
+    var expectedFaces = this.estimateFaceCountFromModels(geometry.models);
+    var converted = this.readVersion23Surfaces(ds, surfacesEntry, expectedFaces);
+    geometry.faces = converted.faces;
+    geometry.texinfos = converted.texinfos;
+    hasTexinfos = true;
+  }
+
+  if (!hasTexinfos) {
+    geometry.texinfos = geometry.texinfos || [];
+  }
+
+  if (h.ledges && h.ledges.count > 0) {
+    ds.seek(h.ledges.offset);
+    geometry.edge_list = ds.readType(["[]", "int32", h.ledges.count]);
+  } else {
+    geometry.edge_list = [];
+  }
 
   this.geometry = this.expandGeometry(geometry);
 }
 
+QuakeWebTools.BSP.prototype.readVersion23Surfaces = function(ds, surfaceEntry, expectedCount) {
+  var expectedSize = QuakeWebTools.BSP.SURFACE_V23_SIZE;
+  var countFromSize = Math.floor(surfaceEntry.size / expectedSize);
+  var remainder = surfaceEntry.size - (countFromSize * expectedSize);
+  var warn = (typeof console !== "undefined" && typeof console.warn === "function") ?
+    function(message) { console.warn(message); } :
+    function() {};
 
+  if (remainder !== 0) {
+    warn("Warning: BSP v23 surface lump size " + surfaceEntry.size + " is not an even multiple of " + expectedSize + ".");
+  }
+
+  var count = countFromSize;
+
+  if (expectedCount && expectedCount > 0) {
+    if (expectedCount <= countFromSize) {
+      count = expectedCount;
+    } else {
+      warn("Warning: BSP v23 surface lump contains " + countFromSize + " surfaces but models reference " + expectedCount + ".");
+      count = countFromSize;
+    }
+  }
+
+  if (count === 0) {
+    return { faces: [], texinfos: [] };
+  }
+
+  ds.seek(surfaceEntry.offset);
+  var surfaces = ds.readType(["[]", QuakeWebTools.BSP.SURFACE_V23_T, count]);
+  var faces = [];
+  var texinfos = [];
+
+  for (var i = 0; i < surfaces.length; ++i) {
+    var surface = surfaces[i];
+    var texIndex = texinfos.length;
+
+    texinfos[texIndex] = {
+      vec_s: { x: surface.vec_s.x, y: surface.vec_s.y, z: surface.vec_s.z },
+      dist_s: surface.dist_s,
+      vec_t: { x: surface.vec_t.x, y: surface.vec_t.y, z: surface.vec_t.z },
+      dist_t: surface.dist_t,
+      tex_id: surface.tex_id,
+      animated: surface.animated
+    };
+
+    var lightArray;
+    if (surface.light && surface.light.length !== undefined) {
+      lightArray = [
+        surface.light[0] || 0,
+        surface.light[1] || 0
+      ];
+    } else {
+      lightArray = [0, 0];
+    }
+
+    faces[i] = {
+      plane_id: surface.plane_id,
+      side: surface.side,
+      edge_id: surface.edge_id,
+      num_edges: surface.num_edges,
+      texinfo_id: texIndex,
+      light_type: surface.light_type,
+      light_base: surface.light_base,
+      light: lightArray,
+      lightmap: surface.lightmap
+    };
+  }
+
+  if (!this.header.faces) {
+    this.header.faces = { count: faces.length };
+  } else {
+    this.header.faces.count = faces.length;
+  }
+
+  if (!this.header.texinfos) {
+    this.header.texinfos = { count: texinfos.length };
+  } else {
+    this.header.texinfos.count = texinfos.length;
+  }
+
+  return {
+    faces: faces,
+    texinfos: texinfos
+  };
+}
+
+QuakeWebTools.BSP.prototype.estimateFaceCountFromModels = function(models) {
+  if (!models || models.length === 0) {
+    return 0;
+  }
+
+  var maxFaces = 0;
+
+  for (var i = 0; i < models.length; ++i) {
+    var model = models[i];
+    if (!model) {
+      continue;
+    }
+
+    var start = model.face_id || 0;
+    var count = model.num_faces || 0;
+
+    if (count < 0) {
+      continue;
+    }
+
+    var end = start + count;
+    if (end > maxFaces) {
+      maxFaces = end;
+    }
+  }
+
+  return maxFaces;
+}
 
 QuakeWebTools.BSP.prototype.expandGeometry = function(geometry) {
   var models = [];
