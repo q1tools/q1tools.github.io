@@ -1183,7 +1183,16 @@
                     case 50532:
                         crcDescription = " (Official Rocket Arena v. 1.2 - CRC-16-CCITT 50532)";
                         break;
+                    case 46645: // 0xB635
+                        // QTest ID1.PAK (1996 tech test)
+                        crcDescription = " (QTest ID1.PAK - CRC-16-CCITT 46645)";
+                        break;
 
+                }
+
+                // If it's the QTest pack, append the live file count (expected 144)
+                if (crc === 0xB635) {
+                    crcDescription += ` | Files: ${numEntries}`;
                 }
 
                 // Check for gfx/pop.lmp
