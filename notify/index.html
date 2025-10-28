@@ -57,6 +57,39 @@
     .tooltip-text ol li { margin-bottom:6px; }
     .tooltip-text ol li:last-child { margin-bottom:0; }
   </style>
+  <style>
+    /* ---------- Inline ghost-autocomplete for #targets ---------- */
+    .targets-wrap { position: relative; }
+    .targets-stack { position: relative; }
+    #targetsGhost {
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;              /* match #targets radius */
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      font: inherit;
+      line-height: inherit;
+      pointer-events: none;             /* do not block clicks/caret */
+      z-index: 0;
+      box-sizing: border-box;
+      transform: translateY(var(--ghost-nudge-y, 0px)); /* optional fine-tune */
+    }
+    #targetsGhost .ghost-head,
+    #targetsGhost .ghost-tail {
+      color: transparent;               /* occupy space, stay invisible */
+    }
+    #targetsGhost .ghost-suffix {
+      opacity: .35;                     /* the "lower opacity" look */
+      color: var(--text);
+    }
+    /* Make the textarea sit above and show the caret/text */
+    #targets {
+      position: relative;
+      background: transparent;          /* reveal the ghost layer */
+      z-index: 1;
+      box-sizing: border-box;
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
@@ -86,9 +119,12 @@
 
         <div style="height:8px"></div>
         <div class="row" style="align-items:flex-start; gap:16px; margin-bottom:12px">
-          <div style="flex:1;">
+          <div class="targets-wrap" style="flex:1;">
             <label for="targets">Servers to watch (one per line, host:port)</label>
-            <textarea id="targets" placeholder="denver.quakeone.com:26000&#10;denver.quakone.com:26003"></textarea>
+            <div class="targets-stack">
+              <div id="targetsGhost" aria-hidden="true"></div>
+              <textarea id="targets" placeholder="denver.quakeone.com:26000&#10;ohio.quakone.com:26003"></textarea>
+            </div>
           </div>
           <div style="flex:1;">
              <label for="watchNames">Alert only for player names (optional)</label>
@@ -211,6 +247,11 @@
     const serverDropdown = el('serverDropdown');
     const addServerBtn = el('addServer');
 
+    // ---------- Inline autocomplete state ----------
+    const targetsGhost = el('targetsGhost');
+    let AVAILABLE_SERVERS = [];         // [{addr, port, hostname}]
+    let currentSuggestion = '';         // full "host:port" for the active line
+
     // -------------------- Favicon swap (Windows-friendly) --------------------
     const ICON_IDLE = 'notify.png';
     const ICON_MONITOR = 'notify2.png'; // pre-tinted PNG, same folder
@@ -255,7 +296,7 @@
     // -------------------- Defaults --------------------
     const DEFAULTS = {
       webhook: '',
-      targets: 'denver.quakeone.com:26000\ndenver.quakone.com:26003',
+      targets: 'denver.quakeone.com:26000\nohio.quakone.com:26003',
       poll: 30,
       minPlayers: 1,
       watchNames: '',
@@ -353,6 +394,9 @@
             option.textContent = `${s.addr}:${s.port}${s.hostname ? ' - ' + s.hostname : ''}`;
             serverDropdown.appendChild(option);
           }
+
+          // keep a sorted list for autocomplete
+          AVAILABLE_SERVERS = servers;
           
           log(`[ok] Loaded ${servers.length} available servers.`);
         }
@@ -763,6 +807,137 @@
     loadSettings();
     // Auto-load server list on page load
     loadAvailableServers();
+
+    // ==================== Inline ghost autocomplete ====================
+    function escapeHTML(s) {
+      return s.replace(/[&<>"']/g, c => (
+        c === '&' ? '&amp;' :
+        c === '<' ? '&lt;'  :
+        c === '>' ? '&gt;'  :
+        c === '"' ? '&quot;': '&#39;'
+      ));
+    }
+
+    // Keep ghost metrics exactly matched to the textarea
+    function syncGhostMetrics() {
+      const cs = getComputedStyle(targets);
+      const copy = (p, as=is=>is) => targetsGhost.style[p] = as(cs[p]);
+      // Font & spacing
+      copy('fontFamily'); copy('fontSize'); copy('fontWeight'); copy('fontStyle');
+      copy('lineHeight'); copy('letterSpacing'); copy('textTransform');
+      copy('textAlign'); copy('textIndent'); copy('wordSpacing');
+      // Padding & radius
+      copy('paddingTop'); copy('paddingRight'); copy('paddingBottom'); copy('paddingLeft');
+      copy('borderTopLeftRadius'); copy('borderTopRightRadius');
+      copy('borderBottomRightRadius'); copy('borderBottomLeftRadius');
+      // Tab width (Chrome/Edge/Firefox support)
+      if (cs.tabSize) targetsGhost.style.tabSize = cs.tabSize;
+      // Ensure same dimensions/box model context
+      targetsGhost.style.lineHeight = cs.lineHeight;
+    }
+
+    function currentLineInfo(ta) {
+      const pos = ta.selectionStart ?? 0;
+      const val = ta.value;
+      const start = val.lastIndexOf('\n', pos - 1) + 1;  // 0 if none
+      const nextNl = val.indexOf('\n', pos);
+      const end = (nextNl === -1 ? val.length : nextNl);
+      const before = val.slice(start, pos);
+      const after = val.slice(pos, end);
+      return { val, pos, start, end, before, after };
+    }
+
+    function findSuggestion(prefixRaw) {
+      const prefix = prefixRaw.trim().toLowerCase();
+      if (!prefix) return '';
+      if (!AVAILABLE_SERVERS.length) return '';
+      // prefer exact "host:port" startsWith; else host startsWith
+      let best = '';
+      for (const s of AVAILABLE_SERVERS) {
+        const key = `${s.addr}:${s.port}`;
+        if (key.startsWith(prefix)) { best = key; break; }
+      }
+      if (!best) {
+        for (const s of AVAILABLE_SERVERS) {
+          if (s.addr.startsWith(prefix)) { best = `${s.addr}:${s.port}`; break; }
+        }
+      }
+      return best;
+    }
+
+    function renderGhost() {
+      // ensure metrics are synced before measuring/painting ghost
+      syncGhostMetrics();
+      const info = currentLineInfo(targets);
+      const typed = info.before;                     // as-is (may contain spaces/colon)
+      const suggest = findSuggestion(typed);
+      // Show ghost only if a real completion exists and it's not identical
+      if (!suggest || suggest.toLowerCase() === typed.trim().toLowerCase()) {
+        currentSuggestion = '';
+        targetsGhost.innerHTML = '';
+        return;
+      }
+      // Build ghost content: everything up to caret (transparent), then suffix (dim),
+      // then the remainder after the current line (transparent to preserve layout).
+      const head = info.val.slice(0, info.pos);      // full text up to caret
+      const tail = info.val.slice(info.end);         // everything after current line
+      // suffix = full suggestion minus what's typed (trim compare, but keep exact typed width)
+      const typedTrim = typed.trim().toLowerCase();
+      let suffix = suggest;
+      if (typedTrim && suggest.toLowerCase().startsWith(typedTrim)) {
+        // Keep the user's raw typed characters (including spaces/partial port) visible on top.
+        suffix = suggest.slice(typedTrim.length);
+      }
+      currentSuggestion = suggest;
+      targetsGhost.innerHTML =
+        `<span class="ghost-head">${escapeHTML(head)}</span>` +
+        `<span class="ghost-suffix">${escapeHTML(suffix)}</span>` +
+        `<span class="ghost-tail">${escapeHTML(tail)}</span>`;
+      // keep scroll in sync
+      targetsGhost.scrollTop = targets.scrollTop;
+    }
+
+    function acceptSuggestion() {
+      if (!currentSuggestion) return false;
+      const info = currentLineInfo(targets);
+      // Replace the entire current line with the suggestion
+      const left = info.val.slice(0, info.start);
+      const right = info.val.slice(info.end);
+      const newlineBetween = (right.startsWith('\n') ? '' : '');
+      const newVal = left + currentSuggestion + right;
+      const caret = (left + currentSuggestion).length;
+      targets.value = newVal;
+      targets.setSelectionRange(caret, caret);
+      // reflect change for heuristics & UI
+      targets.dispatchEvent(new Event('input'));
+      return true;
+    }
+
+    // events
+    targets.addEventListener('input', renderGhost);
+    targets.addEventListener('click', renderGhost);
+    targets.addEventListener('keyup', renderGhost);
+    targets.addEventListener('scroll', () => { targetsGhost.scrollTop = targets.scrollTop; });
+    // If the available server list changes later, recompute suggestion
+    document.addEventListener('servers-updated', renderGhost);
+
+    targets.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab' && currentSuggestion) {
+        e.preventDefault();
+        acceptSuggestion();
+      }
+    });
+
+    // keep metrics synced on resize and when fonts finish loading
+    window.addEventListener('resize', syncGhostMetrics);
+    if (document.fonts && document.fonts.addEventListener) {
+      document.fonts.addEventListener('loadingdone', syncGhostMetrics);
+      document.fonts.addEventListener('loadingerror', syncGhostMetrics);
+    }
+
+    // initial paint
+    syncGhostMetrics();
+    renderGhost();
   </script>
 </body>
 </html>
