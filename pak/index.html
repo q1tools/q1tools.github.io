@@ -37,11 +37,11 @@
 <body onload="app_init()"> <!--app_init() for QWT -->
     <h1 class="header-container"><img src="pak.png" class="header-image" alt="PAK File Tool Logo">PAK File Tool</h1>
 
-    <!-- File Drop Zone for Viewing PAK files -->
+    <!-- File Drop Zone for Viewing PAK/PK3 files -->
     <div id="pak_view_drop">
-        <span id="viewing-text"><span class="text-color-view-create">View / Convert</span>: Drag and drop a .pak here or
+        <span id="viewing-text"><span class="text-color-view-create">View / Convert</span>: Drag and drop a .pak or .pk3 here or
             click to select</span>
-        <input type="file" id="packfile" onchange="pakSelector(this.files)" />
+        <input type="file" id="packfile" accept=".pak,.pk3" onchange="pakSelector(this.files)" />
         <div id="loadingCircle" class="loading-circle" style="display: none;"></div>
     </div>
 
@@ -714,21 +714,17 @@
         }
 
         // main function to handle all the file types for viewing
-        function processDirectoryEntries(buffer, view, diroffset, dirsize, numEntries, table) {
-            // Iterate over each entry in the directory
-            for (let i = 0; i < numEntries; i++) {
-                const entryOffset = diroffset + i * 64;
-                const filenameBytes = new Uint8Array(buffer, entryOffset, 56);
-                const filename = new TextDecoder("utf-8").decode(filenameBytes).split('\0', 1)[0];
-                const fileOffset = view.getUint32(entryOffset + 56, true);
-                const fileSize = view.getUint32(entryOffset + 60, true);
+        function processFileEntries(entries, table) {
+            for (let i = 0; i < entries.length; i++) {
+                const entry = entries[i];
+                const filename = entry.filename;
+                const arrayBuffer = entry.arrayBuffer;
+                const fileBlob = entry.blob;
+                const fileSize = entry.size;
                 const formattedSize = formatFileSize(fileSize);
 
-                // Create a blob for each file entry
-                const fileBlob = new Blob([new Uint8Array(buffer, fileOffset, fileSize)], { type: 'application/octet-stream' });
                 viewFileBlobs.push({ filename, blob: fileBlob });
 
-                // Create a link for the file download
                 const link = document.createElement('a');
                 link.className = 'file-item';
                 link.href = URL.createObjectURL(fileBlob);
@@ -770,7 +766,7 @@
                 // tga
                 else if (/\.(tga)$/i.test(filename)) {
                     const tga = new TgaLoader();
-                    const fileBuffer = new Uint8Array(buffer, fileOffset, fileSize);
+                    const fileBuffer = new Uint8Array(arrayBuffer);
                     tga.load(fileBuffer);
                     const imageCanvas = tga.getCanvas();
                     const scale = 256 / imageCanvas.width;
@@ -787,7 +783,7 @@
                 else if (/\/b_(shell[01]|nail[01]|rock[01]|batt[01]|bh10|bh100|bh25)\.bsp$/i.test(filename)) {
                     console.log(`Debug: Processing BSP Filename = ${filename}`);
 
-                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    const fileArrayBuffer = arrayBuffer;
 
                     if (fileArrayBuffer.byteLength !== fileSize) {
                         console.error(`File size mismatch for ${filename}: Expected ${fileSize}, but got ${fileArrayBuffer.byteLength}`);
@@ -886,7 +882,7 @@
 
                 // .map
                 else if (/\.map$/i.test(filename)) {
-                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    const fileArrayBuffer = arrayBuffer;
 
                     // Convert the ArrayBuffer to a Uint8Array
                     const uint8Array = new Uint8Array(fileArrayBuffer);
@@ -913,7 +909,7 @@
                 }
 
                 else if (/\.ion$/i.test(filename)) {
-                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    const fileArrayBuffer = arrayBuffer;
 
                     let reader = new FileReader();
                     reader.onload = function (e) {
@@ -934,7 +930,7 @@
                     // Event listener for button click
                     loadPlayerButton.addEventListener('click', function () {
                         // Create the mini audio player
-                        const miniPlayer = createMiniAudioPlayer(filename, buffer.slice(fileOffset, fileOffset + fileSize));
+                        const miniPlayer = createMiniAudioPlayer(filename, arrayBuffer);
 
                         // Replace the button with the mini player in the preview cell
                         previewCell.innerHTML = '';
@@ -969,14 +965,14 @@
                             previewCell.textContent = previewText;
                         }
                     };
-                    reader.readAsText(new Blob([new Uint8Array(buffer, fileOffset, fileSize)], { type: 'text/plain' }), 'UTF-8');
+                    reader.readAsText(new Blob([new Uint8Array(arrayBuffer)], { type: 'text/plain' }), 'UTF-8');
                 }
 
                 // spr
                 else if (/\.(spr)$/i.test(filename)) {
                     console.log(`Processing .spr file: ${filename}`);
 
-                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    const fileArrayBuffer = arrayBuffer;
 
                     if (fileArrayBuffer.byteLength !== fileSize) {
                         console.error(`File size mismatch for ${filename}: Expected ${fileSize}, but got ${fileArrayBuffer.byteLength}`);
@@ -1019,7 +1015,7 @@
                 // lmp
                 else if (/\.(lmp)$/i.test(filename)) {
 
-                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    const fileArrayBuffer = arrayBuffer;
 
                     if (fileArrayBuffer.byteLength !== fileSize) {
                         console.error(`File size mismatch for ${filename}: Expected ${fileSize}, but got ${fileArrayBuffer.byteLength}`);
@@ -1051,7 +1047,7 @@
                 else if (/\.(mdl)$/i.test(filename)) {
                     console.log(`Processing .mdl file: ${filename}`);
 
-                    const fileArrayBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    const fileArrayBuffer = arrayBuffer;
 
                     const MAX_MDL_SIZE = 10000000; // Maximum reasonable size for .mdl file, adjust as needed
                     if (fileSize > MAX_MDL_SIZE) {
@@ -1062,7 +1058,7 @@
 
                     try {
                         // Create MDL object from the file data
-                        var mdl = new QuakeWebTools.MDL(filename, buffer.slice(fileOffset, fileOffset + fileSize));
+                        var mdl = new QuakeWebTools.MDL(filename, arrayBuffer);
                         var file_entry = G.FILEMANAGER.addFile(filename, fileArrayBuffer);
 
                         if (mdl.skins && mdl.skins.length > 0) {
@@ -1109,115 +1105,177 @@
         }
 
         function readPackFile(file) {
-            // Clear the fileBlobs array each time a new PAK file is read
             fileBlobs = [];
             viewFileBlobs = [];
+            document.getElementById('loadingCircle').style.display = 'block';
+
+            if (/\.pk3$/i.test(file.name)) {
+                readPk3File(file);
+                return;
+            }
+
             const reader = new FileReader();
 
-            // Define the onload callback
             reader.onload = function (e) {
                 const buffer = e.target.result;
                 const view = new DataView(buffer);
 
-                // Check for the PACK magic number
-                const magic = new TextDecoder("utf-8").decode(new Uint8Array(buffer, 0, 4));
-                if (magic !== "PACK") {
-                    alert("This is not a valid PAK file.");
+                const magic = new TextDecoder('utf-8').decode(new Uint8Array(buffer, 0, 4));
+                if (magic !== 'PACK') {
+                    alert('This is not a valid PAK file.');
+                    document.getElementById('packfilecontents').innerHTML = '';
+                    document.getElementById('downloadAll').style.display = 'none';
+                    document.getElementById('loadingCircle').style.display = 'none';
                     return;
                 }
 
-                // Read the directory offset and size
                 const diroffset = view.getUint32(4, true);
                 const dirsize = view.getUint32(8, true);
                 const numEntries = dirsize / 64;
 
-                // Clear the contents display
                 const contentsDiv = document.getElementById('packfilecontents');
                 contentsDiv.innerHTML = '';
 
-                // Create and append a new table to the contents div
                 const table = document.createElement('table');
                 contentsDiv.appendChild(table);
 
-                // Initialize crcDescription
-                let crcDescription = "";
+                let crcDescription = '';
 
-                // Extract the directory part of the file for CRC calculation
-                const directoryBytes = new Uint8Array(e.target.result, diroffset, dirsize);
-
-                // Calculate CRC on the directory part
+                const directoryBytes = new Uint8Array(buffer, diroffset, dirsize);
                 const crc = crc16ccitt(directoryBytes);
 
-                console.log(crc);
                 switch (crc) {
                     case 13900:
-                        crcDescription = " (Official PAK0 v. 1.0 - CRC-16-CCITT 13900)";
+                        crcDescription = ' (Official PAK0 v. 1.0 - CRC-16-CCITT 13900)';
                         break;
                     case 62751:
-                        crcDescription = " (Official PAK0 v. 1.01 - CRC-16-CCITT 62751)";
+                        crcDescription = ' (Official PAK0 v. 1.01 - CRC-16-CCITT 62751)';
                         break;
                     case 32981:
-                        crcDescription = " (Official PAK0 v. 1.06 - Steam - CRC-16-CCITT 32981)";
+                        crcDescription = ' (Official PAK0 v. 1.06 - Steam - CRC-16-CCITT 32981)';
                         break;
                     case 60371:
-                        crcDescription = " (Official PAK0 Re-Release - Steam - CRC-16-CCITT 60371)";
+                        crcDescription = ' (Official PAK0 Re-Release - Steam - CRC-16-CCITT 60371)';
                         break;
                     case 18139:
-                        crcDescription = " (Official PAK1 v. 1.01 - Steam - CRC-16-CCITT 18139)";
+                        crcDescription = ' (Official PAK1 v. 1.01 - Steam - CRC-16-CCITT 18139)';
                         break;
                     case 42362:
-                        crcDescription = " (Official Scourge of Armagon [Hipnotic] - CRC-16-CCITT 42362)";
+                        crcDescription = ' (Official Scourge of Armagon [Hipnotic] - CRC-16-CCITT 42362)';
                         break;
                     case 19534:
-                        crcDescription = " (Official Dissolution of Eternity [Rogue] - CRC-16-CCITT 19534)";
+                        crcDescription = ' (Official Dissolution of Eternity [Rogue] - CRC-16-CCITT 19534)';
                         break;
                     case 37050:
-                        crcDescription = " (Official Threewave CTF v. 3.01 - CRC-16-CCITT 37050)";
+                        crcDescription = ' (Official Threewave CTF v. 3.01 - CRC-16-CCITT 37050)';
                         break;
                     case 46212:
-                        crcDescription = " (Official Threewave CTF v. 4.0 - CRC-16-CCITT 46212)";
+                        crcDescription = ' (Official Threewave CTF v. 4.0 - CRC-16-CCITT 46212)';
                         break;
                     case 33258:
-                        crcDescription = " (Official League of Capture CTF v. 1.0 - CRC-16-CCITT 33258)";
+                        crcDescription = ' (Official League of Capture CTF v. 1.0 - CRC-16-CCITT 33258)';
                         break;
                     case 50532:
-                        crcDescription = " (Official Rocket Arena v. 1.2 - CRC-16-CCITT 50532)";
+                        crcDescription = ' (Official Rocket Arena v. 1.2 - CRC-16-CCITT 50532)';
                         break;
-                    case 46645: // 0xB635
-                        // QTest ID1.PAK (1996 tech test)
-                        crcDescription = " (QTest ID1.PAK - CRC-16-CCITT 46645)";
+                    case 46645:
+                        crcDescription = ' (QTest ID1.PAK - CRC-16-CCITT 46645)';
                         break;
-
                 }
 
-                // If it's the QTest pack, append the live file count (expected 144)
                 if (crc === 0xB635) {
                     crcDescription += ` | Files: ${numEntries}`;
                 }
 
-                // Check for gfx/pop.lmp
                 const { hasPop, isPopCorrect } = checkPopLmp(view, diroffset, dirsize);
                 let popCheck = '';
                 if (hasPop) {
-                    popCheck = " | pop.lmp: Found, CRC: " + (isPopCorrect ? "Pass" : "Fail");
+                    popCheck = ' | pop.lmp: Found, CRC: ' + (isPopCorrect ? 'Pass' : 'Fail');
                 }
 
-                // Update the viewing-text element with CRC description
-                var fileName = file.name;
+                const fileName = file.name;
                 document.getElementById('viewing-text').innerHTML = '<span class="text-color-view-create">Viewing:</span> ' + fileName + crcDescription + popCheck;
 
-                processDirectoryEntries(buffer, view, diroffset, dirsize, numEntries, table);
+                const entries = [];
+                for (let i = 0; i < numEntries; i++) {
+                    const entryOffset = diroffset + i * 64;
+                    const filenameBytes = new Uint8Array(buffer, entryOffset, 56);
+                    const entryName = new TextDecoder('utf-8').decode(filenameBytes).split('\0', 1)[0];
+                    const fileOffset = view.getUint32(entryOffset + 56, true);
+                    const fileSize = view.getUint32(entryOffset + 60, true);
+                    const entryBuffer = buffer.slice(fileOffset, fileOffset + fileSize);
+                    entries.push({
+                        filename: entryName,
+                        size: fileSize,
+                        arrayBuffer: entryBuffer,
+                        blob: new Blob([entryBuffer], { type: 'application/octet-stream' })
+                    });
+                }
 
-                // Show the download all button if there are entries
-                document.getElementById('downloadAll').style.display = numEntries > 0 ? 'inline-block' : 'none';
+                processFileEntries(entries, table);
 
+                document.getElementById('downloadAll').style.display = entries.length > 0 ? 'inline-block' : 'none';
                 document.getElementById('loadingCircle').style.display = 'none';
             };
 
-            // Read the file as an ArrayBuffer
+            reader.onerror = function () {
+                alert('Failed to read file.');
+                document.getElementById('loadingCircle').style.display = 'none';
+            };
+
             reader.readAsArrayBuffer(file);
         }
 
+        async function readPk3File(file) {
+            try {
+                const contentsDiv = document.getElementById('packfilecontents');
+                contentsDiv.innerHTML = '';
+
+                const zip = await JSZip.loadAsync(file);
+                const entryPromises = [];
+
+                zip.forEach(function (relativePath, zipEntry) {
+                    if (zipEntry.dir) {
+                        return;
+                    }
+                    entryPromises.push(zipEntry.async('arraybuffer').then(function (arrayBuffer) {
+                        return {
+                            filename: relativePath,
+                            size: arrayBuffer.byteLength,
+                            arrayBuffer: arrayBuffer,
+                            blob: new Blob([arrayBuffer], { type: 'application/octet-stream' })
+                        };
+                    }));
+                });
+
+                const entries = await Promise.all(entryPromises);
+                entries.sort(function (a, b) {
+                    return a.filename.localeCompare(b.filename, undefined, { sensitivity: 'base' });
+                });
+
+                document.getElementById('viewing-text').innerHTML = '<span class="text-color-view-create">Viewing:</span> ' + file.name + ' (PK3 archive, ' + entries.length + ' file' + (entries.length === 1 ? '' : 's') + ')';
+
+                if (entries.length === 0) {
+                    contentsDiv.textContent = 'No files found in this PK3.';
+                    document.getElementById('downloadAll').style.display = 'none';
+                    return;
+                }
+
+                const table = document.createElement('table');
+                contentsDiv.appendChild(table);
+
+                processFileEntries(entries, table);
+
+                document.getElementById('downloadAll').style.display = 'inline-block';
+            } catch (error) {
+                console.error('Failed to read PK3 file:', error);
+                alert('Unable to read PK3 file.');
+                document.getElementById('packfilecontents').innerHTML = '';
+                document.getElementById('downloadAll').style.display = 'none';
+            } finally {
+                document.getElementById('loadingCircle').style.display = 'none';
+            }
+        }
         document.getElementById('create_drop').addEventListener('click', function () {
             document.getElementById('pakcreator').click();
         });
@@ -1325,15 +1383,16 @@
 
             const files = event.dataTransfer.files;
             if (files.length === 0) {
+                document.getElementById('loadingCircle').style.display = 'none';
                 return;
             }
 
             const file = files[0]; // Considering only the first file for simplicity
 
-            if (file.name.toLowerCase().endsWith('.pak')) {
-                pakSelector(files); // Process the .pak file
+            if (/(\.pak|\.pk3)$/i.test(file.name)) {
+                pakSelector(files);
             } else {
-                alert('Only .pak files are accepted');
+                alert('Only .pak or .pk3 files are accepted');
                 document.getElementById('loadingCircle').style.display = 'none';
                 // Reset any changes made to the drop zone, if necessary
             }
