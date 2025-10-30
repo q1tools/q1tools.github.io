@@ -156,6 +156,46 @@ td {
     padding: 0 5px;
 }
 
+.wad-preview-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 480px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 6px 4px 0;
+    width: 100%;
+    align-content: flex-start;
+}
+
+.wad-texture-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 120px;
+    max-width: 132px;
+}
+
+.wad-texture {
+    image-rendering: pixelated;
+    border: 1px solid #2f2f2f;
+    background: #000;
+    max-width: 112px;
+    max-height: 112px;
+    display: block;
+}
+
+.wad-texture-label {
+    font-size: 11px;
+    color: #b8b8b8;
+    text-align: center;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Hidden elements */
 #packfile,
 #pakcreator {

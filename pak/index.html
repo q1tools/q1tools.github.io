@@ -908,6 +908,85 @@
                     }
                 }
 
+                // wad
+                else if (/\.wad$/i.test(filename)) {
+                    const fileArrayBuffer = arrayBuffer;
+
+                    if (!(fileArrayBuffer instanceof ArrayBuffer)) {
+                        console.error(`Invalid ArrayBuffer for ${filename}`);
+                        previewCell.textContent = 'Error processing WAD file.';
+                        continue;
+                    }
+
+                    try {
+                        const fileEntry = G.FILEMANAGER.addFile(filename, fileArrayBuffer);
+                        const wad = (fileEntry && fileEntry.obj instanceof QuakeWebTools.WAD)
+                            ? fileEntry.obj
+                            : new QuakeWebTools.WAD(filename, fileArrayBuffer);
+
+                        const palette = QWT.DEFAULT_PALETTE;
+                        if (!palette) {
+                            console.warn('Palette not loaded; cannot render WAD textures.');
+                            previewCell.textContent = 'Palette unavailable for preview.';
+                            continue;
+                        }
+
+                        const wadBuffer = wad.ab || fileArrayBuffer;
+                        const textureEntries = wad.directory.filter((entry) => entry && entry.size > 0 && entry.type !== QuakeWebTools.WAD.TYPE_PALETTE);
+
+                        if (!textureEntries.length) {
+                            previewCell.textContent = 'No textures found in WAD.';
+                            continue;
+                        }
+
+                        const wadContainer = document.createElement('div');
+                        wadContainer.className = 'wad-preview-grid';
+                        previewCell.appendChild(wadContainer);
+
+                        const fragment = document.createDocumentFragment();
+
+                        textureEntries.forEach((entry) => {
+                            try {
+                                const imageData = QWT.ImageUtil.getImageData(entry.name, wadBuffer, entry);
+                                if (!imageData || !imageData.width || !imageData.height) {
+                                    return;
+                                }
+                                const needsMip = entry.type === QuakeWebTools.WAD.TYPE_MIPTEX && (imageData.width > 128 || imageData.height > 128);
+                                const mipLevel = needsMip ? 2 : undefined;
+                                const canvas = QWT.ImageUtil.expandImageData(imageData, palette, mipLevel);
+                                if (!canvas) {
+                                    return;
+                                }
+
+                                const maxDisplaySize = 112;
+                                const largestDimension = Math.max(imageData.width, imageData.height);
+                                const scale = largestDimension > maxDisplaySize ? maxDisplaySize / largestDimension : 1;
+                                canvas.style.width = Math.max(1, Math.round(imageData.width * scale)) + 'px';
+                                canvas.style.height = Math.max(1, Math.round(imageData.height * scale)) + 'px';
+                                canvas.classList.add('wad-texture');
+                                canvas.title = `${entry.name} (${imageData.width}x${imageData.height})`;
+
+                                const textureWrapper = document.createElement('div');
+                                textureWrapper.className = 'wad-texture-wrapper';
+                                textureWrapper.appendChild(canvas);
+
+                                const label = document.createElement('div');
+                                label.className = 'wad-texture-label';
+                                label.textContent = entry.name;
+                                textureWrapper.appendChild(label);
+
+                                fragment.appendChild(textureWrapper);
+                            } catch (renderError) {
+                                console.error(`Failed to render texture ${entry.name} from ${filename}`, renderError);
+                            }
+                        });
+                        wadContainer.appendChild(fragment);
+                    } catch (error) {
+                        console.error(`Error processing WAD file ${filename}`, error);
+                        previewCell.textContent = 'Error processing WAD file.';
+                    }
+                }
+
                 else if (/\.ion$/i.test(filename)) {
                     const fileArrayBuffer = arrayBuffer;
 
