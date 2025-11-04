@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WADCleaver</title>
+  <link rel="icon" type="image/png" href="wad.png" />
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #11151d;
+      --panel-2: #0f131a;
+      --text: #e6e9ee;
+      --muted: #9aa3af;
+      --accent: #61dafb; /* subtle blue */
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --border: #1e2633;
+      --radius: 16px;
+      --shadow: 0 8px 30px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: radial-gradient(1200px 600px at 20% -10%, #0e141c 0%, #0b0d10 45%, #0b0d10 100%);
+      color: var(--text); font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(8px);
+      background: linear-gradient(180deg, rgba(15,19,26,.9), rgba(15,19,26,.6));
+      border-bottom: 1px solid var(--border);
+    }
+    .nav { width: 100%; margin: 0 auto; padding: 14px 32px; display: flex; align-items: center; gap: 14px; max-width: none; }
+    .logo { width: 26px; height: 26px; object-fit: contain; }
+    .title { font-weight: 700; letter-spacing: .3px; }
+    .muted { color: var(--muted); }
+    .has-tip { position: relative; cursor: help; display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+    .has-tip code { color: inherit; }
+    .has-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 0;
+      top: calc(100% + 6px);
+      background: #151b25;
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #253047;
+      font-size: 12px;
+      line-height: 1.4;
+      width: max(220px, 100%);
+      max-width: 260px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity .15s ease, transform .15s ease;
+      box-shadow: 0 6px 18px rgba(0,0,0,.4);
+      z-index: 20;
+      background-clip: padding-box;
+    }
+    .has-tip.align-end::after { left: auto; right: 0; }
+    .has-tip:hover::after,
+    .has-tip:focus-visible::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    main { width: 100%; margin: 24px auto 24px; padding: 0 32px 32px; display: grid; grid-template-columns: minmax(340px, 35vw) minmax(0, 1fr); gap: 18px; max-width: none; }
+    main > section.card:first-of-type { grid-column: 1 / -1; }
+    @media (min-width: 981px) {
+      main.has-results > section.card:first-of-type { grid-column: 1 / 2; }
+      main.has-results > #resultsCard { grid-column: 2 / 3; }
+    }
+    @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+
+    .card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; overflow: hidden; }
+    .card h2 { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; letter-spacing: .2px; }
+    .card .body { padding: 16px; min-width: 0; }
+
+    .drop {
+      border: 1px dashed #2a3344; border-radius: 14px; padding: 18px; text-align: center; background: #0e131a; transition: .2s ease; cursor: pointer;
+    }
+    .drop:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(97,218,251,.15) inset; }
+    .drop.drag { border-color: var(--ok); background: #0e1713; }
+    .drop.loaded { border-color: var(--accent); background: rgba(97,218,251,.08); box-shadow: 0 0 0 2px rgba(97,218,251,.2) inset; }
+    .drop small { display: block; color: var(--muted); margin-top: 6px; }
+
+    .controls { display: grid; gap: 12px; margin-top: 14px; }
+    .row { display: grid; grid-template-columns: minmax(0,1fr) minmax(120px, 200px); gap: 10px; align-items: start; }
+    .field { display: grid; gap: 6px; min-width: 0; }
+    label { color: var(--muted); font-size: 12px; letter-spacing: .2px; }
+    input[type="text"], input[type="number"] { background: #0b1017; border: 1px solid #1b2230; color: var(--text); padding: 10px 12px; border-radius: 12px; outline: none; transition: border .15s ease; width: 100%; min-width: 0; }
+    input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(97,218,251,.08); }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+    .check input { width: 16px; height: 16px; }
+
+    .btn { appearance: none; border: 1px solid #2a3243; color: var(--text); background: linear-gradient(180deg,#192231,#151b25); padding: 11px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; letter-spacing:.2px; transition: transform .02s ease, box-shadow .2s ease, border .2s ease; }
+    .btn:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(97,218,251,.08); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: linear-gradient(180deg,#0f5b75,#0c4860); border-color: #1e8fb3; }
+    .btn.good { background: linear-gradient(180deg,#166534,#115e2e); border-color:#1a7f3c; }
+
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; background: #0b0f15; border: 1px solid #1a2230; border-radius: 12px; padding: 12px; height: 160px; overflow: auto; white-space: pre-wrap; }
+
+    .result-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .pill { padding: 6px 10px; border-radius: 999px; border:1px solid #253047; color: var(--muted); font-size: 12px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #1a2230; font-size: 13px; text-align: left; }
+    th { color: var(--muted); font-weight: 500; }
+
+    details { background: #0b1017; border: 1px solid #1b2230; border-radius: 12px; padding: 10px 12px; }
+    details > summary { cursor: pointer; color: var(--muted); }
+    details[open] { border-color: #27415c; }
+
+    .grid { display: grid; gap: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <img src="wad.png" alt="WADCleaver logo" class="logo" />
+      <div class="title">WADCleaver</div>
+      <div class="muted">Split Quake WAD2 textures into grouped WADs by nickster</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left: controls -->
+    <section class="card">
+      <h2>Input & Settings</h2>
+      <div class="body">
+        <div id="drop" class="drop" tabindex="0" role="button" aria-label="Select or drop a WAD file">
+          <strong>Drop a .WAD file here</strong>
+          <small>or click to select from your computer</small>
+          <input id="file" type="file" accept=".wad,.WAD" hidden />
+        </div>
+        <div class="controls">
+          <div class="field">
+            <label for="outFolder">Output folder name</label>
+            <input id="outFolder" type="text" placeholder="makkonnewstuff" />
+          </div>
+          <div id="dirHint" class="muted">Files will be offered as individual downloads or as a .zip.</div>
+
+          <div class="row">
+            <div class="field">
+              <label for="delim" class="has-tip" tabindex="0" data-tip="Will work on telling how the WAD is or will be delimited (default _).">Delimiter</label>
+              <input id="delim" type="text" value="_" maxlength="8" />
+            </div>
+            <div class="field">
+              <label for="token" class="has-tip align-end" tabindex="0" data-tip="It will organize the WAD depending on the values given (supports negatives).">Token Index</label>
+              <input id="token" type="number" placeholder="e.g. -1" step="1" />
+            </div>
+          </div>
+          <label class="check"><input id="skipshort" type="checkbox" /> If selected token is a single character, try the adjacent token</label>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="run" class="btn primary" disabled>Generate WAD</button>
+            <button id="downloadZip" class="btn good" disabled>Download All (.zip)</button>
+          </div>
+        </div>
+
+        <h3 style="margin:18px 0 8px; font-size:14px; color:var(--muted);">Log</h3>
+        <div id="log" class="log" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Right: results -->
+    <section class="card" id="resultsCard" style="display:none;">
+      <div class="result-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <strong>Results</strong>
+          <span id="summaryPill" class="pill"></span>
+        </div>
+      </div>
+      <div class="body">
+        <div class="grid" id="groups"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- JSZip for building the optional ZIP -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script>
+  // ======== Utility helpers ========
+  const $ = (sel) => document.querySelector(sel);
+  const mainEl = $('main');
+  const logEl = $('#log');
+  function log(line) {
+    logEl.textContent += (line + '\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function clearLog(){ logEl.textContent=''; }
+
+  function readAscii(view, offset, length) {
+    let s = '';
+    for (let i = 0; i < length; i++) {
+      const c = view.getUint8(offset + i);
+      if (c === 0) break;
+      s += String.fromCharCode(c);
+    }
+    return s;
+  }
+  function writeAscii(view, offset, str, padTo) {
+    for (let i=0; i<padTo; i++) view.setUint8(offset+i, 0);
+    for (let i=0; i<Math.min(str.length, padTo); i++) view.setUint8(offset+i, str.charCodeAt(i));
+  }
+
+  function concatTyped(arrays) {
+    const total = arrays.reduce((n,a)=>n + a.length, 0);
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const a of arrays) { out.set(a, off); off += a.length; }
+    return out;
+  }
+
+  function toBlobUrl(u8, mime='application/octet-stream') {
+    return URL.createObjectURL(new Blob([u8], {type: mime}));
+  }
+
+  function baseName(fileName) {
+    return fileName.replace(/\\/g,'/').split('/').pop().replace(/\.[^/.]+$/, '');
+  }
+
+  // ======== WAD structures (WAD2) ========
+  const DIR_ENTRY_LEN = 32;
+  const TEX_NAME_LEN = 16;
+  const WAD_HEADER_LEN = 12;
+  const UNKNOWN_TOKEN = 'unknown';
+
+  class Texture {
+    constructor({start, name, size, wsize, comp, ident, data}) {
+      this.start = start;
+      this.name = name;
+      this.size = size;
+      this.wsize = wsize;
+      this.comp = comp; // compression flag
+      this.ident = ident; // type id
+      this.data = data; // Uint8Array
+    }
+  }
+
+  class WadFile {
+    constructor() {
+      this.header = 'WAD2';
+      this.textures = []; // Texture[]
+      this.dirOffset = 0;
+    }
+
+    static parse(arrayBuffer) {
+      const dv = new DataView(arrayBuffer);
+      const sig = readAscii(dv, 0, 4);
+      const textureCount = dv.getUint32(4, true);
+      const dirOffset = dv.getUint32(8, true);
+      if (sig !== 'WAD2') {
+        throw new Error(`Unsupported WAD signature: ${sig}. This tool expects WAD2.`);
+      }
+
+      const wad = new WadFile();
+      wad.dirOffset = dirOffset;
+
+      for (let i=0; i<textureCount; i++) {
+        const off = dirOffset + i * DIR_ENTRY_LEN;
+        const start = dv.getUint32(off + 0, true);
+        const wsize = dv.getUint32(off + 4, true);
+        const size  = dv.getUint32(off + 8, true);
+        const ident = dv.getUint8(off + 12);
+        const comp  = dv.getUint8(off + 13);
+        // 14-15 padding
+        const name  = readAscii(dv, off + 16, TEX_NAME_LEN);
+        const data  = new Uint8Array(arrayBuffer.slice(start, start + wsize));
+        wad.textures.push(new Texture({start, name, size, wsize, comp, ident, data}));
+      }
+      return wad;
+    }
+
+    static buildFromTextures(textures) {
+      const tcount = textures.length;
+      // Compute texture data block and record new starts
+      let tdataParts = [];
+      let running = 0;
+      for (const t of textures) {
+        t.start = WAD_HEADER_LEN + running; // recompute
+        tdataParts.push(t.data);
+        running += t.data.length;
+      }
+      const tdata = concatTyped(tdataParts);
+      const dirOffset = WAD_HEADER_LEN + tdata.length;
+
+      // Build directory
+      const dirBytes = new Uint8Array(tcount * DIR_ENTRY_LEN);
+      const dirDV = new DataView(dirBytes.buffer);
+      for (let i=0; i<tcount; i++) {
+        const t = textures[i];
+        const off = i * DIR_ENTRY_LEN;
+        dirDV.setUint32(off + 0, t.start, true);
+        dirDV.setUint32(off + 4, t.wsize, true);
+        dirDV.setUint32(off + 8, t.size, true);
+        dirDV.setUint8(off + 12, t.ident);
+        dirDV.setUint8(off + 13, t.comp);
+        dirDV.setUint16(off + 14, 0, true); // padding
+        writeAscii(dirDV, off + 16, t.name, TEX_NAME_LEN);
+      }
+
+      // Header
+      const header = new Uint8Array(WAD_HEADER_LEN);
+      const hDV = new DataView(header.buffer);
+      writeAscii(hDV, 0, 'WAD2', 4);
+      hDV.setUint32(4, tcount, true);
+      hDV.setUint32(8, dirOffset, true);
+
+      return concatTyped([header, tdata, dirBytes]);
+    }
+  }
+
+  // ======== Grouping logic (port of Python) ========
+  function groupTexturesByToken(textures, delim, tokenIndex, skipshort) {
+    /**
+     * Matches Python semantics:
+     *  mytoken = name.split(delim)[tokenIndex]
+     *  if skipshort and len(mytoken) == 1: use adjacent token in the direction of the sign
+     *  IndexError -> UNKNOWN_TOKEN
+     */
+    const groups = new Map(); // token -> Texture[]
+    for (const t of textures) {
+      let token = UNKNOWN_TOKEN;
+      try {
+        const parts = t.name.split(delim);
+        let idx = tokenIndex >= 0 ? tokenIndex : parts.length + tokenIndex;
+        if (idx < 0 || idx >= parts.length) throw new Error('IndexError');
+        token = parts[idx];
+        if (skipshort && token.length === 1) {
+          const adj = tokenIndex >= 0 ? idx + 1 : idx - 1;
+          if (adj < 0 || adj >= parts.length) throw new Error('IndexError');
+          token = parts[adj];
+        }
+      } catch (e) {
+        token = UNKNOWN_TOKEN;
+        log(`    Not enough tokens in ${t.name}, adding to group ${UNKNOWN_TOKEN}`);
+      }
+      if (!groups.has(token)) groups.set(token, []);
+      groups.get(token).push(t);
+      log(`  Added ${t.name} to group ${token}`);
+    }
+    return groups;
+  }
+
+  // ======== UI wiring ========
+  const drop = $('#drop');
+  const fileInput = $('#file');
+  const dropLabel = drop?.querySelector('strong');
+  const dropHint = drop?.querySelector('small');
+  const defaultDropLabel = dropLabel?.textContent ?? 'Drop a .WAD file here';
+  const defaultDropHint = dropHint?.textContent ?? 'or click to select from your computer';
+  const runBtn = $('#run');
+  const dlAllBtn = $('#downloadZip');
+  const groupsEl = $('#groups');
+  const resultsCard = $('#resultsCard');
+  const outFolderEl = $('#outFolder');
+  const dirHint = $('#dirHint');
+  let parentDirHandle = null; // DirectoryHandle (File System Access API)
+
+  const summaryPill = $('#summaryPill');
+
+  let loadedFile = null; // File
+  let loadedWad = null;  // WadFile
+  let builtGroups = null; // Map(token -> { textures, blobBytes, filename })
+  let wadRootName = 'output';
+
+  function enableRun(enabled) {
+    runBtn.disabled = !enabled;
+  }
+  function enableZip(enabled) { dlAllBtn.disabled = !enabled; }
+
+  function setDrag(v){ drop.classList.toggle('drag', v); }
+  function updateDropState(fileName) {
+    if (!dropLabel || !dropHint) return;
+    if (fileName) {
+      drop.classList.add('loaded');
+      dropLabel.textContent = `Loaded: ${fileName}`;
+      dropHint.textContent = 'Click or drop another file to replace it';
+    } else {
+      drop.classList.remove('loaded');
+      dropLabel.textContent = defaultDropLabel;
+      dropHint.textContent = defaultDropHint;
+    }
+  }
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); setDrag(true); });
+  drop.addEventListener('dragleave', () => setDrag(false));
+  drop.addEventListener('drop', async (e) => {
+    e.preventDefault(); setDrag(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) await handleFile(f);
+  });
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files?.[0];
+    if (f) await handleFile(f);
+  });
+
+  async function handleFile(file) {
+    clearLog();
+    log(`Loaded file: ${file.name}`);
+    if (!/\.wad$/i.test(file.name)) {
+      log('ERROR: Please provide a .WAD file.');
+      updateDropState(null);
+      return;
+    }
+    try {
+      const buf = await file.arrayBuffer();
+      const wad = WadFile.parse(buf);
+      loadedFile = file;
+      loadedWad = wad;
+      wadRootName = baseName(file.name);
+      log(`Header OK (WAD2). Found ${wad.textures.length} texture(s).`);
+      enableRun(true);
+      resultsCard.style.display = 'none';
+      mainEl.classList.remove('has-results');
+      enableZip(false);
+      updateDropState(file.name);
+    } catch (err) {
+      console.error(err);
+      log(`ERROR: ${err.message}`);
+      enableRun(false);
+      enableZip(false);
+      updateDropState(null);
+    }
+  }
+
+  runBtn.addEventListener('click', () => processSplit());
+  dlAllBtn.addEventListener('click', () => downloadAllZip());
+
+  function processSplit() {
+    if (!loadedWad) return;
+    const delim = $('#delim').value || '_';
+    const tokenIndex = parseInt($('#token').value, 10) || 0;
+    const skipshort = $('#skipshort').checked;
+
+    log(`\nSplitting ${loadedFile.name}...`);
+    const groups = groupTexturesByToken(loadedWad.textures, delim, tokenIndex, skipshort);
+
+    // Build WAD per group
+    builtGroups = new Map();
+    groupsEl.innerHTML = '';
+    let totalOut = 0;
+
+    for (const [token, textures] of groups.entries()) {
+      const bytes = WadFile.buildFromTextures(textures);
+      const fname = `${wadRootName}_${token}.wad`;
+      builtGroups.set(token, { textures, bytes, filename: fname });
+      totalOut += 1;
+
+      // UI row for this group
+      const card = document.createElement('div');
+      card.className = 'card';
+      const h = document.createElement('h2');
+      h.textContent = `${token}`;
+      card.appendChild(h);
+      const b = document.createElement('div');
+      b.className = 'body';
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.alignItems = 'center';
+      row.style.gap = '10px';
+      row.innerHTML = `<div class="muted">${textures.length} texture(s)</div>`;
+      const actions = document.createElement('div');
+      const dl = document.createElement('a');
+      dl.className = 'btn';
+      dl.textContent = `Download ${fname}`;
+      dl.href = toBlobUrl(bytes);
+      dl.download = fname;
+      actions.appendChild(dl);
+      row.appendChild(actions);
+      b.appendChild(row);
+
+      // details list
+      const det = document.createElement('details');
+      const sum = document.createElement('summary');
+      sum.textContent = 'Show texture names';
+      det.appendChild(sum);
+      const list = document.createElement('div');
+      list.style.marginTop = '8px';
+      const ul = document.createElement('ul');
+      ul.style.margin = '0';
+      ul.style.paddingLeft = '18px';
+      for (const t of textures) {
+        const li = document.createElement('li');
+        li.textContent = t.name;
+        ul.appendChild(li);
+      }
+      list.appendChild(ul);
+      det.appendChild(list);
+      b.appendChild(det);
+
+      card.appendChild(b);
+      groupsEl.appendChild(card);
+    }
+
+    resultsCard.style.display = 'block';
+    mainEl.classList.add('has-results');
+    summaryPill.textContent = `${groups.size} group(s)`;
+    enableZip(true);
+    log('Generating new WADs...');
+    for (const [token] of groups.entries()) {
+      log(`  Prepared ${wadRootName}_${token}.wad`);
+    }
+    log('Done.');
+
+    // If a directory was chosen, also write files there
+    if (parentDirHandle) {
+      const folderName = (outFolderEl?.value?.trim()) || `${wadRootName}_split`;
+      saveGroupsToDirectory(parentDirHandle, folderName).catch(err => log(`ERROR saving to directory: ${err.message}`));
+    }
+  }
+
+  async function downloadAllZip() {
+    if (!builtGroups || builtGroups.size === 0) return;
+    const zip = new JSZip();
+    for (const {filename, bytes} of builtGroups.values()) {
+      zip.file(filename, bytes);
+    }
+    const blob = await zip.generateAsync({type: 'blob'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${wadRootName}_split.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Save to Directory via File System Access API
+  async function saveGroupsToDirectory(parentHandle, folderName) {
+    if (!builtGroups || builtGroups.size === 0) return;
+    if (!parentHandle) return;
+    try {
+      const subdir = await parentHandle.getDirectoryHandle(folderName, { create: true });
+      log(`Writing files to folder: ${folderName}`);
+      for (const { filename, bytes } of builtGroups.values()) {
+        const fh = await subdir.getFileHandle(filename, { create: true });
+        const w = await fh.createWritable();
+        await w.write(bytes);
+        await w.close();
+        log(`  Saved ${filename}`);
+      }
+      dirHint.textContent = `Saved ${builtGroups.size} file(s) to: ${folderName}`;
+    } catch (e) {
+      log(`ERROR writing files: ${e.message}`);
+      throw e;
+    }
+  }
+
+  // Keyboard accessibility for drop zone
+  drop.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); fileInput.click();
+    }
+  });
+  </script>
+</body>
+</html>
