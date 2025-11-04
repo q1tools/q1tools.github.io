@@ -23,6 +23,54 @@ img {
     color: white;    
 }
 
+.loading {
+    margin: 16px auto 0;
+    max-width: 320px;
+    text-align: center;
+    color: #ccc;
+    font-size: 0.95em;
+}
+
+.loading.hidden {
+    display: none;
+}
+
+.progress-bar {
+    position: relative;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.progress-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: #4ea3ff;
+    transition: width 0.2s ease;
+}
+
+.progress-bar.indeterminate .progress-bar-fill {
+    width: 40%;
+    animation: progress-indeterminate 1.1s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+    0% {
+        left: -40%;
+    }
+    50% {
+        left: 30%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
 .item-box {
     border: 0;
     padding: 4px;

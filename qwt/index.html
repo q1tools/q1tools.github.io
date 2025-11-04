@@ -39,6 +39,13 @@
         pal) into this area to load their content in your browser.</p>
         <div id="file-content" class="" style="border:0">
         </div>
+        <div id="loading-indicator" class="loading hidden" aria-live="polite">
+          <p id="loading-message">Loading…</p>
+          <div class="progress-bar" role="progressbar"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div id="loading-progress" class="progress-bar-fill"></div>
+          </div>
+        </div>
       </div> 
       <p id="status">File API and FileReader API not supported</p>
 
@@ -74,6 +81,10 @@ if (0) {
 var holder = document.getElementById('holder');
 var state = document.getElementById('status');
 var fileInput = document.getElementById('file_input');
+var loadingIndicator = document.getElementById('loading-indicator');
+var loadingMessage = document.getElementById('loading-message');
+var loadingProgress = document.getElementById('loading-progress');
+var loadingProgressBar = loadingIndicator ? loadingIndicator.querySelector('.progress-bar') : null;
 
 if (typeof window.FileReader === 'undefined') {
   state.className = 'fail';
@@ -81,57 +92,129 @@ if (typeof window.FileReader === 'undefined') {
   state.parentNode.removeChild(state);
 }
 
+function clampProgress(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function showLoadingIndicator(message) {
+  if (!loadingIndicator || !loadingProgressBar || !loadingMessage || !loadingProgress) return;
+  loadingIndicator.classList.remove('hidden');
+  loadingProgressBar.classList.remove('indeterminate');
+  loadingProgress.style.width = '0%';
+  loadingProgressBar.setAttribute('aria-valuenow', '0');
+  loadingProgressBar.removeAttribute('aria-valuetext');
+  loadingMessage.textContent = message;
+}
+
+function updateDeterminateProgress(percent, message) {
+  if (!loadingIndicator || !loadingProgressBar || !loadingMessage || !loadingProgress) return;
+  var clamped = clampProgress(percent);
+  loadingProgressBar.classList.remove('indeterminate');
+  loadingProgress.style.width = clamped + '%';
+  loadingProgressBar.setAttribute('aria-valuenow', String(clamped));
+  loadingProgressBar.removeAttribute('aria-valuetext');
+  if (message) loadingMessage.textContent = message;
+}
+
+function updateIndeterminateProgress(message) {
+  if (!loadingIndicator || !loadingProgressBar || !loadingMessage || !loadingProgress) return;
+  loadingProgressBar.classList.add('indeterminate');
+  loadingProgress.style.width = '40%';
+  loadingProgressBar.removeAttribute('aria-valuenow');
+  loadingProgressBar.setAttribute('aria-valuetext', 'Loading');
+  if (message) loadingMessage.textContent = message;
+}
+
+function hideLoadingIndicator() {
+  if (!loadingIndicator || !loadingProgressBar || !loadingMessage || !loadingProgress) return;
+  loadingIndicator.classList.add('hidden');
+  loadingProgressBar.classList.remove('indeterminate');
+  loadingProgress.style.width = '0%';
+  loadingProgressBar.setAttribute('aria-valuenow', '0');
+  loadingProgressBar.removeAttribute('aria-valuetext');
+  loadingMessage.textContent = 'Loading…';
+}
+
 // Shared file handler used by both drag-drop and picker
 function handleFile(file) {
   if (!file) return;
   var reader = new FileReader();
+
+  reader.onloadstart = function () {
+    showLoadingIndicator("Loading " + file.name + "…");
+  };
+
+  reader.onprogress = function (event) {
+    if (!event.lengthComputable) {
+      updateIndeterminateProgress("Loading " + file.name + "…");
+      return;
+    }
+    var percentLoaded = event.total > 0 ? (event.loaded / event.total) * 100 : 100;
+    updateDeterminateProgress(percentLoaded, "Loading " + file.name + "… (" + clampProgress(percentLoaded) + "%)");
+  };
+
+  reader.onerror = function (event) {
+    console.error("Error reading file:", file.name, event);
+    hideLoadingIndicator();
+    alert("Unable to read " + file.name + ". Please try again.");
+  };
+
   reader.onload = function (event) {
+    updateIndeterminateProgress("Processing " + file.name + "…");
     var QWT = QuakeWebTools;
     var G = QWT.GLOBAL;
 
-    var file_entry = G.FILEMANAGER.addFile(file.name, event.target.result);
-    var filename = file_entry.path;
-    var arraybuffer = file_entry.data;
+    try {
+      var file_entry = G.FILEMANAGER.addFile(file.name, event.target.result);
+      var filename = file_entry.path;
+      var arraybuffer = file_entry.data;
 
-    // stop any running viewer animation
-    if (QWT.ANIMATION_ID != null) {
-      console.log("stopping animationFrame " + QWT.ANIMATION_ID);
-      cancelAnimationFrame(QWT.ANIMATION_ID);
-      QWT.ANIMATION_ID = null;
-    }
+      // stop any running viewer animation
+      if (QWT.ANIMATION_ID != null) {
+        console.log("stopping animationFrame " + QWT.ANIMATION_ID);
+        cancelAnimationFrame(QWT.ANIMATION_ID);
+        QWT.ANIMATION_ID = null;
+      }
 
-    document.getElementById("file-content").innerHTML = "";
+      document.getElementById("file-content").innerHTML = "";
 
-    switch (file_entry.type) {
-      case "pak":
-        viewPAK(file_entry.obj);
-        break;
-      case "wad":
-        QWT.ImageUtil.generateHTMLPreview({image_infos: file_entry.obj.directory, arraybuffer: file_entry.obj.ab},
-          QWT.DEFAULT_PALETTE, "file-content");
-        break;
-      case "bsp":
-        QWT.ANIMATION_ID = viewBSP(file_entry.obj);
-        QWT.ImageUtil.generateHTMLPreview({image_infos: file_entry.obj.miptex_directory, arraybuffer: file_entry.obj.ab},
-          QWT.DEFAULT_PALETTE, "file-content");
-        break;
-      case "spr":
-        QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.getImageData()},
-          QWT.DEFAULT_PALETTE, "file-content");
-        break;
-      case "lmp":
-      case "pal":
-        QWT.ImageUtil.generateHTMLPreview({image_datas: [QWT.ImageUtil.getImageData(filename, arraybuffer)]},
-          QWT.DEFAULT_PALETTE, "file-content");
-        break;
-      case "mdl":
-        QWT.ANIMATION_ID = viewMDL(file_entry.obj);
-        QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.skins}, QWT.DEFAULT_PALETTE, "file-content");
-        break;
-      default:
-        alert("File type not supported (" + file_entry.type + ")");
+      switch (file_entry.type) {
+        case "pak":
+          viewPAK(file_entry.obj);
+          break;
+        case "wad":
+          QWT.ImageUtil.generateHTMLPreview({image_infos: file_entry.obj.directory, arraybuffer: file_entry.obj.ab},
+            QWT.DEFAULT_PALETTE, "file-content");
+          break;
+        case "bsp":
+          QWT.ANIMATION_ID = viewBSP(file_entry.obj);
+          QWT.ImageUtil.generateHTMLPreview({image_infos: file_entry.obj.miptex_directory, arraybuffer: file_entry.obj.ab},
+            QWT.DEFAULT_PALETTE, "file-content");
+          break;
+        case "spr":
+          QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.getImageData()},
+            QWT.DEFAULT_PALETTE, "file-content");
+          break;
+        case "lmp":
+        case "pal":
+          QWT.ImageUtil.generateHTMLPreview({image_datas: [QWT.ImageUtil.getImageData(filename, arraybuffer)]},
+            QWT.DEFAULT_PALETTE, "file-content");
+          break;
+        case "mdl":
+          QWT.ANIMATION_ID = viewMDL(file_entry.obj);
+          QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.skins}, QWT.DEFAULT_PALETTE, "file-content");
+          break;
+        default:
+          alert("File type not supported (" + file_entry.type + ")");
+      }
+    } catch (err) {
+      console.error("Failed to process file:", file.name, err);
+      alert("Failed to process " + file.name + ". Check the developer console for details.");
+    } finally {
+      hideLoadingIndicator();
     }
   };
+
   reader.readAsArrayBuffer(file);
 }
 
