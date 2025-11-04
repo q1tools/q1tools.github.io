@@ -21,13 +21,40 @@ QuakeWebTools.BSP = function(path, arraybuffer) {
   this.init();
 }
 
+QuakeWebTools.BSP.VERSION_BSP29 = 29;
+QuakeWebTools.BSP.VERSION_BSP23 = 23;
+QuakeWebTools.BSP.VERSION_BSP2 = 0x32505342;     // "BSP2"
+QuakeWebTools.BSP.VERSION_BSP2_RMQE = 0x42535032; // "2PSB"
+
 QuakeWebTools.BSP.VERTEX_SIZE = 12;
 QuakeWebTools.BSP.EDGE_SIZE = 4;
+QuakeWebTools.BSP.EDGE_BSP2_SIZE = 8;
 QuakeWebTools.BSP.LEDGE_SIZE = 4;
 QuakeWebTools.BSP.FACE_SIZE = 20;
+QuakeWebTools.BSP.FACE_BSP2_SIZE = 28;
 QuakeWebTools.BSP.TEXINFO_SIZE = 40;
 QuakeWebTools.BSP.MODEL_SIZE = 64;
 QuakeWebTools.BSP.SURFACE_V23_SIZE = 60;
+
+QuakeWebTools.BSP.isBSP2Version = function(version) {
+  return (version === QuakeWebTools.BSP.VERSION_BSP2 ||
+          version === QuakeWebTools.BSP.VERSION_BSP2_RMQE);
+};
+
+QuakeWebTools.BSP.getVersionLabel = function(version) {
+  switch (version) {
+    case QuakeWebTools.BSP.VERSION_BSP29:
+      return "BSP29";
+    case QuakeWebTools.BSP.VERSION_BSP23:
+      return "BSP23";
+    case QuakeWebTools.BSP.VERSION_BSP2:
+      return "BSP2";
+    case QuakeWebTools.BSP.VERSION_BSP2_RMQE:
+      return "2PSB";
+    default:
+      return "0x" + (version >>> 0).toString(16);
+  }
+};
 
 // 12 bytes
 QuakeWebTools.BSP.VECTOR3_T = [
@@ -40,6 +67,11 @@ QuakeWebTools.BSP.VECTOR3_T = [
 QuakeWebTools.BSP.EDGE_T = [
   "v1",           "uint16",
   "v2",           "uint16"
+];
+
+QuakeWebTools.BSP.EDGE_BSP2_T = [
+  "v1",           "uint32",
+  "v2",           "uint32"
 ];
 
 // 40 bytes
@@ -62,6 +94,16 @@ QuakeWebTools.BSP.FACE_T = [
   "light_type",   "uint8",
   "light_base",   "uint8",
   "light",        ["[]", "uint8", 2],
+  "lightmap",     "int32"
+];
+
+QuakeWebTools.BSP.FACE_BSP2_T = [
+  "plane_id",     "uint32",
+  "side",         "uint32",
+  "edge_id",      "int32",
+  "num_edges",    "uint32",
+  "texinfo_id",   "uint32",
+  "light",        ["[]", "uint8", 4],
   "lightmap",     "int32"
 ];
 
@@ -172,6 +214,14 @@ QuakeWebTools.BSP.prototype.init = function() {
   this.initGeometry(ds);
 }
 
+QuakeWebTools.BSP.prototype.getEdgeStructSize = function() {
+  return (this.is_bsp2 ? QuakeWebTools.BSP.EDGE_BSP2_SIZE : QuakeWebTools.BSP.EDGE_SIZE);
+};
+
+QuakeWebTools.BSP.prototype.getFaceStructSize = function() {
+  return (this.is_bsp2 ? QuakeWebTools.BSP.FACE_BSP2_SIZE : QuakeWebTools.BSP.FACE_SIZE);
+};
+
 /**
 * Initialize the BSP header.
 */
@@ -179,12 +229,19 @@ QuakeWebTools.BSP.prototype.initHeader = function(ds) {
   var version = ds.readInt32();
   var headerStruct;
 
-  if (version === 29) {
+  this.version = version;
+  this.is_bsp2 = QuakeWebTools.BSP.isBSP2Version(version);
+  this.is_bsp2_rmqe = (version === QuakeWebTools.BSP.VERSION_BSP2_RMQE);
+
+  if (version === QuakeWebTools.BSP.VERSION_BSP29) {
     headerStruct = QuakeWebTools.BSP.HEADER_T;
-  } else if (version === 23) {
+  } else if (version === QuakeWebTools.BSP.VERSION_BSP23) {
     headerStruct = QuakeWebTools.BSP.HEADER_V23_T;
+  } else if (this.is_bsp2) {
+    headerStruct = QuakeWebTools.BSP.HEADER_T;
   } else {
-    throw "ERROR: BSP version " + version + " is currently unsupported.";
+    throw "ERROR: BSP version " + version +
+      " (" + QuakeWebTools.BSP.getVersionLabel(version) + ") is currently unsupported.";
   }
 
   ds.seek(0);
@@ -195,13 +252,13 @@ QuakeWebTools.BSP.prototype.initHeader = function(ds) {
     h.vertices.count = Math.floor(h.vertices.size / QuakeWebTools.BSP.VERTEX_SIZE);
   }
   if (h.edges) {
-    h.edges.count = Math.floor(h.edges.size / QuakeWebTools.BSP.EDGE_SIZE);
+    h.edges.count = Math.floor(h.edges.size / this.getEdgeStructSize());
   }
   if (h.ledges) {
     h.ledges.count = Math.floor(h.ledges.size / QuakeWebTools.BSP.LEDGE_SIZE);
   }
   if (h.faces) {
-    h.faces.count = Math.floor(h.faces.size / QuakeWebTools.BSP.FACE_SIZE);
+    h.faces.count = Math.floor(h.faces.size / this.getFaceStructSize());
   }
   if (h.texinfos) {
     h.texinfos.count = Math.floor(h.texinfos.size / QuakeWebTools.BSP.TEXINFO_SIZE);
@@ -235,7 +292,8 @@ QuakeWebTools.BSP.prototype.initGeometry = function(ds) {
 
   if (h.edges && h.edges.count > 0) {
     ds.seek(h.edges.offset);
-    geometry.edges = ds.readType(["[]",  QuakeWebTools.BSP.EDGE_T, h.edges.count]);
+    var edgeStruct = this.is_bsp2 ? QuakeWebTools.BSP.EDGE_BSP2_T : QuakeWebTools.BSP.EDGE_T;
+    geometry.edges = ds.readType(["[]", edgeStruct, h.edges.count]);
   } else {
     geometry.edges = [];
   }
@@ -245,7 +303,8 @@ QuakeWebTools.BSP.prototype.initGeometry = function(ds) {
 
   if (hasFaces) {
     ds.seek(h.faces.offset);
-    geometry.faces = ds.readType(["[]", QuakeWebTools.BSP.FACE_T, h.faces.count]);
+    var faceStruct = this.is_bsp2 ? QuakeWebTools.BSP.FACE_BSP2_T : QuakeWebTools.BSP.FACE_T;
+    geometry.faces = ds.readType(["[]", faceStruct, h.faces.count]);
   } else {
     geometry.faces = [];
   }
@@ -442,17 +501,22 @@ QuakeWebTools.BSP.prototype.expandModelFaces = function(geometry, face_ids, mipt
 
   // get number of triangles required to build model
   var num_tris = 0;
+  var validFaceIds = [];
   for (var i = 0; i < face_ids.length; ++i) {
     var face = faces[face_ids[i]];
+    if (!face || face.num_edges < 3) {
+      continue;
+    }
     num_tris += face.num_edges - 2;
+    validFaceIds[validFaceIds.length] = face_ids[i];
   }
 
   var verts = new Float32Array(num_tris * 9); // 3 vertices, xyz per tri
   var uvs = new Float32Array(num_tris * 6); // 3 uvs, uv per tri
   var verts_ofs = 0;
   
-  for (var i = 0; i < face_ids.length; ++i) {
-    var face = faces[face_ids[i]];
+  for (var i = 0; i < validFaceIds.length; ++i) {
+    var face = faces[validFaceIds[i]];
     verts_ofs = this.addFaceVerts(geometry, face, verts, uvs, verts_ofs, miptex_entry);
   }
 
@@ -480,7 +544,17 @@ QuakeWebTools.BSP.prototype.getFaceIdsPerTexture = function(geometry, model) {
   var end = start + model.num_faces;
   for (var i = start; i < end; ++i) {
     var face = faces[i];
-    var tex_id = texinfos[face.texinfo_id].tex_id;
+    if (!face) {
+      continue;
+    }
+    var texinfo = texinfos[face.texinfo_id];
+    if (!texinfo) {
+      if (typeof console !== "undefined" && typeof console.warn === "function") {
+        console.warn("Warning: Missing texinfo for face index " + i + " (texinfo_id: " + face.texinfo_id + ").");
+      }
+      continue;
+    }
+    var tex_id = texinfo.tex_id;
     var face_ids = face_id_lists[tex_id] || [];
     face_ids[face_ids.length] = i;
     face_id_lists[tex_id] = face_ids;
@@ -494,8 +568,11 @@ QuakeWebTools.BSP.prototype.addFaceVerts = function(geometry, face, verts, uvs, 
   var edges = geometry.edges;
   var vertices = geometry.vertices;
   var texinfo = geometry.texinfos[face.texinfo_id];
-  var tex_width = miptex_entry.width;
-  var tex_height = miptex_entry.height;
+  if (!texinfo) {
+    return verts_ofs;
+  }
+  var tex_width = (miptex_entry && miptex_entry.width) ? miptex_entry.width : 1;
+  var tex_height = (miptex_entry && miptex_entry.height) ? miptex_entry.height : 1;
 
   var vert_ids = [];
   var start = face.edge_id;
@@ -624,7 +701,8 @@ QuakeWebTools.BSP.prototype.getThreeMaterialDirectory = function() {
 * Get a String representing the basic file information.
 */
 QuakeWebTools.BSP.prototype.toString = function() {
-  var str = "BSP: '" + this.filename + "' Version " + this.header.version + ", "
+  var versionLabel = QuakeWebTools.BSP.getVersionLabel(this.header.version);
+  var str = "BSP: '" + this.filename + "' Version " + versionLabel + " (" + this.header.version + "), "
       + this.miptex_directory.length + " miptex in lump";
   return str;
 }
