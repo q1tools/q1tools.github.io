@@ -26,6 +26,7 @@
     <script src="QuakeWebTools/scripts/types/bsp.js"></script>
     <script src="QuakeWebTools/scripts/types/mdl.js"></script>
     <script src="QuakeWebTools/scripts/types/md3.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tga-js@1.1.1/dist/umd/tga.js"></script>
     <!--application-->
     <script src="QuakeWebTools/scripts/quakewebtools.js"></script>
   </head>
@@ -38,7 +39,7 @@
         <h1 style="font-size: 2em">DROP FILES HERE</h1>
         <p>Drag Quake file format files (pak, wad, bsp, lmp, spr, mdl, md3, map,
         pal) into this area to load their content in your browser. For MD3
-        models you can optionally drop matching PNG/JPG textures alongside the
+        models you can optionally drop matching PNG/JPG/TGA textures alongside the
         model. Prefer to pick files manually? Use the select button below.</p>
         <div id="file-content" class="" style="border:0">
         </div>
@@ -58,7 +59,7 @@
       <!-- Hidden file input to support click-to-select -->
       <input id="file_input" type="file" style="display:none"
              multiple
-             accept=".pak,.wad,.bsp,.lmp,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg" />
+             accept=".pak,.wad,.bsp,.lmp,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg,.tga" />
     </article>
 
 
@@ -144,7 +145,7 @@ function hideLoadingIndicator() {
 
 function isTextureExtension(type) {
   if (!type) return false;
-  return type === 'png' || type === 'jpg' || type === 'jpeg';
+  return type === 'png' || type === 'jpg' || type === 'jpeg' || type === 'tga';
 }
 
 function processFileList(fileList) {
@@ -185,6 +186,36 @@ function teardownActiveViewer() {
 }
 
 function queueOrApplyMd3Texture(file) {
+  if (!file) return;
+  var ext = "";
+  if (file.name) {
+    var dotIndex = file.name.lastIndexOf(".");
+    ext = dotIndex !== -1 ? file.name.substring(dotIndex + 1).toLowerCase() : "";
+  }
+
+  if (ext === "tga") {
+    console.log("[QWT][MD3] Converting TGA texture:", file.name);
+    convertTgaFileToDataUrl(file)
+      .then(function(dataUrl) {
+        console.log("[QWT][MD3] TGA conversion result length:", dataUrl && dataUrl.length);
+        var convertedFile = createPngFileFromDataUrl(file, dataUrl);
+        if (!convertedFile) {
+          throw new Error("Unable to create PNG texture from data URL");
+        }
+        console.log("[QWT][MD3] TGA converted to PNG blob:", convertedFile.name);
+        applyOrQueueMd3TextureFile(convertedFile);
+      })
+      .catch(function(err) {
+        console.error("[QWT][MD3] Failed to convert TGA texture:", err);
+        alert("Unable to convert texture '" + file.name + "'. Check the console for details.");
+      });
+    return;
+  }
+
+  applyOrQueueMd3TextureFile(file);
+}
+
+function applyOrQueueMd3TextureFile(file) {
   var QWT = QuakeWebTools;
   var G = QWT.GLOBAL;
   if (G && G.ACTIVE_MD3_VIEWER && typeof G.ACTIVE_MD3_VIEWER.loadTextureFromFile === "function") {
@@ -195,8 +226,82 @@ function queueOrApplyMd3Texture(file) {
   } else if (G) {
     console.log("[QWT][MD3] Queuing texture until MD3 loads:", file && file.name);
     G.PENDING_MD3_TEXTURE = file;
-    alert("Queued texture '" + file.name + "'. Load an MD3 file to apply it.");
   }
+}
+
+function convertTgaFileToDataUrl(file) {
+  return new Promise(function(resolve, reject) {
+    if (typeof TgaLoader !== "function") {
+      reject(new Error("TgaLoader dependency not available"));
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(event) {
+      try {
+        var loader = new TgaLoader();
+        loader.load(new Uint8Array(event.target.result));
+        var canvas = loader.getCanvas();
+        if (!canvas) {
+          throw new Error("TGA conversion failed: no canvas produced");
+        }
+        resolve(canvas.toDataURL("image/png"));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = function(err) {
+      reject(err);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function createPngFileFromDataUrl(originalFile, dataUrl) {
+  if (!dataUrl) return null;
+  var blob;
+  try {
+    blob = dataUrlToBlob(dataUrl);
+  } catch (err) {
+    console.error("[QWT][MD3] Failed to convert data URL to blob:", err);
+    return null;
+  }
+  var filename = originalFile && originalFile.name ? originalFile.name.replace(/\.tga$/i, ".png") : "texture.png";
+  var fileLike = null;
+  if (typeof File === "function") {
+    try {
+      fileLike = new File([blob], filename, { type: blob.type || "image/png" });
+    } catch (err) {
+      console.warn("[QWT][MD3] Unable to create File from blob, falling back to plain object:", err);
+    }
+  }
+  if (!fileLike) {
+    fileLike = {
+      name: filename,
+      type: blob.type || "image/png"
+    };
+  }
+  fileLike.dataUrl = dataUrl;
+  fileLike.originalName = originalFile && originalFile.name ? originalFile.name : filename;
+  fileLike._blob = blob;
+  return fileLike;
+}
+
+function dataUrlToBlob(dataUrl) {
+  var parts = String(dataUrl).split(",");
+  if (parts.length < 2) {
+    throw new Error("Invalid data URL");
+  }
+  var header = parts[0];
+  var base64Data = parts[1];
+  var mimeMatch = header.match(/data:(.*?)(;base64)?$/i);
+  var mimeType = mimeMatch && mimeMatch[1] ? mimeMatch[1] : "image/png";
+  var binary = atob(base64Data);
+  var len = binary.length;
+  var bytes = new Uint8Array(len);
+  for (var i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 
 // Shared file handler used by both drag-drop and picker

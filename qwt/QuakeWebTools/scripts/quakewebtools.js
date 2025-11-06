@@ -468,45 +468,77 @@ function viewMD3(md3) {
 
   viewer.loadTextureFromFile = function(file) {
     if (!file) return;
-    try { console.log('[QWT][MD3] loadTextureFromFile:', file && file.name, 'type:', file && file.type); } catch(e) {}
+    var name = file.name || file.originalName || 'texture';
+    try { console.log('[QWT][MD3] loadTextureFromFile:', name, 'type:', file.type || (file.dataUrl ? 'data-url' : 'unknown')); } catch(e) {}
     viewer._revokeTextureUrl();
+
+    function applyDataUrl(dataUrl) {
+      try {
+        var img = new Image();
+        img.onload = function() {
+          try {
+            var tex = new THREE.Texture(img);
+            tex.needsUpdate = true;
+            tex.flipY = false;
+            if (typeof THREE.ClampToEdgeWrapping !== 'undefined') {
+              tex.wrapS = THREE.ClampToEdgeWrapping;
+              tex.wrapT = THREE.ClampToEdgeWrapping;
+            }
+            if (typeof THREE.LinearFilter !== 'undefined') {
+              tex.minFilter = THREE.LinearFilter;
+              tex.magFilter = THREE.LinearFilter;
+            }
+            console.log('[QWT][MD3] Texture ready (data URL); applying');
+            viewer.setTexture(tex);
+          } catch (applyErr) {
+            console.error('[QWT][MD3] Failed to apply texture:', applyErr);
+          }
+        };
+        img.onerror = function(err) {
+          console.error('[QWT][MD3] Image decode failed:', err);
+          alert("Unable to load texture '" + name + "'.");
+        };
+        img.src = dataUrl;
+      } catch (err) {
+        console.error('[QWT][MD3] Unable to start image load from data URL:', err);
+      }
+    }
+
+    if (file.dataUrl) {
+      try { console.log('[QWT][MD3] loadTextureFromFile detected dataUrl (length=', (file.dataUrl && file.dataUrl.length) || 0, ')'); } catch (e) {}
+      applyDataUrl(file.dataUrl);
+      return;
+    }
+
+    var blobSource = null;
+    if (typeof Blob !== 'undefined' && file instanceof Blob) {
+      blobSource = file;
+    } else if (file && file._blob instanceof Blob) {
+      blobSource = file._blob;
+    }
+    if (!blobSource && file && typeof file.blob === 'function') {
+      try {
+        blobSource = file.blob();
+      } catch (err) {
+        console.warn('[QWT][MD3] Failed to extract blob from file-like object:', err);
+      }
+    }
+
     try {
       var reader = new FileReader();
       reader.onload = function(ev) {
-        try {
-          var img = new Image();
-          img.onload = function() {
-            try {
-              var tex = new THREE.Texture(img);
-              tex.needsUpdate = true;
-              tex.flipY = false;
-              if (typeof THREE.ClampToEdgeWrapping !== 'undefined') {
-                tex.wrapS = THREE.ClampToEdgeWrapping;
-                tex.wrapT = THREE.ClampToEdgeWrapping;
-              }
-              if (typeof THREE.LinearFilter !== 'undefined') {
-                tex.minFilter = THREE.LinearFilter;
-                tex.magFilter = THREE.LinearFilter;
-              }
-              console.log('[QWT][MD3] Texture ready (FileReader); applying');
-              viewer.setTexture(tex);
-            } catch (applyErr) {
-              console.error('[QWT][MD3] Failed to apply texture:', applyErr);
-            }
-          };
-          img.onerror = function(err) {
-            console.error('[QWT][MD3] Image decode failed:', err);
-            alert("Unable to load texture '" + (file && file.name) + "'.");
-          };
-          img.src = ev.target.result;
-        } catch (imgErr) {
-          console.error('[QWT][MD3] Image init failed:', imgErr);
-        }
+        applyDataUrl(ev.target.result);
       };
       reader.onerror = function(err) {
         console.error('[QWT][MD3] FileReader error:', err);
       };
-      reader.readAsDataURL(file);
+      if (blobSource) {
+        reader.readAsDataURL(blobSource);
+      } else if (typeof Blob !== 'undefined' && file instanceof Blob === false && typeof file !== 'object') {
+        reader.readAsDataURL(new Blob([file], { type: 'application/octet-stream' }));
+      } else {
+        reader.readAsDataURL(file);
+      }
     } catch (e) {
       console.error('[QWT][MD3] loadTextureFromFile exception:', e);
     }
