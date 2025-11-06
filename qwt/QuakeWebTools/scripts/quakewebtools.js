@@ -100,6 +100,8 @@ Should be able to paste textures or drag files and have the correct colour conve
 */
 QuakeWebTools.GLOBAL = {
   "FILEMANAGER": null,
+  "ACTIVE_MD3_VIEWER": null,
+  "PENDING_MD3_TEXTURE": null
 };
 
 /**
@@ -332,4 +334,195 @@ function viewMDL(mdl) {
 
   // need a way to deal with all these kind of "threads"
   return animate_id;
+}
+
+function viewMD3(md3) {
+  var viewer = {
+    animationId: null,
+    scene: null,
+    camera: null,
+    renderer: null,
+    controls: null,
+    modelGroup: null,
+    texture: null,
+    _textureLoader: null,
+    _pendingTextureUrl: null,
+    _onWindowResize: null,
+    loadTextureFromFile: null,
+    setTexture: null,
+    dispose: null
+  };
+
+  var div_content = document.getElementById("file-content");
+  var width = div_content.offsetWidth || 540;
+  var height = Math.max(360, Math.min(600, Math.round(width * 0.75)));
+
+  viewer.scene = new THREE.Scene();
+  viewer.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+
+  var renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
+  renderer.setSize(width, height);
+  renderer.setClearColor(0x333333, 1);
+  div_content.appendChild(renderer.domElement);
+  viewer.renderer = renderer;
+
+  viewer.controls = new THREE.OrbitControls(viewer.camera, renderer.domElement);
+  viewer.controls.enableDamping = true;
+  viewer.controls.dampingFactor = 0.25;
+  viewer.controls.screenSpacePanning = false;
+  viewer.controls.maxPolarAngle = Math.PI / 2;
+
+  var ambientLight = new THREE.AmbientLight(0x404040, 2);
+  viewer.scene.add(ambientLight);
+  var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(1, 1, 1).normalize();
+  viewer.scene.add(directionalLight);
+
+  viewer.modelGroup = md3.toThreeGroup();
+  viewer.modelGroup.scale.set(0.0015, 0.0015, 0.0015);
+  viewer.modelGroup.rotation.set(Math.PI / 2, Math.PI, 0);
+  viewer.scene.add(viewer.modelGroup);
+  try {
+    var childTotal = 0;
+    viewer.modelGroup.traverse(function(o){ if (o && (o.isMesh || (typeof THREE.Mesh !== 'undefined' && o instanceof THREE.Mesh))) childTotal++; });
+    console.log('[QWT][MD3] viewer modelGroup ready; mesh children =', childTotal);
+  } catch (e) {}
+
+  var radius = Math.max(md3.boundingRadius || 500, 1);
+  var scaledRadius = radius * 0.0015;
+  viewer.camera.position.set(0, 0, scaledRadius * 4);
+  viewer.controls.update();
+
+  function animate() {
+    viewer.animationId = requestAnimationFrame(animate);
+    viewer.controls.update();
+    viewer.renderer.render(viewer.scene, viewer.camera);
+  }
+  animate();
+
+  function onWindowResize() {
+    if (!viewer.renderer || !viewer.camera) return;
+    var newWidth = div_content.offsetWidth || width;
+    var newHeight = Math.max(360, Math.min(600, Math.round(newWidth * 0.75)));
+    viewer.camera.aspect = newWidth / newHeight;
+    viewer.camera.updateProjectionMatrix();
+    viewer.renderer.setSize(newWidth, newHeight);
+  }
+  window.addEventListener("resize", onWindowResize);
+  viewer._onWindowResize = onWindowResize;
+
+  viewer._revokeTextureUrl = function() {
+    if (viewer._pendingTextureUrl) {
+      URL.revokeObjectURL(viewer._pendingTextureUrl);
+      viewer._pendingTextureUrl = null;
+    }
+  };
+
+  viewer.setTexture = function(texture) {
+    try { console.log('[QWT][MD3] setTexture invoked'); } catch(e) {}
+    viewer.texture = texture;
+    if (!texture || !viewer.modelGroup) {
+      try { console.log('[QWT][MD3] setTexture: missing texture or modelGroup'); } catch(e) {}
+      return;
+    }
+    // Support both modern and legacy Three.js builds: some older builds
+    // do not set child.isMesh. Fall back to instanceof check.
+    var updatedMeshes = 0;
+    viewer.modelGroup.traverse(function(child) {
+      var isMesh = (child && (child.isMesh === true || (typeof THREE.Mesh !== 'undefined' && child instanceof THREE.Mesh)));
+      if (isMesh && child.material) {
+        if (Array.isArray(child.material)) {
+          for (var i = 0; i < child.material.length; i++) {
+            var mat = child.material[i];
+            if (!mat) continue;
+            mat.map = texture;
+            mat.transparent = false;
+            mat.opacity = 1;
+            mat.needsUpdate = true;
+          }
+        } else {
+          child.material.map = texture;
+          child.material.transparent = false;
+          child.material.opacity = 1;
+          child.material.needsUpdate = true;
+        }
+        updatedMeshes++;
+      }
+    });
+    try {
+      console.log('[QWT][MD3] setTexture: applied to meshes =', updatedMeshes);
+      if (!updatedMeshes) {
+        var debugCount = 0;
+        viewer.modelGroup.traverse(function(child){
+          var matInfo = '';
+          if (child && child.material) {
+            if (Array.isArray(child.material)) { matInfo = 'materials[' + child.material.length + ']'; }
+            else { matInfo = 'material: ' + (child.material.type || 'unknown'); }
+          }
+          console.log('[QWT][MD3] traverse node ->', (child && child.type) || typeof child, 'isMesh:', (child && child.isMesh), matInfo);
+          if (++debugCount > 10) return; // avoid flooding
+        });
+      }
+    } catch(e) {}
+  };
+
+  viewer.loadTextureFromFile = function(file) {
+    if (!file) return;
+    try { console.log('[QWT][MD3] loadTextureFromFile:', file && file.name, 'type:', file && file.type); } catch(e) {}
+    viewer._revokeTextureUrl();
+    try {
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        try {
+          var img = new Image();
+          img.onload = function() {
+            try {
+              var tex = new THREE.Texture(img);
+              tex.needsUpdate = true;
+              tex.flipY = false;
+              if (typeof THREE.ClampToEdgeWrapping !== 'undefined') {
+                tex.wrapS = THREE.ClampToEdgeWrapping;
+                tex.wrapT = THREE.ClampToEdgeWrapping;
+              }
+              if (typeof THREE.LinearFilter !== 'undefined') {
+                tex.minFilter = THREE.LinearFilter;
+                tex.magFilter = THREE.LinearFilter;
+              }
+              console.log('[QWT][MD3] Texture ready (FileReader); applying');
+              viewer.setTexture(tex);
+            } catch (applyErr) {
+              console.error('[QWT][MD3] Failed to apply texture:', applyErr);
+            }
+          };
+          img.onerror = function(err) {
+            console.error('[QWT][MD3] Image decode failed:', err);
+            alert("Unable to load texture '" + (file && file.name) + "'.");
+          };
+          img.src = ev.target.result;
+        } catch (imgErr) {
+          console.error('[QWT][MD3] Image init failed:', imgErr);
+        }
+      };
+      reader.onerror = function(err) {
+        console.error('[QWT][MD3] FileReader error:', err);
+      };
+      reader.readAsDataURL(file);
+    } catch (e) {
+      console.error('[QWT][MD3] loadTextureFromFile exception:', e);
+    }
+  };
+
+  viewer.dispose = function() {
+    if (viewer.animationId != null) {
+      cancelAnimationFrame(viewer.animationId);
+      viewer.animationId = null;
+    }
+    viewer._revokeTextureUrl();
+    if (viewer._onWindowResize) {
+      window.removeEventListener("resize", viewer._onWindowResize);
+      viewer._onWindowResize = null;
+    }
+  };
+
+  return viewer;
 }

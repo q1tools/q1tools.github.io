@@ -23,6 +23,25 @@ img {
     color: white;    
 }
 
+.file-select-button {
+    display: block;
+    margin: 12px auto 0;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: #333;
+    color: #fff;
+    font-size: 0.95em;
+    cursor: pointer;
+}
+
+.file-select-button:hover,
+.file-select-button:focus {
+    border-color: #999;
+    color: #fff;
+    outline: none;
+}
+
 .loading {
     margin: 16px auto 0;
     max-width: 320px;

@@ -21,6 +21,7 @@ QuakeWebTools.FileUtil.getFileObject = function(type, path, arraybuffer) {
     "spr": QuakeWebTools.SPR,
     "pal": QuakeWebTools.PAL,
     "mdl": QuakeWebTools.MDL,
+    "md3": QuakeWebTools.MD3,
     //"map": QuakeWebTools.MAP,
   };
 

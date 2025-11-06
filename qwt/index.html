@@ -25,6 +25,7 @@
     <script src="QuakeWebTools/scripts/types/spr.js"></script>
     <script src="QuakeWebTools/scripts/types/bsp.js"></script>
     <script src="QuakeWebTools/scripts/types/mdl.js"></script>
+    <script src="QuakeWebTools/scripts/types/md3.js"></script>
     <!--application-->
     <script src="QuakeWebTools/scripts/quakewebtools.js"></script>
   </head>
@@ -32,11 +33,13 @@
   <body onload="app_init()" style="width: 540px">
 
     <article>
-      <div id="holder" class="filedrop" style="min-height: 100px; cursor:pointer"
-           role="button" tabindex="0" aria-label="Drop files here or click to select">
+      <div id="holder" class="filedrop" style="min-height: 100px"
+           aria-label="Drop files here">
         <h1 style="font-size: 2em">DROP FILES HERE</h1>
-        <p>Drag Quake file format files (pak, wad, bsp, lmp, spr, mdl, map,
-        pal) into this area to load their content in your browser.</p>
+        <p>Drag Quake file format files (pak, wad, bsp, lmp, spr, mdl, md3, map,
+        pal) into this area to load their content in your browser. For MD3
+        models you can optionally drop matching PNG/JPG textures alongside the
+        model. Prefer to pick files manually? Use the select button below.</p>
         <div id="file-content" class="" style="border:0">
         </div>
         <div id="loading-indicator" class="loading hidden" aria-live="polite">
@@ -47,12 +50,15 @@
           </div>
         </div>
       </div> 
+      <button id="file_select_button" type="button" class="file-select-button">
+        Select files…
+      </button>
       <p id="status">File API and FileReader API not supported</p>
 
       <!-- Hidden file input to support click-to-select -->
       <input id="file_input" type="file" style="display:none"
              multiple
-             accept=".pak,.wad,.bsp,.lmp,.spr,.mdl,.map,.pal" />
+             accept=".pak,.wad,.bsp,.lmp,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg" />
     </article>
 
 
@@ -81,6 +87,7 @@ if (0) {
 var holder = document.getElementById('holder');
 var state = document.getElementById('status');
 var fileInput = document.getElementById('file_input');
+var fileSelectButton = document.getElementById('file_select_button');
 var loadingIndicator = document.getElementById('loading-indicator');
 var loadingMessage = document.getElementById('loading-message');
 var loadingProgress = document.getElementById('loading-progress');
@@ -135,9 +142,75 @@ function hideLoadingIndicator() {
   loadingMessage.textContent = 'Loading…';
 }
 
+function isTextureExtension(type) {
+  if (!type) return false;
+  return type === 'png' || type === 'jpg' || type === 'jpeg';
+}
+
+function processFileList(fileList) {
+  var files = Array.from(fileList || []);
+  if (!files.length) return;
+  var textures = [];
+  var others = [];
+  files.forEach(function (file) {
+    if (!file || !file.name) {
+      others.push(file);
+      return;
+    }
+    var dot = file.name.lastIndexOf('.');
+    var ext = dot !== -1 ? file.name.substring(dot + 1).toLowerCase() : '';
+    if (isTextureExtension(ext)) {
+      textures.push(file);
+    } else {
+      others.push(file);
+    }
+  });
+  others.concat(textures).forEach(handleFile);
+}
+
+function teardownActiveViewer() {
+  var QWT = QuakeWebTools;
+  if (QWT.ANIMATION_ID != null) {
+    console.log("stopping animationFrame " + QWT.ANIMATION_ID);
+    cancelAnimationFrame(QWT.ANIMATION_ID);
+    QWT.ANIMATION_ID = null;
+  }
+  var G = QWT.GLOBAL;
+  if (G && G.ACTIVE_MD3_VIEWER && typeof G.ACTIVE_MD3_VIEWER.dispose === "function") {
+    G.ACTIVE_MD3_VIEWER.dispose();
+  }
+  if (G) {
+    G.ACTIVE_MD3_VIEWER = null;
+  }
+}
+
+function queueOrApplyMd3Texture(file) {
+  var QWT = QuakeWebTools;
+  var G = QWT.GLOBAL;
+  if (G && G.ACTIVE_MD3_VIEWER && typeof G.ACTIVE_MD3_VIEWER.loadTextureFromFile === "function") {
+    console.log("[QWT][MD3] Applying dropped texture immediately:", file && file.name);
+    G.ACTIVE_MD3_VIEWER.loadTextureFromFile(file);
+    // Keep as pending so subsequent MD3 loads (in same multi-drop) also get it.
+    G.PENDING_MD3_TEXTURE = file;
+  } else if (G) {
+    console.log("[QWT][MD3] Queuing texture until MD3 loads:", file && file.name);
+    G.PENDING_MD3_TEXTURE = file;
+    alert("Queued texture '" + file.name + "'. Load an MD3 file to apply it.");
+  }
+}
+
 // Shared file handler used by both drag-drop and picker
 function handleFile(file) {
   if (!file) return;
+  var ext = "";
+  if (file.name) {
+    var dot = file.name.lastIndexOf(".");
+    ext = dot !== -1 ? file.name.substring(dot + 1).toLowerCase() : "";
+  }
+  if (isTextureExtension(ext)) {
+    queueOrApplyMd3Texture(file);
+    return;
+  }
   var reader = new FileReader();
 
   reader.onloadstart = function () {
@@ -168,17 +241,15 @@ function handleFile(file) {
       var file_entry = G.FILEMANAGER.addFile(file.name, event.target.result);
       var filename = file_entry.path;
       var arraybuffer = file_entry.data;
+      var type = file_entry.type || "";
+      var isTexture = isTextureExtension(type);
 
-      // stop any running viewer animation
-      if (QWT.ANIMATION_ID != null) {
-        console.log("stopping animationFrame " + QWT.ANIMATION_ID);
-        cancelAnimationFrame(QWT.ANIMATION_ID);
-        QWT.ANIMATION_ID = null;
+      if (!isTexture) {
+        teardownActiveViewer();
+        document.getElementById("file-content").innerHTML = "";
       }
 
-      document.getElementById("file-content").innerHTML = "";
-
-      switch (file_entry.type) {
+      switch (type) {
         case "pak":
           viewPAK(file_entry.obj);
           break;
@@ -204,8 +275,24 @@ function handleFile(file) {
           QWT.ANIMATION_ID = viewMDL(file_entry.obj);
           QWT.ImageUtil.generateHTMLPreview({image_datas: file_entry.obj.skins}, QWT.DEFAULT_PALETTE, "file-content");
           break;
+        case "md3":
+          console.log("[QWT][MD3] Creating viewer for:", filename, "pending texture:", (G.PENDING_MD3_TEXTURE && G.PENDING_MD3_TEXTURE.name) || "<none>");
+          var viewer = viewMD3(file_entry.obj);
+          QWT.ANIMATION_ID = viewer.animationId;
+          G.ACTIVE_MD3_VIEWER = viewer;
+          try { console.log('[QWT][MD3] viewer.loadTextureFromFile typeof =', typeof viewer.loadTextureFromFile); } catch (e) {}
+          if (G.PENDING_MD3_TEXTURE) {
+            console.log("[QWT][MD3] Applying pending texture to new viewer:", G.PENDING_MD3_TEXTURE.name);
+            try {
+              viewer.loadTextureFromFile(G.PENDING_MD3_TEXTURE);
+            } catch (e) {
+              console.warn("[QWT][MD3] Failed to apply pending texture:", e);
+            }
+            // Do NOT clear pending; allow subsequent MD3s (same drop) to reuse it.
+          }
+          break;
         default:
-          alert("File type not supported (" + file_entry.type + ")");
+          alert("File type not supported (" + type + ")");
       }
     } catch (err) {
       console.error("Failed to process file:", file.name, err);
@@ -225,25 +312,20 @@ holder.ondrop = function (e) {
   this.className = 'filedrop';
   e.preventDefault();
   // Support multiple file drops
-  for (const file of e.dataTransfer.files) handleFile(file);
+  processFileList(e.dataTransfer.files);
   return false;
 };
 
-// Click-to-select behavior
-holder.addEventListener('click', function () {
-  fileInput && fileInput.click();
-});
-holder.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
+// Manual file selection button
+if (fileSelectButton) {
+  fileSelectButton.addEventListener('click', function () {
     fileInput && fileInput.click();
-  }
-});
+  });
+}
 
 // Picker ? process selected files
 fileInput.addEventListener('change', function (e) {
-  const files = Array.from(e.target.files || []);
-  files.forEach(handleFile);
+  processFileList(e.target.files || []);
   // reset so selecting the same file again still triggers change
   e.target.value = '';
 });

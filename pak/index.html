@@ -32,6 +32,262 @@
     <script src="QuakeWebTools/scripts/types/mdl.js"></script>
     <!--application-->
     <script src="QuakeWebTools/scripts/quakewebtools.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.129.0/build/three.module.js",
+                "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.129.0/examples/jsm/controls/OrbitControls.js"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+        class MD3Loader {
+            constructor(manager) {
+                this.manager = manager !== undefined ? manager : THREE.DefaultLoadingManager;
+                this.scale = 1;
+            }
+
+            load(url, onLoad, onProgress, onError) {
+                const loader = new THREE.FileLoader(this.manager);
+                loader.setResponseType('arraybuffer');
+                loader.load(url, (buffer) => {
+                    onLoad(this.parse(buffer));
+                }, onProgress, onError);
+            }
+
+            parse(buffer) {
+                const data = new DataView(buffer);
+                const header = this.parseHeader(data);
+
+                if (header.ident !== 'IDP3') {
+                    console.error('MD3Loader: Not a valid MD3 file.');
+                    return null;
+                }
+
+                const geometry = new THREE.BufferGeometry();
+                const material = new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    transparent: false,
+                    opacity: 1,
+                    alphaTest: 0.5,
+                    depthWrite: true,
+                    depthTest: true,
+                    side: THREE.DoubleSide,
+                    blending: THREE.NoBlending
+                });
+                const vertices = [];
+                const normals = [];
+                const uvs = [];
+                const indices = [];
+                const shaderNames = new Set();
+
+                this.parseFrames(data, header);
+                this.parseTags(data, header);
+                this.parseSurfaces(data, header, vertices, normals, uvs, indices, shaderNames);
+
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                geometry.setIndex(indices);
+
+                geometry.computeVertexNormals();
+                geometry.computeBoundingBox();
+
+                const mesh = new THREE.Mesh(geometry, material);
+                if (!mesh.userData) {
+                    mesh.userData = {};
+                }
+                mesh.userData.shaderNames = Array.from(shaderNames);
+                return mesh;
+            }
+
+            parseHeader(data) {
+                return {
+                    ident: this.readString(data, 0, 4),
+                    version: data.getInt32(4, true),
+                    name: this.readString(data, 8, 64),
+                    flags: data.getInt32(72, true),
+                    numFrames: data.getInt32(76, true),
+                    numTags: data.getInt32(80, true),
+                    numSurfaces: data.getInt32(84, true),
+                    numSkins: data.getInt32(88, true),
+                    ofsFrames: data.getInt32(92, true),
+                    ofsTags: data.getInt32(96, true),
+                    ofsSurfaces: data.getInt32(100, true),
+                    ofsEnd: data.getInt32(104, true)
+                };
+            }
+
+            parseFrames(data, header) {
+                const frames = [];
+                let offset = header.ofsFrames;
+
+                for (let i = 0; i < header.numFrames; i++) {
+                    const frame = {
+                        minBounds: this.readVector3(data, offset),
+                        maxBounds: this.readVector3(data, offset + 12),
+                        localOrigin: this.readVector3(data, offset + 24),
+                        radius: data.getFloat32(offset + 36, true),
+                        name: this.readString(data, offset + 40, 16)
+                    };
+                    frames.push(frame);
+                    offset += 56;
+                }
+
+                return frames;
+            }
+
+            parseTags(data, header) {
+                const tags = [];
+                let offset = header.ofsTags;
+
+                for (let i = 0; i < header.numTags * header.numFrames; i++) {
+                    const tag = {
+                        name: this.readString(data, offset, 64),
+                        origin: this.readVector3(data, offset + 64),
+                        axis: [
+                            this.readVector3(data, offset + 76),
+                            this.readVector3(data, offset + 88),
+                            this.readVector3(data, offset + 100)
+                        ]
+                    };
+                    tags.push(tag);
+                    offset += 112;
+                }
+
+                return tags;
+            }
+
+            parseSurfaces(data, header, vertices, normals, uvs, indices, shaderNames) {
+                let offset = header.ofsSurfaces;
+
+                for (let i = 0; i < header.numSurfaces; i++) {
+                    const surfaceHeader = this.parseSurfaceHeader(data, offset);
+
+                    this.parseSurfaceTriangles(data, surfaceHeader, indices, offset);
+                    this.parseSurfaceUVs(data, surfaceHeader, uvs, offset);
+                    this.parseSurfaceVertices(data, surfaceHeader, vertices, normals, offset);
+                    this.parseSurfaceShaders(data, surfaceHeader, shaderNames, offset);
+
+                    offset += surfaceHeader.ofsEnd;
+                }
+            }
+
+            parseSurfaceHeader(data, offset) {
+                return {
+                    ident: this.readString(data, offset, 4),
+                    name: this.readString(data, offset + 4, 64),
+                    flags: data.getInt32(offset + 68, true),
+                    numFrames: data.getInt32(offset + 72, true),
+                    numShaders: data.getInt32(offset + 76, true),
+                    numVerts: data.getInt32(offset + 80, true),
+                    numTriangles: data.getInt32(offset + 84, true),
+                    ofsTriangles: data.getInt32(offset + 88, true),
+                    ofsShaders: data.getInt32(offset + 92, true),
+                    ofsSt: data.getInt32(offset + 96, true),
+                    ofsXyzNormal: data.getInt32(offset + 100, true),
+                    ofsEnd: data.getInt32(offset + 104, true)
+                };
+            }
+
+            parseSurfaceTriangles(data, surfaceHeader, indices, offset) {
+                let triangleOffset = offset + surfaceHeader.ofsTriangles;
+
+                for (let i = 0; i < surfaceHeader.numTriangles; i++) {
+                    indices.push(
+                        data.getInt32(triangleOffset, true),
+                        data.getInt32(triangleOffset + 4, true),
+                        data.getInt32(triangleOffset + 8, true)
+                    );
+                    triangleOffset += 12;
+                }
+            }
+
+            parseSurfaceUVs(data, surfaceHeader, uvs, offset) {
+                let uvOffset = offset + surfaceHeader.ofsSt;
+
+                for (let i = 0; i < surfaceHeader.numVerts; i++) {
+                    uvs.push(
+                        data.getFloat32(uvOffset, true),
+                        data.getFloat32(uvOffset + 4, true)
+                    );
+                    uvOffset += 8;
+                }
+            }
+
+            parseSurfaceVertices(data, surfaceHeader, vertices, normals, offset) {
+                let vertexOffset = offset + surfaceHeader.ofsXyzNormal;
+
+                for (let i = 0; i < surfaceHeader.numVerts * surfaceHeader.numFrames; i++) {
+                    vertices.push(
+                        data.getInt16(vertexOffset, true) * this.scale,
+                        data.getInt16(vertexOffset + 2, true) * this.scale,
+                        data.getInt16(vertexOffset + 4, true) * this.scale
+                    );
+
+                    const normal = data.getInt16(vertexOffset + 6, true);
+                    normals.push(...this.decodeNormal(normal));
+
+                    vertexOffset += 8;
+                }
+            }
+
+            parseSurfaceShaders(data, surfaceHeader, shaderNames, offset) {
+                if (!shaderNames || !surfaceHeader.numShaders) {
+                    return;
+                }
+
+                let shaderOffset = offset + surfaceHeader.ofsShaders;
+                for (let i = 0; i < surfaceHeader.numShaders; i++) {
+                    const name = this.readString(data, shaderOffset, 64).trim();
+                    if (name) {
+                        shaderNames.add(name);
+                    }
+                    shaderOffset += 68;
+                }
+            }
+
+            decodeNormal(normal) {
+                const lat = (normal >> 8) & 0xff;
+                const lng = normal & 0xff;
+
+                const latRad = lat * Math.PI / 128;
+                const lngRad = lng * Math.PI / 128;
+
+                const x = Math.cos(latRad) * Math.sin(lngRad);
+                const y = Math.sin(latRad) * Math.sin(lngRad);
+                const z = Math.cos(lngRad);
+
+                return [x, y, z];
+            }
+
+            readString(data, offset, length) {
+                let str = '';
+                for (let i = 0; i < length; i++) {
+                    const char = data.getUint8(offset + i);
+                    if (char === 0) break;
+                    str += String.fromCharCode(char);
+                }
+                return str;
+            }
+
+            readVector3(data, offset) {
+                return [
+                    data.getFloat32(offset, true),
+                    data.getFloat32(offset + 4, true),
+                    data.getFloat32(offset + 8, true)
+                ];
+            }
+        }
+
+        const support = { THREE, OrbitControls, MD3Loader };
+        window.Q1ToolsMD3Support = support;
+        window.Q1ToolsMD3SupportReady = Promise.resolve(support);
+        window.dispatchEvent(new CustomEvent('md3previewready', { detail: support }));
+    </script>
 </head>
 
 <body onload="app_init()"> <!--app_init() for QWT -->
@@ -455,7 +711,979 @@
                 element.appendChild(fragment);
             } else {
                 document.body.appendChild(fragment);
+        }
+    }
+
+        const MD3_TEXTURE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.tga'];
+        const ACTIVE_RENDERERS = window.Q1ToolsMD3ActiveRenderers || [];
+        window.Q1ToolsMD3ActiveRenderers = ACTIVE_RENDERERS;
+        const MD3_RENDERER_BUDGET = Number.POSITIVE_INFINITY;
+        const MD3_SAFE_RENDERER_LIMIT = window.Q1ToolsMD3SafeRendererLimit || 10;
+        const TEXTURE_BUFFER_MAP = window.Q1ToolsMD3TextureBufferMap || new Map();
+        window.Q1ToolsMD3TextureBufferMap = TEXTURE_BUFFER_MAP;
+        const TEXTURE_WAITERS = window.Q1ToolsMD3TextureWaiters || new Map();
+        window.Q1ToolsMD3TextureWaiters = TEXTURE_WAITERS;
+        const TEXTURE_MIME_TYPES = {
+            png: 'image/png',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            tga: 'image/x-tga'
+        };
+        const MD3_PREVIEW_REGISTRY = window.Q1ToolsMD3PreviewRegistry || new WeakMap();
+        window.Q1ToolsMD3PreviewRegistry = MD3_PREVIEW_REGISTRY;
+        let md3ViewportObserver = window.Q1ToolsMD3ViewportObserver || null;
+
+        function isElementInViewport(element, margin = 0) {
+            if (!element || typeof element.getBoundingClientRect !== 'function') {
+                return false;
             }
+            const rect = element.getBoundingClientRect();
+            const height = window.innerHeight || document.documentElement.clientHeight || 0;
+            const width = window.innerWidth || document.documentElement.clientWidth || 0;
+            return rect.bottom >= -margin &&
+                rect.top <= height + margin &&
+                rect.right >= -margin &&
+                rect.left <= width + margin;
+        }
+
+        function ensureMd3ViewportObserver() {
+            if (!('IntersectionObserver' in window)) {
+                return null;
+            }
+            if (!md3ViewportObserver) {
+                md3ViewportObserver = new IntersectionObserver(handleMd3PreviewVisibility, {
+                    root: null,
+                    rootMargin: '160px 0px',
+                    threshold: 0.1
+                });
+                window.Q1ToolsMD3ViewportObserver = md3ViewportObserver;
+            }
+            return md3ViewportObserver;
+        }
+
+        function handleMd3PreviewVisibility(entries) {
+            let releasedSomething = false;
+            entries.forEach((entry) => {
+                const previewCell = entry.target;
+                const metadata = MD3_PREVIEW_REGISTRY.get(previewCell);
+                if (!metadata) {
+                    if (md3ViewportObserver) {
+                        md3ViewportObserver.unobserve(previewCell);
+                    }
+                    return;
+                }
+                metadata.isInViewport = entry.isIntersecting;
+                if (entry.isIntersecting) {
+                    requestMd3RenderIfNeeded(previewCell);
+                } else {
+                    releasedSomething = true;
+                }
+            });
+            if (releasedSomething) {
+                maybeReduceMd3RendererPressure();
+            }
+        }
+
+        function requestMd3RenderIfNeeded(previewCell) {
+            const metadata = MD3_PREVIEW_REGISTRY.get(previewCell);
+            if (!metadata || metadata.hasActiveRenderer || metadata.isRendering) {
+                return;
+            }
+            metadata.isRendering = true;
+            renderMD3Preview(metadata.arrayBuffer, previewCell, metadata.filename);
+        }
+
+        function registerMd3Preview(previewCell, filename, arrayBuffer) {
+            if (!(arrayBuffer instanceof ArrayBuffer)) {
+                previewCell.textContent = 'MD3 data unavailable.';
+                return;
+            }
+            const metadata = {
+                filename,
+                arrayBuffer,
+                hasActiveRenderer: false,
+                isRendering: false,
+                isInViewport: false
+            };
+            MD3_PREVIEW_REGISTRY.set(previewCell, metadata);
+
+            if (!('IntersectionObserver' in window)) {
+                metadata.isInViewport = true;
+                metadata.isRendering = true;
+                renderMD3Preview(arrayBuffer, previewCell, filename);
+                return;
+            }
+
+            const observer = ensureMd3ViewportObserver();
+            metadata.isInViewport = isElementInViewport(previewCell, 120);
+            if (observer) {
+                observer.observe(previewCell);
+            }
+
+            if (metadata.isInViewport) {
+                requestMd3RenderIfNeeded(previewCell);
+            } else {
+                previewCell.textContent = 'Scroll to load MD3 preview.';
+            }
+        }
+
+        function maybeReduceMd3RendererPressure(force = false) {
+            if (Number.isFinite(MD3_RENDERER_BUDGET)) {
+                return false;
+            }
+            const limit = Math.max(1, MD3_SAFE_RENDERER_LIMIT || 8);
+            const needsRelease = force ? ACTIVE_RENDERERS.length >= limit : ACTIVE_RENDERERS.length > limit;
+            if (!needsRelease) {
+                return false;
+            }
+
+            const offscreen = [];
+            const fallback = [];
+            ACTIVE_RENDERERS.forEach((record) => {
+                if (!record || record.released) {
+                    return;
+                }
+                const metadata = record.previewCell ? MD3_PREVIEW_REGISTRY.get(record.previewCell) : null;
+                if (metadata) {
+                    if (metadata.isInViewport) {
+                        fallback.push(record);
+                    } else {
+                        offscreen.push(record);
+                    }
+                } else {
+                    fallback.push(record);
+                }
+            });
+
+            const victims = (offscreen.length ? offscreen : fallback).slice();
+            let released = false;
+            const comparator = force
+                ? () => ACTIVE_RENDERERS.length >= limit
+                : () => ACTIVE_RENDERERS.length > limit;
+
+            while (victims.length && comparator()) {
+                const record = victims.shift();
+                if (!record || record.released) {
+                    continue;
+                }
+                const metadata = record.previewCell ? MD3_PREVIEW_REGISTRY.get(record.previewCell) : null;
+                const silent = metadata ? !metadata.isInViewport : true;
+                try {
+                    record.release({ reason: 'budget', silent });
+                    released = true;
+                } catch (err) {
+                    console.warn('Failed to release MD3 renderer for pressure relief', err);
+                }
+            }
+            return released;
+        }
+
+        function normalizeTexturePath(path) {
+            if (!path) return '';
+            return path.split('\u0000')[0]
+                .replace(/\\/g, '/')
+                .replace(/^\/+/, '')
+                .toLowerCase();
+        }
+        function registerMD3TextureBuffer(path, arrayBuffer) {
+            if (!path || !(arrayBuffer instanceof ArrayBuffer)) {
+                return;
+            }
+            const cleaned = normalizeTexturePath(path);
+            if (!cleaned) {
+                return;
+            }
+            if (!TEXTURE_BUFFER_MAP.has(cleaned)) {
+                console.log('[MD3] Registered texture buffer', cleaned, 'size', arrayBuffer.byteLength);
+            }
+            TEXTURE_BUFFER_MAP.set(cleaned, { buffer: arrayBuffer, originalPath: path });
+
+            const waiters = TEXTURE_WAITERS.get(cleaned);
+            if (waiters && waiters.length) {
+                TEXTURE_WAITERS.delete(cleaned);
+                console.log('[MD3] Resolving texture waiters for', cleaned);
+                const ext = cleaned.split('.').pop() || '';
+                waiters.forEach((resolver) => {
+                    // Handle TGA asynchronously by converting to PNG data URL
+                    if (ext.toLowerCase() === 'tga') {
+                        const tgaBlob = new Blob([arrayBuffer], { type: 'image/x-tga' });
+                        convertTgaBlobToDataUrl(tgaBlob)
+                            .then((dataUrl) => {
+                                resolver({ url: dataUrl, cleanup: null });
+                            })
+                            .catch((error) => {
+                                console.warn('TGA conversion failed during waiter resolution, falling back to object URL:', error);
+                                const fallbackUrl = URL.createObjectURL(tgaBlob);
+                                resolver({ url: fallbackUrl, cleanup: () => URL.revokeObjectURL(fallbackUrl) });
+                            });
+                        return;
+                    }
+                    const mime = TEXTURE_MIME_TYPES[ext] || 'application/octet-stream';
+                    const blob = new Blob([arrayBuffer], { type: mime });
+                    const objectUrl = URL.createObjectURL(blob);
+                    resolver({
+                        url: objectUrl,
+                        cleanup: () => URL.revokeObjectURL(objectUrl)
+                    });
+                });
+            }
+        }
+
+        function findBlobByPakPath(path, extension) {
+            if (!path) return null;
+            const target = normalizeTexturePath(path);
+            for (let i = 0; i < viewFileBlobs.length; i++) {
+                const entry = viewFileBlobs[i];
+                if (!entry || !entry.filename) continue;
+                const entryPath = normalizeTexturePath(entry.filename);
+                if (entryPath === target) {
+                    return entry;
+                }
+            }
+            if (Array.isArray(fileBlobs)) {
+                for (let i = 0; i < fileBlobs.length; i++) {
+                    const entry = fileBlobs[i];
+                    if (!entry || !entry.name || !entry.blob) continue;
+                    const entryPath = normalizeTexturePath(entry.name);
+                    if (entryPath === target) {
+                        console.log('[MD3] Found texture in fileBlobs fallback', entry.name);
+                        return { filename: entry.name, blob: entry.blob };
+                    }
+                }
+            }
+            const bufferEntry = TEXTURE_BUFFER_MAP.get(target);
+            if (bufferEntry) {
+                const mimeType = TEXTURE_MIME_TYPES[extension] || 'application/octet-stream';
+                console.log('[MD3] Found texture buffer for', path);
+                return {
+                    filename: bufferEntry.originalPath,
+                    blob: new Blob([bufferEntry.buffer], { type: mimeType })
+                };
+            }
+            return null;
+        }
+
+        function buildMD3TextureCandidates(filename, shaderNames) {
+            const candidates = [];
+            const seen = new Set();
+            const idx = filename.lastIndexOf('/');
+            const directory = idx !== -1 ? filename.slice(0, idx + 1) : '';
+            const basename = idx !== -1 ? filename.slice(idx + 1) : filename;
+            const baseWithoutExt = basename.replace(/\.[^/.]+$/, '');
+
+            if (Array.isArray(shaderNames) && shaderNames.length) {
+                console.log('[MD3] Raw shader names for', filename, shaderNames);
+            } else {
+                console.log('[MD3] No shader names found for', filename);
+            }
+
+            const pushCandidate = (rawPath) => {
+                if (!rawPath) return;
+                const normalized = rawPath.replace(/\\/g, '/');
+                let cleaned = normalized;
+                if (typeof cleaned === 'string') {
+                    cleaned = cleaned.replace(/^\.\//, '');
+                    cleaned = cleaned.replace(/^\/+/, '');
+                    // collapse occurrences of `/./`
+                    cleaned = cleaned.replace(/\/\.\//g, '/');
+                    // resolve `../` segments without allowing traversal above root
+                    const segments = [];
+                    cleaned.split('/').forEach((segment) => {
+                        if (!segment || segment === '.') {
+                            return;
+                        }
+                        if (segment === '..') {
+                            if (segments.length) {
+                                segments.pop();
+                            }
+                            return;
+                        }
+                        segments.push(segment);
+                    });
+                    cleaned = segments.join('/');
+                    if (!cleaned) {
+                        return;
+                    }
+                }
+                const lower = cleaned.toLowerCase();
+                if (seen.has(lower)) return;
+                seen.add(lower);
+                candidates.push(cleaned);
+            };
+
+            const pushWithExtensions = (rawPath) => {
+                if (!rawPath) return;
+                if (/\.[a-z0-9]+$/i.test(rawPath)) {
+                    pushCandidate(rawPath);
+                } else {
+                    MD3_TEXTURE_EXTENSIONS.forEach(ext => pushCandidate(rawPath + ext));
+                }
+            };
+
+            if (Array.isArray(shaderNames)) {
+                shaderNames.forEach((name) => {
+                    if (!name) return;
+                    const trimmed = name.trim();
+                    if (!trimmed) return;
+                    pushWithExtensions(trimmed);
+                    if (directory) {
+                        pushWithExtensions(directory + trimmed);
+                    }
+                });
+            }
+
+            MD3_TEXTURE_EXTENSIONS.forEach(ext => pushCandidate(directory + baseWithoutExt + ext));
+
+            return candidates;
+        }
+
+        function convertTgaBlobToDataUrl(blob) {
+            if (typeof TgaLoader !== 'function') {
+                return Promise.reject(new Error('TgaLoader unavailable'));
+            }
+            return blob.arrayBuffer().then((buffer) => {
+                const loader = new TgaLoader();
+                loader.load(new Uint8Array(buffer));
+                const canvas = loader.getCanvas();
+                if (!canvas) {
+                    throw new Error('TGA conversion failed: no canvas generated');
+                }
+                return canvas.toDataURL('image/png');
+            });
+        }
+
+        function resolveMD3TextureResource(filename, shaderNames) {
+            const availablePaths = [];
+            (viewFileBlobs || []).forEach((entry) => {
+                if (!entry || !entry.filename) return;
+                availablePaths.push(entry.filename.split('\u0000')[0].replace(/\\/g, '/'));
+            });
+            if (Array.isArray(fileBlobs)) {
+                fileBlobs.forEach((entry) => {
+                    if (!entry || !entry.name) return;
+                    const cleaned = entry.name.split('\u0000')[0].replace(/\\/g, '/');
+                    if (!availablePaths.includes(cleaned)) {
+                        availablePaths.push(cleaned);
+                    }
+                });
+            }
+            const candidates = buildMD3TextureCandidates(filename, shaderNames);
+            if (candidates.length) {
+                console.log('[MD3] Texture candidates for', filename, candidates);
+                console.log('[MD3] Available blob paths from viewFileBlobs', availablePaths);
+                console.log('[MD3] Texture buffer keys', Array.from(TEXTURE_BUFFER_MAP.keys()));
+            } else {
+                console.log('[MD3] No texture candidates for', filename);
+                console.log('[MD3] Available blob paths from viewFileBlobs', availablePaths);
+                console.log('[MD3] Texture buffer keys', Array.from(TEXTURE_BUFFER_MAP.keys()));
+            }
+            if (!candidates.length) {
+                return Promise.resolve(null);
+            }
+
+            const tryResolve = (index) => {
+                if (index >= candidates.length) {
+                    console.warn('[MD3] Exhausted texture candidates for', filename);
+                    return Promise.resolve(null);
+                }
+
+                const candidatePath = candidates[index];
+                const extensionMatch = /\.([a-z0-9]+)$/i.exec(candidatePath);
+                const extension = extensionMatch ? extensionMatch[1].toLowerCase() : '';
+                const blobEntry = findBlobByPakPath(candidatePath, extension);
+                if (!blobEntry) {
+                    console.warn('[MD3] Candidate not found in blob map', candidatePath);
+                    return tryResolve(index + 1);
+                }
+                console.log('[MD3] Using texture candidate', candidatePath, 'for', filename);
+
+                if (extension === 'tga') {
+                    return convertTgaBlobToDataUrl(blobEntry.blob)
+                        .then((dataUrl) => ({ url: dataUrl, cleanup: null }))
+                        .catch((error) => {
+                            console.warn(`Failed to convert TGA texture ${candidatePath}:`, error);
+                            return tryResolve(index + 1);
+                        });
+                }
+
+                const objectUrl = URL.createObjectURL(blobEntry.blob);
+                return Promise.resolve({
+                    url: objectUrl,
+                    cleanup: () => URL.revokeObjectURL(objectUrl)
+                });
+            };
+
+            return tryResolve(0).then((result) => {
+                if (result) {
+                    return result;
+                }
+                return waitForTexture(candidates, filename);
+            });
+        }
+
+        function waitForTexture(candidates, filename) {
+            const normalizedCandidates = candidates.map(normalizeTexturePath).filter(Boolean);
+            if (!normalizedCandidates.length) {
+                return Promise.resolve(null);
+            }
+            // Immediate check: a texture may have been registered before we started waiting
+            for (let i = 0; i < normalizedCandidates.length; i++) {
+                const key = normalizedCandidates[i];
+                const bufferEntry = TEXTURE_BUFFER_MAP.get(key);
+                if (bufferEntry) {
+                    const ext = (key.split('.').pop() || '').toLowerCase();
+                    if (ext === 'tga') {
+                        const tgaBlob = new Blob([bufferEntry.buffer], { type: 'image/x-tga' });
+                        return convertTgaBlobToDataUrl(tgaBlob)
+                            .then((dataUrl) => ({ url: dataUrl, cleanup: null }))
+                            .catch((error) => {
+                                console.warn('TGA conversion failed during immediate waiter check, falling back to object URL:', error);
+                                const fallbackUrl = URL.createObjectURL(tgaBlob);
+                                return { url: fallbackUrl, cleanup: () => URL.revokeObjectURL(fallbackUrl) };
+                            });
+                    }
+                    const mime = TEXTURE_MIME_TYPES[ext] || 'application/octet-stream';
+                    const blob = new Blob([bufferEntry.buffer], { type: mime });
+                    const objectUrl = URL.createObjectURL(blob);
+                    return Promise.resolve({ url: objectUrl, cleanup: () => URL.revokeObjectURL(objectUrl) });
+                }
+            }
+            console.log('[MD3] Waiting for texture registration for', filename, normalizedCandidates);
+            return new Promise((resolve) => {
+                let resolved = false;
+                const handles = [];
+
+                const cleanup = () => {
+                    handles.forEach(({ key, resolver }) => {
+                        const list = TEXTURE_WAITERS.get(key);
+                        if (!list) return;
+                        const index = list.indexOf(resolver);
+                        if (index !== -1) {
+                            list.splice(index, 1);
+                        }
+                        if (!list.length) {
+                            TEXTURE_WAITERS.delete(key);
+                        }
+                    });
+                };
+
+                normalizedCandidates.forEach((key) => {
+                    const resolver = (resource) => {
+                        if (resolved) {
+                            if (resource && resource.cleanup) {
+                                resource.cleanup();
+                            }
+                            return;
+                        }
+                        resolved = true;
+                        cleanup();
+                        resolve(resource);
+                    };
+                    let list = TEXTURE_WAITERS.get(key);
+                    if (!list) {
+                        list = [];
+                        TEXTURE_WAITERS.set(key, list);
+                    }
+                    list.push(resolver);
+                    handles.push({ key, resolver });
+                });
+
+                setTimeout(() => {
+                    if (resolved) return;
+                    resolved = true;
+                    cleanup();
+                    console.warn('[MD3] Texture wait timed out for', filename);
+                    resolve(null);
+                }, 3000);
+            });
+        }
+
+        function renderMD3Preview(arrayBuffer, previewCell, filename) {
+            console.log('[MD3] Render preview requested for', filename);
+            const metadata = MD3_PREVIEW_REGISTRY.get(previewCell);
+            if (metadata && arrayBuffer instanceof ArrayBuffer) {
+                metadata.arrayBuffer = arrayBuffer;
+                metadata.lastRenderError = null;
+            }
+            if (!(arrayBuffer instanceof ArrayBuffer)) {
+                previewCell.textContent = 'MD3 data unavailable.';
+                if (metadata) {
+                    metadata.isRendering = false;
+                    metadata.hasActiveRenderer = false;
+                }
+                return;
+            }
+            if (metadata) {
+                metadata.isRendering = true;
+            }
+
+            previewCell.textContent = 'Loading MD3 preview...';
+
+            const hydrate = (support) => {
+                if (!support) {
+                    previewCell.textContent = 'MD3 preview unavailable.';
+                    if (metadata) {
+                        metadata.isRendering = false;
+                        metadata.hasActiveRenderer = false;
+                    }
+                    return;
+                }
+
+                const { THREE, OrbitControls, MD3Loader } = support;
+                console.log('[MD3] Hydrated support for', filename, '->', !!THREE, !!OrbitControls, !!MD3Loader);
+
+                if (!THREE || !OrbitControls || !MD3Loader) {
+                    previewCell.textContent = 'MD3 preview unavailable.';
+                    if (metadata) {
+                        metadata.isRendering = false;
+                        metadata.hasActiveRenderer = false;
+                    }
+                    return;
+                }
+
+                try {
+                    const loader = new MD3Loader();
+                    loader.scale = 1 / 64;
+                    const mesh = loader.parse(arrayBuffer);
+                    console.log('[MD3] Parsed mesh for', filename, mesh ? 'success' : 'failure');
+
+                    if (!mesh) {
+                        previewCell.textContent = 'Unable to parse MD3 file.';
+                        if (metadata) {
+                            metadata.isRendering = false;
+                            metadata.hasActiveRenderer = false;
+                            metadata.lastRenderError = new Error('MD3 parse failure');
+                        }
+                        return;
+                    }
+
+                    if (typeof previewCell.__md3Release === 'function') {
+                        try {
+                            previewCell.__md3Release({ clearContainer: true });
+                        } catch (releaseError) {
+                            console.warn('Failed to release previous MD3 preview', releaseError);
+                        }
+                    }
+
+                    if (mesh.material && typeof mesh.material.dispose === 'function') {
+                        mesh.material.dispose();
+                    }
+
+                    mesh.material = new THREE.MeshStandardMaterial({
+                        color: 0xdddddd,
+                        metalness: 0.1,
+                        roughness: 0.75
+                    });
+
+                    if (mesh.userData && Array.isArray(mesh.userData.shaderNames)) {
+                        console.log('[MD3] Shader names for', filename, mesh.userData.shaderNames);
+                    }
+
+                    previewCell.innerHTML = '';
+                    const container = document.createElement('div');
+                    container.className = 'md3-preview-container';
+                    previewCell.appendChild(container);
+
+                    const width = container.clientWidth || 240;
+                    const height = container.clientHeight || 240;
+
+                    const scene = new THREE.Scene();
+                    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000);
+                    if (!Number.isFinite(MD3_RENDERER_BUDGET)) {
+                        maybeReduceMd3RendererPressure(true);
+                    }
+                    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                    renderer.setPixelRatio(window.devicePixelRatio || 1);
+                    renderer.setSize(width, height, false);
+                    container.appendChild(renderer.domElement);
+
+                    mesh.geometry.computeBoundingSphere();
+                    mesh.geometry.computeBoundingBox();
+
+                    const pivot = new THREE.Group();
+                    pivot.add(mesh);
+                    scene.add(pivot);
+                    const basePivotRotation = new THREE.Euler(Math.PI / 2, Math.PI, 0, 'XYZ');
+                    const userPivotRotation = { x: 0, y: 0 };
+                    const applyPivotRotation = () => {
+                        pivot.rotation.set(
+                            basePivotRotation.x + userPivotRotation.x,
+                            basePivotRotation.y + userPivotRotation.y,
+                            basePivotRotation.z
+                        );
+                    };
+
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                    scene.add(ambientLight);
+                    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+                    directionalLight.position.set(6, 8, 10);
+                    scene.add(directionalLight);
+
+                    let radius = 1;
+                    if (mesh.geometry.boundingSphere) {
+                        const center = mesh.geometry.boundingSphere.center.clone();
+                        radius = Math.max(mesh.geometry.boundingSphere.radius, 0.001);
+                        mesh.position.sub(center);
+                    }
+
+                    applyPivotRotation();
+
+                    const distance = Math.max(radius * 3.5, 2);
+                    camera.position.set(distance, distance, distance);
+                    camera.near = Math.max(distance / 100, 0.01);
+                    camera.far = distance * 20;
+                    camera.lookAt(new THREE.Vector3(0, 0, 0));
+                    camera.updateProjectionMatrix();
+
+                    let controls;
+                    let releaseRenderer;
+                    let rendererRecord;
+                    let disposed = false;
+                    const previousThree = window.THREE;
+                    try {
+                        window.THREE = THREE;
+                        controls = new OrbitControls(camera, renderer.domElement);
+                    } finally {
+                        if (previousThree === undefined) {
+                            delete window.THREE;
+                        } else {
+                            window.THREE = previousThree;
+                        }
+                    }
+                    if (!controls) {
+                        previewCell.textContent = 'MD3 preview unavailable.';
+                        return;
+                    }
+
+                    controls.enablePan = false;
+                    controls.enableDamping = true;
+                    controls.dampingFactor = 0.08;
+                    controls.enableZoom = true;
+                    if (typeof controls.enableRotate !== 'undefined') {
+                        controls.enableRotate = false;
+                    }
+                    if ('noPan' in controls) {
+                        controls.noPan = true;
+                    }
+                    if ('noZoom' in controls) {
+                        controls.noZoom = false;
+                    }
+                    if ('noRotate' in controls) {
+                        controls.noRotate = true;
+                    }
+                    controls.autoRotate = false;
+                    controls.zoomSpeed = 1.0;
+                    controls.rotateSpeed = 0.9;
+                    if (controls.mouseButtons) {
+                        const mouse = THREE.MOUSE || { ROTATE: 0, DOLLY: 1, PAN: 2 };
+                        controls.mouseButtons.LEFT = mouse.PAN !== undefined ? mouse.PAN : 2;
+                        controls.mouseButtons.MIDDLE = mouse.DOLLY !== undefined ? mouse.DOLLY : 1;
+                        controls.mouseButtons.RIGHT = mouse.PAN !== undefined ? mouse.PAN : 2;
+                    }
+                    if (controls.touches) {
+                        const touch = THREE.TOUCH || { ROTATE: 0, DOLLY_PAN: 1 };
+                        controls.touches.ONE = touch.DOLLY_PAN !== undefined ? touch.DOLLY_PAN : 1;
+                        controls.touches.TWO = touch.DOLLY_PAN !== undefined ? touch.DOLLY_PAN : 1;
+                    }
+                    controls.target.set(0, 0, 0);
+                    controls.update();
+
+                    const canvasEl = renderer.domElement;
+                    canvasEl.style.cursor = 'grab';
+                    canvasEl.style.touchAction = 'none';
+                    const rotationClamp = (value, min, max) => {
+                        if (THREE.MathUtils && typeof THREE.MathUtils.clamp === 'function') {
+                            return THREE.MathUtils.clamp(value, min, max);
+                        }
+                        return Math.min(Math.max(value, min), max);
+                    };
+                    let isDragging = false;
+                    let activePointerId = null;
+                    let lastPointerX = 0;
+                    let lastPointerY = 0;
+
+                    const handlePointerDown = (event) => {
+                        if (typeof event.button === 'number' && event.button !== 0) {
+                            return;
+                        }
+                        isDragging = true;
+                        lastPointerX = event.clientX;
+                        lastPointerY = event.clientY;
+                        canvasEl.style.cursor = 'grabbing';
+                        if (canvasEl.setPointerCapture && event.pointerId !== undefined) {
+                            try {
+                                canvasEl.setPointerCapture(event.pointerId);
+                            } catch (captureError) {
+                                console.warn('Pointer capture failed:', captureError);
+                            }
+                        }
+                        if (event.pointerId !== undefined) {
+                            activePointerId = event.pointerId;
+                        }
+                    };
+
+                    const handlePointerMove = (event) => {
+                        if (!isDragging) {
+                            return;
+                        }
+                        event.preventDefault();
+                        const deltaX = event.clientX - lastPointerX;
+                        const deltaY = event.clientY - lastPointerY;
+                        const rotationSpeed = 0.01;
+                        userPivotRotation.y -= deltaX * rotationSpeed;
+                        userPivotRotation.x -= deltaY * rotationSpeed;
+                        const maxPitch = Math.PI / 2.2;
+                        userPivotRotation.x = rotationClamp(userPivotRotation.x, -maxPitch, maxPitch);
+                        applyPivotRotation();
+                        lastPointerX = event.clientX;
+                        lastPointerY = event.clientY;
+                    };
+
+                    const endPointerDrag = (event) => {
+                        if (!isDragging) {
+                            return;
+                        }
+                        if (canvasEl.releasePointerCapture && activePointerId !== null) {
+                            try {
+                                canvasEl.releasePointerCapture(activePointerId);
+                            } catch (releaseError) {
+                                // ignore
+                            }
+                        }
+                        activePointerId = null;
+                        isDragging = false;
+                        canvasEl.style.cursor = 'grab';
+                    };
+
+                    rendererRecord = { renderer, container, released: false, previewCell, filename };
+                    releaseRenderer = (options = {}) => {
+                        if (rendererRecord.released) {
+                            return;
+                        }
+                        rendererRecord.released = true;
+                        disposed = true;
+                        const metadataForCell = MD3_PREVIEW_REGISTRY.get(previewCell);
+                        if (metadataForCell) {
+                            metadataForCell.hasActiveRenderer = false;
+                            metadataForCell.isRendering = false;
+                        }
+                        if (container && container.__md3AnimationId) {
+                            cancelAnimationFrame(container.__md3AnimationId);
+                            container.__md3AnimationId = null;
+                        }
+                        const recordIndex = ACTIVE_RENDERERS.indexOf(rendererRecord);
+                        if (recordIndex !== -1) {
+                            ACTIVE_RENDERERS.splice(recordIndex, 1);
+                        }
+                        if (previewCell.__md3Release === releaseRenderer) {
+                            delete previewCell.__md3Release;
+                        }
+                        isDragging = false;
+                        canvasEl.removeEventListener('pointerdown', handlePointerDown);
+                        canvasEl.removeEventListener('pointermove', handlePointerMove);
+                        canvasEl.removeEventListener('pointerup', endPointerDrag);
+                        canvasEl.removeEventListener('pointerleave', endPointerDrag);
+                        canvasEl.removeEventListener('lostpointercapture', endPointerDrag);
+                        if (controls && typeof controls.dispose === 'function') {
+                            try {
+                                controls.dispose();
+                            } catch (controlsError) {
+                                console.warn('Failed to dispose MD3 controls', controlsError);
+                            }
+                        }
+                        if (renderer) {
+                            try {
+                                renderer.dispose();
+                            } catch (disposeError) {
+                                console.warn('Failed to dispose MD3 renderer', disposeError);
+                            }
+                            if (typeof renderer.forceContextLoss === 'function') {
+                                try {
+                                    renderer.forceContextLoss();
+                                } catch (contextError) {
+                                    console.warn('Failed to force context loss', contextError);
+                                }
+                            }
+                        }
+                        if (options.reason === 'budget' && container) {
+                            container.innerHTML = '';
+                            if (!options.silent) {
+                                const msg = document.createElement('div');
+                                msg.className = 'md3-preview-unloaded';
+                                msg.textContent = 'Preview unloaded to free GPU resources.';
+                                const reloadBtn = document.createElement('button');
+                                reloadBtn.className = 'md3-preview-reload-btn';
+                                reloadBtn.textContent = 'Reload Preview';
+                                reloadBtn.addEventListener('click', () => {
+                                    let freed = false;
+                                    if (Number.isFinite(MD3_RENDERER_BUDGET)) {
+                                        while (ACTIVE_RENDERERS.length >= MD3_RENDERER_BUDGET && ACTIVE_RENDERERS.length) {
+                                            const oldest = ACTIVE_RENDERERS[0];
+                                            if (oldest && typeof oldest.release === 'function') {
+                                                try {
+                                                    oldest.release({ reason: 'budget', silent: true });
+                                                    freed = true;
+                                                } catch (innerReleaseError) {
+                                                    console.warn('Failed to release MD3 preview for reload', innerReleaseError);
+                                                    break;
+                                                }
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        freed = maybeReduceMd3RendererPressure(true);
+                                        if (!freed && ACTIVE_RENDERERS.length) {
+                                            const oldest = ACTIVE_RENDERERS[0];
+                                            if (oldest && typeof oldest.release === 'function') {
+                                                try {
+                                                    oldest.release({ reason: 'budget', silent: true });
+                                                    freed = true;
+                                                } catch (innerReleaseError) {
+                                                    console.warn('Failed to release MD3 preview for reload', innerReleaseError);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    const reloadMetadata = MD3_PREVIEW_REGISTRY.get(previewCell);
+                                    const bufferSource = reloadMetadata && reloadMetadata.arrayBuffer ? reloadMetadata.arrayBuffer : arrayBuffer;
+                                    renderMD3Preview(bufferSource, previewCell, filename);
+                                });
+                                container.appendChild(msg);
+                                container.appendChild(reloadBtn);
+                            } else {
+                                const metadataForCellAgain = MD3_PREVIEW_REGISTRY.get(previewCell);
+                                if (metadataForCellAgain && metadataForCellAgain.isInViewport) {
+                                    const pausedMsg = document.createElement('div');
+                                    pausedMsg.className = 'md3-preview-paused';
+                                    pausedMsg.textContent = 'Preview will resume when resources free up.';
+                                    container.appendChild(pausedMsg);
+                                }
+                            }
+                        } else if (options.clearContainer && container) {
+                            container.innerHTML = '';
+                        }
+                        if (!document.body.contains(previewCell) && md3ViewportObserver) {
+                            md3ViewportObserver.unobserve(previewCell);
+                            MD3_PREVIEW_REGISTRY.delete(previewCell);
+                        }
+                    };
+                    rendererRecord.release = releaseRenderer;
+                    ACTIVE_RENDERERS.push(rendererRecord);
+                    if (metadata) {
+                        metadata.hasActiveRenderer = true;
+                        metadata.isRendering = false;
+                    }
+                    if (Number.isFinite(MD3_RENDERER_BUDGET)) {
+                        while (ACTIVE_RENDERERS.length > MD3_RENDERER_BUDGET) {
+                            const oldest = ACTIVE_RENDERERS.shift();
+                            if (oldest && typeof oldest.release === 'function') {
+                                try {
+                                    oldest.release({ reason: 'budget' });
+                                } catch (budgetError) {
+                                    console.warn('Failed to release MD3 renderer for budget', budgetError);
+                                }
+                            }
+                        }
+                    } else {
+                        maybeReduceMd3RendererPressure();
+                    }
+                    previewCell.__md3Release = releaseRenderer;
+
+                    canvasEl.addEventListener('pointerdown', handlePointerDown);
+                    canvasEl.addEventListener('pointermove', handlePointerMove);
+                    canvasEl.addEventListener('pointerup', endPointerDrag);
+                    canvasEl.addEventListener('pointerleave', endPointerDrag);
+                    canvasEl.addEventListener('lostpointercapture', endPointerDrag);
+                    resolveMD3TextureResource(filename, mesh.userData && mesh.userData.shaderNames)
+                        .then((resource) => {
+                            if (!resource || !resource.url) {
+                                console.debug('[MD3] No texture resource resolved for', filename);
+                                return;
+                            }
+                            const textureLoader = new THREE.TextureLoader();
+                            textureLoader.load(resource.url, (texture) => {
+                                texture.flipY = false;
+                                mesh.traverse((child) => {
+                                    if (child.isMesh) {
+                                        if (Array.isArray(child.material)) {
+                                            child.material.forEach((mat) => {
+                                                mat.map = texture;
+                                                mat.needsUpdate = true;
+                                            });
+                                        } else if (child.material) {
+                                            child.material.map = texture;
+                                            child.material.needsUpdate = true;
+                                        }
+                                    }
+                                });
+                                if (resource.cleanup) {
+                                    resource.cleanup();
+                                }
+                            }, undefined, (error) => {
+                                console.warn(`Failed to load MD3 texture for ${filename}:`, error);
+                                if (resource.cleanup) {
+                                    resource.cleanup();
+                                }
+                            });
+                        })
+                        .catch((error) => {
+                            console.warn(`Texture resolution error for ${filename}:`, error);
+                        });
+
+                    const animate = () => {
+                        if (disposed) {
+                            return;
+                        }
+                        if (!document.body.contains(container)) {
+                            if (container.__md3AnimationId) {
+                                cancelAnimationFrame(container.__md3AnimationId);
+                            }
+                            releaseRenderer({ clearContainer: true });
+                            return;
+                        }
+                        controls.update();
+                        renderer.render(scene, camera);
+                        container.__md3AnimationId = requestAnimationFrame(animate);
+                    };
+                    animate();
+                } catch (err) {
+                    console.error(`Error rendering MD3 preview for ${filename}:`, err);
+                    previewCell.textContent = 'Unable to render MD3 preview.';
+                    if (metadata) {
+                        metadata.isRendering = false;
+                        metadata.hasActiveRenderer = false;
+                        metadata.lastRenderError = err;
+                    }
+                    if (typeof releaseRenderer === 'function') {
+                        releaseRenderer({ clearContainer: true });
+                    }
+                }
+            };
+
+            if (window.Q1ToolsMD3Support) {
+                hydrate(window.Q1ToolsMD3Support);
+                return;
+            }
+
+            if (window.Q1ToolsMD3SupportReady) {
+                window.Q1ToolsMD3SupportReady.then(hydrate).catch(() => {
+                    previewCell.textContent = 'MD3 preview unavailable.';
+                });
+                return;
+            }
+
+            const onReady = (event) => {
+                hydrate(event.detail);
+            };
+            window.addEventListener('md3previewready', onReady, { once: true });
+
+            setTimeout(() => {
+                window.removeEventListener('md3previewready', onReady);
+                if (!previewCell.querySelector('.md3-preview-container')) {
+                    previewCell.textContent = 'MD3 preview unavailable.';
+                }
+            }, 5000);
         }
 
         function createMiniAudioPlayer(filename, fileArrayBuffer) {
@@ -715,6 +1943,17 @@
 
         // main function to handle all the file types for viewing
         function processFileEntries(entries, table) {
+            if (Array.isArray(entries)) {
+                entries.forEach((entry) => {
+                    if (!entry || !entry.filename || !(entry.arrayBuffer instanceof ArrayBuffer)) {
+                        return;
+                    }
+                    if (/\.(jpe?g|png|tga)$/i.test(entry.filename)) {
+                        registerMD3TextureBuffer(entry.filename, entry.arrayBuffer);
+                    }
+                });
+            }
+
             for (let i = 0; i < entries.length; i++) {
                 const entry = entries[i];
                 const filename = entry.filename;
@@ -756,6 +1995,7 @@
 
                 // png, jpg
                 if (/\.(jpe?g|png)$/i.test(filename)) {
+                    registerMD3TextureBuffer(filename, arrayBuffer);
                     const image = new Image();
                     image.src = link.href;
                     image.className = 'preview';
@@ -765,6 +2005,7 @@
 
                 // tga
                 else if (/\.(tga)$/i.test(filename)) {
+                    registerMD3TextureBuffer(filename, arrayBuffer);
                     const tga = new TgaLoader();
                     const fileBuffer = new Uint8Array(arrayBuffer);
                     tga.load(fileBuffer);
@@ -1121,6 +2362,10 @@
                     } else {
                         console.error(`Failed to create ArrayBuffer for ${filename}`);
                     }
+                }
+
+                else if (/\.md3$/i.test(filename)) {
+                    registerMd3Preview(previewCell, filename, arrayBuffer);
                 }
 
                 else if (/\.(mdl)$/i.test(filename)) {
