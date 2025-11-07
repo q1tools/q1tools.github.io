@@ -15,6 +15,7 @@ QuakeWebTools.FileUtil.getFileObject = function(type, path, arraybuffer) {
   var FU = QuakeWebTools.FileUtil;
   FU.NATIVE_TYPES = FU.NATIVE_TYPES || {
     "pak": QuakeWebTools.PAK,
+    "pk3": QuakeWebTools.PK3,
     "wad": QuakeWebTools.WAD,
     "bsp": QuakeWebTools.BSP,
     "lmp": QuakeWebTools.LMP,

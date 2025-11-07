@@ -10,6 +10,7 @@
     <!--lib-->
     <script src="QuakeWebTools/scripts/lib/stats.min.js"></script>
     <script src="QuakeWebTools/scripts/lib/DataStream.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
     <script src="QuakeWebTools/scripts/lib/three.js"></script>
     <script src="QuakeWebTools/scripts/lib/orbitcontrols.js"></script>
     <script src="QuakeWebTools/scripts/lib/firstpersoncontrols.js"></script>
@@ -18,6 +19,7 @@
     <script src="QuakeWebTools/scripts/util/fileutil.js"></script>
     <script src="QuakeWebTools/scripts/util/imageutil.js"></script>
     <!--types-->
+    <script src="QuakeWebTools/scripts/types/pk3.js"></script>
     <script src="QuakeWebTools/scripts/types/pak.js"></script>
     <script src="QuakeWebTools/scripts/types/wad.js"></script>
     <script src="QuakeWebTools/scripts/types/pal.js"></script>
@@ -37,7 +39,7 @@
       <div id="holder" class="filedrop" style="min-height: 100px"
            aria-label="Drop files here">
         <h1 style="font-size: 2em">DROP FILES HERE</h1>
-        <p>Drag Quake file format files (pak, wad, bsp, lmp, spr, mdl, md3, map,
+        <p>Drag Quake file format files (pak, pk3, wad, bsp, lmp, spr, mdl, md3, map,
         pal) into this area to load their content in your browser. For MD3
         models you can optionally drop matching PNG/JPG/TGA textures alongside the
         model. Prefer to pick files manually? Use the select button below.</p>
@@ -59,7 +61,7 @@
       <!-- Hidden file input to support click-to-select -->
       <input id="file_input" type="file" style="display:none"
              multiple
-             accept=".pak,.wad,.bsp,.lmp,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg,.tga" />
+             accept=".pak,.pk3,.wad,.bsp,.lmp,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg,.tga" />
     </article>
 
 
@@ -102,6 +104,18 @@ if (typeof window.FileReader === 'undefined') {
 
 function clampProgress(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function formatFileSize(bytes) {
+  if (typeof bytes !== "number" || !isFinite(bytes) || bytes < 0) return "";
+  var units = ["B", "KB", "MB", "GB", "TB"];
+  var index = 0;
+  while (bytes >= 1024 && index < units.length - 1) {
+    bytes /= 1024;
+    index++;
+  }
+  var value = index === 0 ? Math.round(bytes) : bytes.toFixed(1);
+  return value + " " + units[index];
 }
 
 function showLoadingIndicator(message) {
@@ -337,7 +351,7 @@ function handleFile(file) {
     alert("Unable to read " + file.name + ". Please try again.");
   };
 
-  reader.onload = function (event) {
+  reader.onload = async function (event) {
     updateIndeterminateProgress("Processing " + file.name + "…");
     var QWT = QuakeWebTools;
     var G = QWT.GLOBAL;
@@ -355,6 +369,9 @@ function handleFile(file) {
       }
 
       switch (type) {
+        case "pk3":
+          await viewPK3(file_entry.obj);
+          break;
         case "pak":
           viewPAK(file_entry.obj);
           break;

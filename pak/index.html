@@ -295,9 +295,9 @@
 
     <!-- File Drop Zone for Viewing PAK/PK3 files -->
     <div id="pak_view_drop">
-        <span id="viewing-text"><span class="text-color-view-create">View / Convert</span>: Drag and drop a .pak or .pk3 here or
-            click to select</span>
+        <span id="viewing-text"><span class="text-color-view-create">View / Convert</span>: Drag and drop a .pak, .pk3, or folder here or click to select</span>
         <input type="file" id="packfile" accept=".pak,.pk3" onchange="pakSelector(this.files)" />
+        <input type="file" id="packfolder" webkitdirectory onchange="handleFolderSelectionForView(this.files)" />
         <div id="loadingCircle" class="loading-circle" style="display: none;"></div>
     </div>
 
@@ -485,6 +485,66 @@
 
             clearFileInput('packfile'); // Assuming 'packfile' is the ID of your file input
             clearFileInput('pakcreator'); // Assuming 'pakcreator' is the ID of your folder input
+        }
+
+        function getFolderNameFromFileList(files) {
+            if (!files || !files.length) {
+                return null;
+            }
+            const firstFile = files[0];
+            if (firstFile.webkitRelativePath) {
+                return firstFile.webkitRelativePath.split('/')[0] || null;
+            }
+            return firstFile.name || null;
+        }
+
+        function handleFolderSelectionForView(files) {
+            if (!files || !files.length) {
+                return;
+            }
+
+            document.getElementById('loadingCircle').style.display = 'block';
+            const folderFiles = Array.from(files);
+            const folderName = getFolderNameFromFileList(folderFiles);
+            viewFolderFilesAsPak(folderFiles, folderName);
+            clearFileInput('packfolder');
+        }
+
+        function viewFolderFilesAsPak(folderFiles, folderName) {
+            if (!folderFiles.length) {
+                alert('The selected folder does not contain any files.');
+                document.getElementById('loadingCircle').style.display = 'none';
+                return;
+            }
+
+            const resolvedName = folderName || 'virtual_pak';
+            const pakBlob = createPAK(folderFiles);
+            let virtualFile;
+
+            if (typeof File === 'function') {
+                virtualFile = new File([pakBlob], `${resolvedName}.pak`, { type: 'application/octet-stream' });
+            } else {
+                virtualFile = pakBlob;
+                virtualFile.name = `${resolvedName}.pak`;
+            }
+
+            pakSelector([virtualFile]);
+        }
+
+        function getDroppedDirectoryEntry(dataTransfer) {
+            if (!dataTransfer || !dataTransfer.items) {
+                return null;
+            }
+
+            for (const item of dataTransfer.items) {
+                if (item.kind === 'file' && typeof item.webkitGetAsEntry === 'function') {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry && entry.isDirectory) {
+                        return entry;
+                    }
+                }
+            }
+            return null;
         }
 
         // Handles the selection of a file and prepares it for processing
@@ -2690,6 +2750,11 @@
             document.getElementById('packfile').click();
         });
 
+        document.getElementById('selectFolderForView').addEventListener('click', function (event) {
+            event.stopPropagation();
+            document.getElementById('packfolder').click();
+        });
+
         document.getElementById('pak_view_drop').addEventListener('dragover', function (event) {
             event.preventDefault();
             event.currentTarget.classList.add('hover');
@@ -2699,15 +2764,37 @@
             event.currentTarget.classList.remove('hover');
         });
 
-        document.getElementById('pak_view_drop').addEventListener('drop', function (event) {
+        document.getElementById('pak_view_drop').addEventListener('drop', async function (event) {
             event.preventDefault();
             event.currentTarget.classList.remove('hover');
 
-            document.getElementById('loadingCircle').style.display = 'block';
+            const loadingCircle = document.getElementById('loadingCircle');
+            loadingCircle.style.display = 'block';
+
+            try {
+                const directoryEntry = getDroppedDirectoryEntry(event.dataTransfer);
+                if (directoryEntry) {
+                    const files = await readAllEntriesForCreate(directoryEntry.createReader());
+
+                    if (!files.length) {
+                        alert('Dropped folder is empty.');
+                        loadingCircle.style.display = 'none';
+                        return;
+                    }
+
+                    viewFolderFilesAsPak(files, directoryEntry.name);
+                    return;
+                }
+            } catch (err) {
+                console.error('Unable to process dropped folder:', err);
+                alert('Unable to read the dropped folder.');
+                loadingCircle.style.display = 'none';
+                return;
+            }
 
             const files = event.dataTransfer.files;
-            if (files.length === 0) {
-                document.getElementById('loadingCircle').style.display = 'none';
+            if (!files.length) {
+                loadingCircle.style.display = 'none';
                 return;
             }
 
@@ -2716,9 +2803,8 @@
             if (/(\.pak|\.pk3)$/i.test(file.name)) {
                 pakSelector(files);
             } else {
-                alert('Only .pak or .pk3 files are accepted');
-                document.getElementById('loadingCircle').style.display = 'none';
-                // Reset any changes made to the drop zone, if necessary
+                alert('Only .pak, .pk3, or folders are accepted');
+                loadingCircle.style.display = 'none';
             }
         });
 

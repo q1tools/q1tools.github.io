@@ -185,6 +185,45 @@ function viewPAK(pak) {
   div_content.appendChild(div);
 }
 
+async function viewPK3(pk3) {
+  if (!pk3) {
+    throw new Error("Missing PK3 archive data");
+  }
+
+  var div_content = document.getElementById("file-content");
+  var entries = await pk3.loadEntries();
+
+  if (!entries.length) {
+    var empty = document.createElement("p");
+    empty.textContent = "This PK3 archive does not contain any files.";
+    div_content.appendChild(empty);
+    return;
+  }
+
+  var div = document.createElement("div");
+  div.style = "padding: 0; margin: 0; text-align: left";
+  var ul = document.createElement("ol");
+
+  for (var j = 0; j < entries.length; ++j) {
+    var li = document.createElement("li");
+    var entry = entries[j];
+    var a = pk3.getDownloadLink(entry);
+    if (typeof formatFileSize === "function" && entry.uncompressedSize != null) {
+      var sizeText = formatFileSize(entry.uncompressedSize);
+      if (sizeText) {
+        a.textContent = entry.path + " (" + sizeText + ")";
+      }
+    } else {
+      a.textContent = entry.path;
+    }
+    li.appendChild(a);
+    ul.appendChild(li);
+  }
+
+  div.appendChild(ul);
+  div_content.appendChild(div);
+}
+
 function viewBSP(bsp) {
   var clock;
   var scene, camera, renderer;
