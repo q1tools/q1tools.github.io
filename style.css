@@ -51,15 +51,17 @@ body a:hover {
 
 .row {
     display: flex;
+    flex-wrap: wrap;
     flex-direction: row;
     gap: 30px;
+    justify-content: center;
 }
 
 /* Clickable div styles */
 .clickable-div {
-    width: 30vh;
-    height: 30vh;
-    font-size: 3vh;
+    width: clamp(160px, 22vw, 230px);
+    aspect-ratio: 1 / 1;
+    font-size: clamp(16px, 2vw, 20px);
     background-color: #383838;
     border-radius: 16px;
     display: flex;
@@ -89,8 +91,9 @@ body a:hover {
 }
 
 .clickable-div img {
-    width: 20vh;
+    width: 65%;
     height: auto;
+    max-height: 65%;
     margin-bottom: 14px;
 }
 
