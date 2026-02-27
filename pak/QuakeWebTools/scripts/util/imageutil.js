@@ -84,6 +84,13 @@ QuakeWebTools.ImageUtil.getImageData = function(name, arraybuffer, entry, header
     header_type = IU.HEADER_MIPTEX;
   }
 
+  // Some Quake LMPs are raw 16x16 palettized images without a width/height header.
+  if (special_case_info === undefined && entry.size == 256 && /\.lmp$/i.test(name)) {
+    image_data.width = 16;
+    image_data.height = 16;
+    header_type = IU.HEADER_NONE;
+  }
+
   var byteofs = entry.offset;
 
   switch (header_type) {
@@ -279,4 +286,3 @@ QuakeWebTools.ImageUtil.generateHTMLPreview = function(images, palette, element_
     document.body.appendChild(fragment);
   }
 }
-

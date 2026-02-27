@@ -58,17 +58,6 @@ body a:visited {
     gap: 8px;
 }
 
-#selectFolderForView {
-    color: #b4b4b4;
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-#selectFolderForView:hover {
-    color: #ffffff;
-}
-
 #pak_view_drop.hover,
 #create_drop.hover {
     background-color: #333333;

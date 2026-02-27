@@ -741,7 +741,7 @@
             var image_datas = images.image_datas || null;
             var image_infos = images.image_infos || null;
             var arraybuffer = images.arraybuffer || null;
-            var limit = (image_datas) ? image_datas.length : image_infos.length;
+            var limit = (image_datas) ? image_datas.length : ((image_infos) ? image_infos.length : 0);
 
             for (var i = 0; i < limit; ++i) {
                 if (image_datas) {
@@ -750,9 +750,19 @@
                     var image_info = image_infos[i];
                     var image_data = IU.getImageData(image_info.name, arraybuffer, image_info);
                 }
+
+                if (!image_data || !isFinite(image_data.width) || !isFinite(image_data.height) || image_data.width <= 0 || image_data.height <= 0) {
+                    console.warn("Skipping preview for invalid image data:", image_data ? image_data.name : "(unknown)", image_data);
+                    continue;
+                }
+
                 var img_info = " (" + image_data.width + "x"
                     + image_data.height + ")";
                 var img = IU.expandImageData(image_data, palette);
+                if (!img) {
+                    console.warn("Skipping preview because image expansion failed:", image_data.name);
+                    continue;
+                }
                 img.title = image_data.name + img_info;
                 //img.download = name + ".png"; // seems to have no effect...
 
@@ -2748,11 +2758,6 @@
 
         document.getElementById('pak_view_drop').addEventListener('click', function () {
             document.getElementById('packfile').click();
-        });
-
-        document.getElementById('selectFolderForView').addEventListener('click', function (event) {
-            event.stopPropagation();
-            document.getElementById('packfolder').click();
         });
 
         document.getElementById('pak_view_drop').addEventListener('dragover', function (event) {
