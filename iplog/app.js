@@ -342,10 +342,31 @@
             .join("\n");
     }
 
+    function buildIpLogData(rows) {
+        var bytes = new Uint8Array(rows.length * ENTRY_SIZE);
+        var view = new DataView(bytes.buffer);
+        var rowIndex;
+        var byteIndex;
+
+        for (rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            var row = rows[rowIndex];
+            var offset = rowIndex * ENTRY_SIZE;
+
+            view.setUint32(offset, row.addr, true);
+
+            for (byteIndex = 0; byteIndex < Math.min(MAX_NAME_BYTES, row.previewCodes.length); byteIndex++) {
+                bytes[offset + 4 + byteIndex] = row.previewCodes[byteIndex];
+            }
+        }
+
+        return bytes;
+    }
+
     function createApi() {
         return {
             parseIpLogSources: parseIpLogSources,
             parseIpLogBuffer: parseIpLogBuffer,
+            buildIpLogData: buildIpLogData,
             formatAddress: formatAddress,
             prepareStoredNameBytes: prepareStoredNameBytes,
             printableNameFromBytes: printableNameFromBytes
@@ -371,6 +392,7 @@
             rows: [],
             filteredRows: [],
             currentTextDump: "",
+            currentDatData: new Uint8Array(0),
             stats: null,
             warnings: [],
             hiddenDuplicateNames: 0
@@ -381,6 +403,7 @@
         var clearButton = document.getElementById("clearButton");
         var copyButton = document.getElementById("copyButton");
         var downloadButton = document.getElementById("downloadButton");
+        var downloadDatButton = document.getElementById("downloadDatButton");
         var searchInput = document.getElementById("searchInput");
         var dedupeToggle = document.getElementById("dedupeToggle");
         var status = document.getElementById("status");
@@ -395,12 +418,19 @@
         var resultsMeta = document.getElementById("resultsMeta");
         var resultsBody = document.getElementById("resultsBody");
 
+        function updateActionLabels() {
+            downloadDatButton.textContent =
+                state.sourceNames.length > 1 ? "Download Merged iplog.dat" : "Download iplog.dat";
+        }
+
         function updateButtons() {
             var hasRows = state.filteredRows.length > 0;
 
             clearButton.disabled = state.sourceNames.length === 0;
             copyButton.disabled = !hasRows;
             downloadButton.disabled = !hasRows;
+            downloadDatButton.disabled = !hasRows;
+            updateActionLabels();
         }
 
         function renderWarnings() {
@@ -450,6 +480,7 @@
 
             state.filteredRows = filteredRows;
             state.currentTextDump = buildTextDump(filteredRows);
+            state.currentDatData = buildIpLogData(filteredRows);
         }
 
         function renderSummary() {
@@ -538,6 +569,7 @@
             state.rows = [];
             state.filteredRows = [];
             state.currentTextDump = "";
+            state.currentDatData = new Uint8Array(0);
             state.stats = null;
             state.warnings = [];
             state.hiddenDuplicateNames = 0;
@@ -600,6 +632,7 @@
                     state.rows = parsed.rows;
                     state.filteredRows = parsed.rows.slice();
                     state.currentTextDump = buildTextDump(parsed.rows);
+                    state.currentDatData = buildIpLogData(parsed.rows);
                     state.stats = parsed.stats;
                     state.warnings = parsed.warnings;
                     state.hiddenDuplicateNames = 0;
@@ -699,6 +732,27 @@
 
             link.href = url;
             link.download = downloadName + ".txt";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        });
+
+        downloadDatButton.addEventListener("click", function () {
+            if (!state.currentDatData.length) {
+                return;
+            }
+
+            var downloadName =
+                state.sourceNames.length > 1
+                    ? "merged-iplog"
+                    : (state.sourceNames[0] || "iplog").replace(/\.dat$/i, "") || "iplog";
+            var blob = new Blob([state.currentDatData], { type: "application/octet-stream" });
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement("a");
+
+            link.href = url;
+            link.download = downloadName + ".dat";
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
