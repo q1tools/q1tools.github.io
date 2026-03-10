@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quake IP Log Viewer</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script defer src="app.js"></script>
+</head>
+<body>
+    <main class="page">
+        <header class="hero">
+            <div id="quakefontheader">quake iplog</div>
+        </header>
+
+        <section class="panel">
+            <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-controls="fileInput">
+                Drop one or more <code>iplog.dat</code> files here or click to choose
+            </div>
+            <input id="fileInput" type="file" accept=".dat,application/octet-stream" multiple hidden>
+
+            <div class="actions">
+                <button id="clearButton" type="button" disabled>Clear</button>
+                <button id="copyButton" type="button" disabled>Copy iplog.txt</button>
+                <button id="downloadButton" type="button" disabled>Download iplog.txt</button>
+            </div>
+
+            <div id="status" class="status">No file loaded.</div>
+            <ul id="warnings" class="warnings" hidden></ul>
+        </section>
+
+        <section id="summaryPanel" class="panel" hidden>
+            <div class="section-head">
+                <h2>Summary</h2>
+                <div id="fileName" class="file-name"></div>
+            </div>
+
+            <div class="summary-grid">
+                <article class="stat-card">
+                    <div class="stat-label">Raw records</div>
+                    <div id="rawRecordsStat" class="stat-value">0</div>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-label">Displayed rows</div>
+                    <div id="displayedRowsStat" class="stat-value">0</div>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-label">Duplicates skipped</div>
+                    <div id="duplicatesStat" class="stat-value">0</div>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-label">Empty names skipped</div>
+                    <div id="emptyNamesStat" class="stat-value">0</div>
+                </article>
+            </div>
+
+            <div class="filter-row">
+                <label class="search-label" for="searchInput">Filter</label>
+                <input id="searchInput" type="search" placeholder="Search masked IP or dequake name" spellcheck="false">
+                <label class="toggle-control" for="dedupeToggle">
+                    <input id="dedupeToggle" type="checkbox">
+                    Remove duplicate names
+                </label>
+            </div>
+        </section>
+
+        <section id="resultsPanel" class="panel" hidden>
+            <div class="section-head">
+                <h2>Entries</h2>
+                <div id="resultsMeta" class="results-meta"></div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Masked IP</th>
+                            <th>Quake Preview</th>
+                            <th>DeQuake</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer">
+        Created by <span class="bronze">w</span>ood<span class="bronze">s</span> &nbsp;&nbsp;| &nbsp;&nbsp;<a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </div>
+</body>
+</html>
