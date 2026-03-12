@@ -27,6 +27,7 @@ QuakeWebTools.BSP.VERSION_BSP2 = 0x32505342;     // "BSP2"
 QuakeWebTools.BSP.VERSION_BSP2_RMQE = 0x42535032; // "2PSB"
 
 QuakeWebTools.BSP.VERTEX_SIZE = 12;
+QuakeWebTools.BSP.PLANE_SIZE = 20;
 QuakeWebTools.BSP.EDGE_SIZE = 4;
 QuakeWebTools.BSP.EDGE_BSP2_SIZE = 8;
 QuakeWebTools.BSP.LEDGE_SIZE = 4;
@@ -61,6 +62,12 @@ QuakeWebTools.BSP.VECTOR3_T = [
   "x",            "float32",
   "y",            "float32",
   "z",            "float32"
+];
+
+QuakeWebTools.BSP.PLANE_T = [
+  "normal",       QuakeWebTools.BSP.VECTOR3_T,
+  "dist",         "float32",
+  "type",         "int32"
 ];
 
 // 4 bytes
@@ -248,6 +255,9 @@ QuakeWebTools.BSP.prototype.initHeader = function(ds) {
   var h = ds.readStruct(headerStruct);
 
   // get the number of each element. This used total_size / sizeof(type) in C.
+  if (h.planes) {
+    h.planes.count = Math.floor(h.planes.size / QuakeWebTools.BSP.PLANE_SIZE);
+  }
   if (h.vertices) {
     h.vertices.count = Math.floor(h.vertices.size / QuakeWebTools.BSP.VERTEX_SIZE);
   }
@@ -282,6 +292,13 @@ QuakeWebTools.BSP.prototype.initGeometry = function(ds) {
   };
   var h = this.header;
   var surfacesEntry = null;
+
+  if (h.planes && h.planes.count > 0) {
+    ds.seek(h.planes.offset);
+    geometry.planes = ds.readType(["[]", QuakeWebTools.BSP.PLANE_T, h.planes.count]);
+  } else {
+    geometry.planes = [];
+  }
 
   if (h.vertices && h.vertices.count > 0) {
     ds.seek(h.vertices.offset);
@@ -347,6 +364,7 @@ QuakeWebTools.BSP.prototype.initGeometry = function(ds) {
     geometry.edge_list = [];
   }
 
+  this.raw_geometry = geometry;
   this.geometry = this.expandGeometry(geometry);
 }
 
