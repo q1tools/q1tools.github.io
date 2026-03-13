@@ -2864,6 +2864,7 @@
         let maxSpeed = 0;
         let minZ = samples[0].origin[2];
         let maxZ = samples[0].origin[2];
+        let trackedTime = 0;
         let filteredSegments = 0;
 
         for (let index = 1; index < samples.length; index += 1) {
@@ -2883,11 +2884,11 @@
             minZ = Math.min(minZ, current.origin[2]);
             maxZ = Math.max(maxZ, current.origin[2]);
             if (dt > 0) {
+                trackedTime += dt;
                 maxSpeed = Math.max(maxSpeed, segmentDistance / dt);
             }
         }
 
-        const trackedTime = Math.max(0, samples[samples.length - 1].time - samples[0].time);
         return {
             trackedTime: round(trackedTime, 3),
             distance: round(distance, 2),
