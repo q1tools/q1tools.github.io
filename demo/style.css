@@ -17,6 +17,38 @@
     line-height: 1.5;
 }
 
+.summary-actions {
+    margin-top: 18px;
+}
+
+.combine-panel-disabled {
+    opacity: 0.68;
+}
+
+.combine-panel-disabled .mini-metric,
+.combine-panel-disabled .combine-order-list {
+    opacity: 0.82;
+}
+
+.combine-panel-disabled .trim-download-button {
+    cursor: not-allowed;
+    opacity: 0.45;
+    box-shadow: none;
+    filter: saturate(0.35);
+}
+
+.combine-order-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #d9cabd;
+    max-height: 180px;
+    overflow: auto;
+}
+
+.combine-order-list li + li {
+    margin-top: 6px;
+}
+
 .demo-card {
     position: relative;
 }

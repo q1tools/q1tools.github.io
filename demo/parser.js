@@ -21,6 +21,13 @@
     const PROTOCOL_FTE_PEXT1 = 0x58455446;
     const PROTOCOL_FTE_PEXT2 = 0x32455446;
 
+    const CAMERA_SMOOTH_SIZE = 60;
+    const MOTION_SMOOTH_SIZE = 30;
+    const MOTION_SMOOTH_RESTART_LIMIT = 200;
+    const ROLL_TARGET = 10;
+    const ROLL_TRIGGER_ANGLE = 0.3;
+    const ROLL_SPEED = 0.2;
+
     const PRFL_SHORTANGLE = 1 << 1;
     const PRFL_FLOATANGLE = 1 << 2;
     const PRFL_24BITCOORD = 1 << 3;
@@ -1202,6 +1209,13 @@
         }
     }
 
+    function markSmoothingUnsupported(parser, reason) {
+        if (!parser || !parser.smoothing || parser.smoothing.unsupportedReason) {
+            return;
+        }
+        parser.smoothing.unsupportedReason = reason;
+    }
+
     function setLocalFlagSample(parser, onground, inwater) {
         const local = parser.localState;
         const time = parser.runtime.time;
@@ -1472,6 +1486,16 @@
             parser.runtime.serverGameDir = '';
         }
 
+        if (parser.smoothing) {
+            if (parser.runtime.protocolPext1 || parser.runtime.protocolPext2) {
+                markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic protocol 15, 666, and 999 demos without FTE extensions.');
+            } else if (protocol !== PROTOCOL_NETQUAKE && protocol !== PROTOCOL_FITZQUAKE && protocol !== PROTOCOL_RMQ) {
+                markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic protocol 15, 666, and 999 demos only.');
+            } else if ((parser.runtime.protocolFlags & (PRFL_FLOATCOORD | PRFL_INT32COORD | PRFL_24BITCOORD)) !== 0) {
+                markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic short-coordinate demos only.');
+            }
+        }
+
         parser.runtime.maxClients = reader.readUint8();
         parser.runtime.gameType = reader.readUint8();
         parser.runtime.levelName = dequakeName(reader.readString()).trim();
@@ -1574,6 +1598,16 @@
         const target = ensureEntity(parser, entityNumber);
         const baseline = target.baseline || entityState();
         const state = cloneEntityState(baseline);
+        const smoothingTrackEntity = !!(parser.smoothing && !parser.smoothing.unsupportedReason && entityNumber === parser.runtime.viewEntity);
+        const smoothingLocation = smoothingTrackEntity ? {
+            xOffset: null,
+            yOffset: null,
+            zOffset: null
+        } : null;
+
+        if (smoothingTrackEntity && (parser.runtime.protocolFlags & (PRFL_FLOATCOORD | PRFL_INT32COORD | PRFL_24BITCOORD)) !== 0) {
+            markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic short-coordinate demos only.');
+        }
 
         let modelindex;
         if (bits & U_MODEL) {
@@ -1597,18 +1631,27 @@
         }
 
         if (bits & U_ORIGIN1) {
+            if (smoothingLocation) {
+                smoothingLocation.xOffset = (parser.frameContext ? parser.frameContext.payloadOffset : 0) + reader.offset;
+            }
             state.origin[0] = readCoord(reader, parser.runtime.protocolFlags);
         }
         if (bits & U_ANGLE1) {
             state.angles[0] = readAngle(reader, parser.runtime.protocolFlags);
         }
         if (bits & U_ORIGIN2) {
+            if (smoothingLocation) {
+                smoothingLocation.yOffset = (parser.frameContext ? parser.frameContext.payloadOffset : 0) + reader.offset;
+            }
             state.origin[1] = readCoord(reader, parser.runtime.protocolFlags);
         }
         if (bits & U_ANGLE2) {
             state.angles[1] = readAngle(reader, parser.runtime.protocolFlags);
         }
         if (bits & U_ORIGIN3) {
+            if (smoothingLocation) {
+                smoothingLocation.zOffset = (parser.frameContext ? parser.frameContext.payloadOffset : 0) + reader.offset;
+            }
             state.origin[2] = readCoord(reader, parser.runtime.protocolFlags);
         }
         if (bits & U_ANGLE3) {
@@ -1645,6 +1688,17 @@
         target.active = true;
         target.lastTime = parser.runtime.time;
         updatePlayerMovement(parser, entityNumber, state);
+
+        if (smoothingLocation && !parser.smoothing.unsupportedReason) {
+            parser.smoothing.locations.push({
+                x: Math.round(state.origin[0] * 8),
+                y: Math.round(state.origin[1] * 8),
+                z: Math.round(state.origin[2] * 8),
+                xOffset: smoothingLocation.xOffset,
+                yOffset: smoothingLocation.yOffset,
+                zOffset: smoothingLocation.zOffset
+            });
+        }
     }
 
     function readFteBaseline(parser, reader) {
@@ -1872,6 +1926,9 @@
     }
 
     function parseFteUpdateEntities(parser, reader) {
+        if (parser.smoothing) {
+            markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic protocol 15, 666, and 999 demos without FTE extensions.');
+        }
         if (parser.runtime.protocolPext2 & PEXT2_PREDINFO) {
             reader.readUint16();
         }
@@ -2885,7 +2942,8 @@
             });
     }
 
-    function createParserContext(fileMeta, forcetrack) {
+    function createParserContext(fileMeta, forcetrack, options) {
+        const config = options || {};
         return {
             fileMeta: fileMeta || {},
             forcetrack: forcetrack,
@@ -2942,7 +3000,13 @@
                 resourceEvents: [],
                 movementFlags: [],
                 estimatedJumps: 0
-            }
+            },
+            frameContext: null,
+            smoothing: config.enableSmoothing ? {
+                frames: [],
+                locations: [],
+                unsupportedReason: ''
+            } : null
         };
     }
 
@@ -2951,7 +3015,27 @@
 
         for (let index = 0; index < frames.length && index < maxFrame; index += 1) {
             const frame = frames[index];
-            parseFrame(parser, frame.payload, frame.viewAngles);
+            if (parser.smoothing) {
+                parser.smoothing.frames.push({
+                    frameIndex: frame.index,
+                    timed: !!(frame.payload.length && frame.payload[0] === SVC.TIME),
+                    angles: frame.viewAngles.slice(),
+                    sourceAngles: frame.viewAngles.slice(),
+                    angleOffsets: [
+                        frame.messageOffset + 4,
+                        frame.messageOffset + 8,
+                        frame.messageOffset + 12
+                    ],
+                    smoothedXY: false,
+                    smoothedZ: false
+                });
+            }
+            parser.frameContext = frame;
+            try {
+                parseFrame(parser, frame.payload, frame.viewAngles);
+            } finally {
+                parser.frameContext = null;
+            }
             if (frameTimes) {
                 frameTimes.push(round(parser.runtime.time, 3) || 0);
             }
@@ -3019,6 +3103,180 @@
         return protocol === PROTOCOL_NETQUAKE ||
             protocol === PROTOCOL_FITZQUAKE ||
             protocol === PROTOCOL_RMQ;
+    }
+
+    function truncateTowardZero(value) {
+        return value < 0 ? Math.ceil(value) : Math.floor(value);
+    }
+
+    function propagateSmoothedAngles(frames, timedIndices, flagName, axes) {
+        for (let timedIndex = 0; timedIndex < timedIndices.length; timedIndex += 1) {
+            const frameIndex = timedIndices[timedIndex];
+            const frame = frames[frameIndex];
+            if (!frame[flagName]) {
+                continue;
+            }
+            const nextTimedFrame = timedIndex + 1 < timedIndices.length ? timedIndices[timedIndex + 1] : frames.length;
+            for (let index = frameIndex + 1; index < nextTimedFrame; index += 1) {
+                axes.forEach(function (axis) {
+                    frames[index].angles[axis] = frame.angles[axis];
+                });
+            }
+        }
+    }
+
+    function smoothCameraAnglesXY(frames) {
+        const timedIndices = [];
+        frames.forEach(function (frame, index) {
+            if (frame.timed) {
+                timedIndices.push(index);
+            }
+        });
+
+        for (let center = CAMERA_SMOOTH_SIZE; center < timedIndices.length; center += 1) {
+            const start = center - CAMERA_SMOOTH_SIZE;
+            const end = Math.min(timedIndices.length - 1, center + CAMERA_SMOOTH_SIZE);
+            const count = end - start + 1;
+            let pitchSum = 0;
+            let yawCos = 0;
+            let yawSin = 0;
+
+            for (let index = start; index <= end; index += 1) {
+                const source = frames[timedIndices[index]].sourceAngles;
+                pitchSum += source[0];
+                const radians = (source[1] - 180) * Math.PI / 180;
+                yawCos += Math.cos(radians);
+                yawSin += Math.sin(radians);
+            }
+
+            const target = frames[timedIndices[center]];
+            target.angles[0] = pitchSum / count;
+            target.angles[1] = normalizeAngle((Math.atan2(yawSin, yawCos) * 180 / Math.PI) + 180);
+            target.smoothedXY = true;
+        }
+
+        propagateSmoothedAngles(frames, timedIndices, 'smoothedXY', [0, 1]);
+    }
+
+    function addCameraRoll(frames) {
+        if (!frames.length) {
+            return;
+        }
+
+        let previousYaw = frames[0].angles[1];
+        let roll = 0;
+
+        frames.forEach(function (frame) {
+            const currentYaw = frame.angles[1];
+            const deltaYaw = previousYaw - currentYaw;
+
+            if (deltaYaw > ROLL_TRIGGER_ANGLE) {
+                roll = Math.min(ROLL_TARGET, roll + ROLL_SPEED);
+            } else if (deltaYaw < (-1 * ROLL_TRIGGER_ANGLE)) {
+                roll = Math.max(-ROLL_TARGET, roll - ROLL_SPEED);
+            } else if (roll < (-1 * ROLL_SPEED)) {
+                roll += ROLL_SPEED;
+            } else if (roll > ROLL_SPEED) {
+                roll -= ROLL_SPEED;
+            } else {
+                roll = 0;
+            }
+
+            frame.angles[2] = roll;
+            previousYaw = currentYaw;
+        });
+    }
+
+    function smoothCameraAngleZ(frames) {
+        const timedIndices = [];
+        frames.forEach(function (frame, index) {
+            if (frame.timed) {
+                timedIndices.push(index);
+            }
+        });
+
+        const sourceRolls = timedIndices.map(function (frameIndex) {
+            return frames[frameIndex].angles[2];
+        });
+
+        for (let center = CAMERA_SMOOTH_SIZE; center < timedIndices.length; center += 1) {
+            const start = center - CAMERA_SMOOTH_SIZE;
+            const end = Math.min(timedIndices.length - 1, center + CAMERA_SMOOTH_SIZE);
+            const count = end - start + 1;
+            let rollSum = 0;
+
+            for (let index = start; index <= end; index += 1) {
+                rollSum += sourceRolls[index];
+            }
+
+            const target = frames[timedIndices[center]];
+            target.angles[2] = rollSum / count;
+            target.smoothedZ = true;
+        }
+
+        propagateSmoothedAngles(frames, timedIndices, 'smoothedZ', [2]);
+    }
+
+    function locationDistance(left, right) {
+        const dx = left.x - right.x;
+        const dy = left.y - right.y;
+        const dz = left.z - right.z;
+        return Math.sqrt((dx * dx) + (dy * dy) + (dz * dz));
+    }
+
+    function smoothMotionPath(outputView, locations) {
+        if (!locations.length) {
+            return;
+        }
+
+        let segmentStart = 0;
+        const processSegment = function (start, end) {
+            for (let center = start + MOTION_SMOOTH_SIZE; center <= end; center += 1) {
+                const windowStart = center - MOTION_SMOOTH_SIZE;
+                const windowEnd = Math.min(end, center + MOTION_SMOOTH_SIZE);
+                const count = windowEnd - windowStart + 1;
+                let sumX = 0;
+                let sumY = 0;
+                let sumZ = 0;
+
+                for (let index = windowStart; index <= windowEnd; index += 1) {
+                    sumX += locations[index].x;
+                    sumY += locations[index].y;
+                    sumZ += locations[index].z;
+                }
+
+                const target = locations[center];
+                const smoothX = truncateTowardZero(sumX / count);
+                const smoothY = truncateTowardZero(sumY / count);
+                const smoothZ = truncateTowardZero(sumZ / count);
+
+                if (target.xOffset !== null) {
+                    outputView.setInt16(target.xOffset, smoothX, true);
+                }
+                if (target.yOffset !== null) {
+                    outputView.setInt16(target.yOffset, smoothY, true);
+                }
+                if (target.zOffset !== null) {
+                    outputView.setInt16(target.zOffset, smoothZ, true);
+                }
+            }
+        };
+
+        for (let index = 1; index < locations.length; index += 1) {
+            if (locationDistance(locations[index - 1], locations[index]) >= MOTION_SMOOTH_RESTART_LIMIT) {
+                processSegment(segmentStart, index - 1);
+                segmentStart = index;
+            }
+        }
+        processSegment(segmentStart, locations.length - 1);
+    }
+
+    function writeSmoothedFrameAngles(outputView, frames) {
+        frames.forEach(function (frame) {
+            frame.angleOffsets.forEach(function (offset, axis) {
+                outputView.setFloat32(offset, frame.angles[axis], true);
+            });
+        });
     }
 
     function isDefaultEntityState(state) {
@@ -3838,6 +4096,62 @@
         return concatByteChunks(outputChunks);
     }
 
+    function combineDemoBuffers(inputs) {
+        const list = Array.from(inputs || []);
+        if (!list.length) {
+            throw new TypeError('combineDemoBuffers expects at least one demo buffer.');
+        }
+
+        const scans = list.map(function (input) {
+            const bytes = normalizeBuffer(input);
+            const demo = scanDemoFrames(bytes);
+            return {
+                bytes: bytes,
+                demo: demo
+            };
+        });
+
+        const chunks = [new Uint8Array(scans[0].demo.headerBytes)];
+        scans.forEach(function (entry) {
+            entry.demo.frames.forEach(function (frame) {
+                chunks.push(entry.bytes.subarray(frame.messageOffset, frame.endOffset));
+            });
+        });
+
+        return concatByteChunks(chunks);
+    }
+
+    function smoothDemoBuffer(input) {
+        const bytes = normalizeBuffer(input);
+        const demo = scanDemoFrames(bytes);
+        const output = new Uint8Array(bytes);
+
+        if (!demo.frames.length) {
+            return output;
+        }
+
+        const trackLine = demo.trackLine.trim();
+        const forcetrack = /^-?\d+$/.test(trackLine) ? Number(trackLine) : null;
+        const parser = createParserContext({}, forcetrack, { enableSmoothing: true });
+        runParserFrames(parser, demo.frames, null);
+
+        if (!parser.runtime.protocol) {
+            throw new Error('Cannot smooth a demo before any serverinfo message has been decoded.');
+        }
+        if (parser.smoothing && parser.smoothing.unsupportedReason) {
+            throw new Error(parser.smoothing.unsupportedReason);
+        }
+
+        const outputView = new DataView(output.buffer, output.byteOffset, output.byteLength);
+        smoothCameraAnglesXY(parser.smoothing.frames);
+        addCameraRoll(parser.smoothing.frames);
+        smoothCameraAngleZ(parser.smoothing.frames);
+        writeSmoothedFrameAngles(outputView, parser.smoothing.frames);
+        smoothMotionPath(outputView, parser.smoothing.locations);
+
+        return output;
+    }
+
     function parseDemoBuffer(input, fileMeta) {
         const bytes = normalizeBuffer(input);
         const demo = scanDemoFrames(bytes);
@@ -3913,6 +4227,8 @@
     return {
         parseDemoBuffer: parseDemoBuffer,
         trimDemoBuffer: trimDemoBuffer,
+        combineDemoBuffers: combineDemoBuffers,
+        smoothDemoBuffer: smoothDemoBuffer,
         decodeQuakeBytes: dequakeBytes,
         decodeScoreboardBytes: decodeScoreboardBytes,
         constants: {

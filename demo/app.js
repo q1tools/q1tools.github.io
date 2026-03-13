@@ -10,6 +10,7 @@
     const warningsEl = document.getElementById('warnings');
     const summaryPanel = document.getElementById('summaryPanel');
     const summaryGrid = document.getElementById('summaryGrid');
+    const summaryActions = document.getElementById('summaryActions');
     const resultsPanel = document.getElementById('resultsPanel');
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
@@ -303,6 +304,12 @@
         });
     }
 
+    function smoothExportSupported(data) {
+        return data.protocols.length > 0 && data.protocols.every(function (protocol) {
+            return /^(15|666|999)$/i.test(protocol);
+        });
+    }
+
     function timelineStart(data) {
         return data.timeline && Number.isFinite(data.timeline.startTime) ? data.timeline.startTime : 0;
     }
@@ -381,6 +388,23 @@
     function buildClipFileName(fileName, startSeconds, endSeconds) {
         const baseName = String(fileName || 'demo.dem').replace(/\.dem$/i, '');
         return baseName + '__clip_' + safeClipLabel(startSeconds) + '__' + safeClipLabel(endSeconds) + '.dem';
+    }
+
+    function buildSmoothFileName(fileName) {
+        const baseName = String(fileName || 'demo.dem').replace(/\.dem$/i, '');
+        return baseName + '__smoothed.dem';
+    }
+
+    function buildCombinedFileName(items) {
+        const count = Array.isArray(items) ? items.length : 0;
+        if (count <= 0) {
+            return 'combined_demos.dem';
+        }
+        if (count === 1) {
+            return String(items[0].data.fileName || 'demo.dem').replace(/\.dem$/i, '') + '__combined.dem';
+        }
+        const firstName = String(items[0].data.fileName || 'demo').replace(/\.dem$/i, '');
+        return firstName + '__plus_' + (count - 1) + '_more.dem';
     }
 
     function triggerDownload(bytes, fileName) {
@@ -508,6 +532,101 @@
             '<button class="trim-download-button" type="button">Export clipped .dem</button>',
             '</div>',
             '</div>'
+        ].join('');
+    }
+
+    function renderSmoothSection(item, index) {
+        const data = item.data;
+        if (!smoothExportSupported(data)) {
+            return [
+                '<div class="trim-panel trim-panel-disabled">',
+                '<div class="trim-header-row">',
+                '<div>',
+                '<h4 class="trim-title">Smooth Demo</h4>',
+                '<p class="trim-copy">Demsmooth-style export is currently limited to protocol 15, 666, and 999 demos without FTE extensions.</p>',
+                '</div>',
+                renderPill('Unsupported export', 'bad'),
+                '</div>',
+                '</div>'
+            ].join('');
+        }
+
+        return [
+            '<div class="trim-panel smooth-panel" data-demo-index="' + escapeAttribute(index) + '">',
+            '<div class="trim-header-row">',
+            '<div>',
+            '<h4 class="trim-title">Smooth Demo</h4>',
+            '<p class="trim-copy">Apply demsmooth-style camera smoothing, roll, and POV motion smoothing across the full demo, then export a processed <code>.dem</code>. Original demsmooth by Mandel (Mathias Thore).</p>',
+            '</div>',
+            renderPill('Full demo export'),
+            '</div>',
+            '<div class="mini-metrics trim-summary-metrics">',
+            '<div class="mini-metric"><div class="mini-label">Profile</div><div class="mini-value">demsmooth 1.3</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Camera</div><div class="mini-value">XY + roll + Z</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Motion</div><div class="mini-value">POV path only</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Protocol</div><div class="mini-value">' + escapeHtml(data.protocols.join(', ')) + '</div></div>',
+            '</div>',
+            '<div class="trim-actions">',
+            '<div class="trim-hint">This writes a separate smoothed copy and leaves the original demo untouched. Classic non-FTE streams only.</div>',
+            '<button class="trim-download-button smooth-download-button" type="button">Export smoothed .dem</button>',
+            '</div>',
+            '</div>'
+        ].join('');
+    }
+
+    function renderCombineSection(items) {
+        const successful = items.filter(function (item) {
+            return !!item.data;
+        });
+        if (!successful.length) {
+            return '';
+        }
+
+        const combineEnabled = successful.length >= 2;
+        const totalDuration = successful.reduce(function (sum, item) {
+            return sum + (Number.isFinite(item.data.duration) ? item.data.duration : 0);
+        }, 0);
+        const totalFrames = successful.reduce(function (sum, item) {
+            return sum + (Number(item.data.frameCount) || 0);
+        }, 0);
+
+        return [
+            '<section class="subsection subsection-collapsible">',
+            '<details class="section-disclosure">',
+            '<summary class="subsection-head disclosure-summary">',
+            '<span class="subsection-title">Combine</span>',
+            '<span class="disclosure-meta" aria-hidden="true"></span>',
+            '</summary>',
+            '<div class="disclosure-body">',
+            '<div class="trim-panel combine-panel' + (combineEnabled ? '' : ' trim-panel-disabled combine-panel-disabled') + '">',
+            '<div class="trim-header-row">',
+            '<div>',
+            '<h4 class="trim-title">Combine Demos</h4>',
+            '<p class="trim-copy">Combine the currently loaded demos into one continuous <code>.dem</code>, using the loaded order shown below.</p>',
+            '</div>',
+            renderPill(combineEnabled ? 'Summary export' : 'Need 2 demos', combineEnabled ? 'neutral' : 'bad'),
+            '</div>',
+            '<div class="mini-metrics trim-summary-metrics">',
+            '<div class="mini-metric"><div class="mini-label">Demo count</div><div class="mini-value">' + escapeHtml(String(successful.length)) + '</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Total frames</div><div class="mini-value">' + escapeHtml(String(totalFrames)) + '</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Decoded time</div><div class="mini-value">' + escapeHtml(formatDuration(totalDuration)) + '</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Output</div><div class="mini-value">Single .dem</div></div>',
+            '</div>',
+            '<ol class="combine-order-list">',
+            successful.map(function (item) {
+                return '<li>' + escapeHtml(item.data.fileName) + '</li>';
+            }).join(''),
+            '</ol>',
+            '<div class="trim-actions">',
+            '<div class="trim-hint">' + escapeHtml(combineEnabled
+                ? 'Only successfully parsed demos are included. The first demo header is kept, and each demo’s complete frame stream is appended after it.'
+                : 'Load at least two successfully parsed demos to export a combined file.') + '</div>',
+            '<button id="combineDownloadButton" class="trim-download-button" type="button"' + (combineEnabled ? '' : ' disabled aria-disabled="true"') + '>Export combined .dem</button>',
+            '</div>',
+            '</div>',
+            '</div>',
+            '</details>',
+            '</section>'
         ].join('');
     }
 
@@ -1157,6 +1276,17 @@
             '</div>',
             '</details>',
             '</section>',
+            '<section class="subsection subsection-collapsible">',
+            '<details class="section-disclosure">',
+            '<summary class="subsection-head disclosure-summary">',
+            '<span class="subsection-title">Smooth</span>',
+            '<span class="disclosure-meta" aria-hidden="true"></span>',
+            '</summary>',
+            '<div class="disclosure-body">',
+            renderSmoothSection(item, index),
+            '</div>',
+            '</details>',
+            '</section>',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">Players</h3></div>',
             '<div class="player-grid">' + renderPlayerSection(data) + '</div>',
@@ -1193,6 +1323,10 @@
         if (!successful.length) {
             summaryPanel.hidden = true;
             summaryGrid.innerHTML = '';
+            if (summaryActions) {
+                summaryActions.hidden = true;
+                summaryActions.innerHTML = '';
+            }
             return;
         }
 
@@ -1232,6 +1366,11 @@
             renderStatCard('Frames', String(frames)),
             renderStatCard('Decoded time', formatDuration(duration))
         ].join('');
+        if (summaryActions) {
+            const combineMarkup = renderCombineSection(items);
+            summaryActions.innerHTML = combineMarkup;
+            summaryActions.hidden = !combineMarkup;
+        }
         summaryPanel.hidden = false;
     }
 
@@ -1248,9 +1387,49 @@
         clearButton.disabled = false;
         resultsPanel.innerHTML = items.map(renderDemoCard).join('');
         updateSummary(items);
+        bindCombinePanel();
         bindTrimPanels();
+        bindSmoothPanels();
         bindChatFilters();
         bindServerFilters();
+    }
+
+    function bindCombinePanel() {
+        if (!summaryActions || summaryActions.hidden) {
+            return;
+        }
+
+        const button = summaryActions.querySelector('#combineDownloadButton');
+        if (!button) {
+            return;
+        }
+
+        button.addEventListener('click', function () {
+            const successful = parsedFiles.filter(function (item) {
+                return !!item.data;
+            });
+
+            if (successful.length < 2) {
+                setStatus('Load at least two parsed demos to combine them.', 'error');
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = 'Building combined demo...';
+
+            try {
+                const combined = parserApi.combineDemoBuffers(successful.map(function (item) {
+                    return item.sourceBuffer;
+                }));
+                triggerDownload(combined, buildCombinedFileName(successful));
+                setStatus('Prepared combined demo from ' + successful.length + ' loaded demos.', 'success');
+            } catch (error) {
+                setStatus(error && error.message ? error.message : 'Failed to export combined demo.', 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Export combined .dem';
+            }
+        });
     }
 
     function bindTrimPanels() {
@@ -1385,6 +1564,39 @@
             });
 
             writeState(1, data.frameCount);
+        });
+    }
+
+    function bindSmoothPanels() {
+        const panels = resultsPanel.querySelectorAll('.smooth-panel[data-demo-index]');
+
+        panels.forEach(function (panel) {
+            const demoIndex = Number(panel.getAttribute('data-demo-index'));
+            const item = parsedFiles[demoIndex];
+            if (!item || !item.data) {
+                return;
+            }
+
+            const exportButton = panel.querySelector('.smooth-download-button');
+            if (!exportButton) {
+                return;
+            }
+
+            exportButton.addEventListener('click', function () {
+                exportButton.disabled = true;
+                exportButton.textContent = 'Building smoothed demo...';
+
+                try {
+                    const smoothedBytes = parserApi.smoothDemoBuffer(item.sourceBuffer);
+                    triggerDownload(smoothedBytes, buildSmoothFileName(item.data.fileName));
+                    setStatus('Prepared demsmooth export for ' + item.data.fileName + '.', 'success');
+                } catch (error) {
+                    setStatus(error && error.message ? error.message : 'Failed to export smoothed demo.', 'error');
+                } finally {
+                    exportButton.disabled = false;
+                    exportButton.textContent = 'Export smoothed .dem';
+                }
+            });
         });
     }
 
@@ -1562,7 +1774,7 @@
         handleFiles(event.target.files);
     });
 
-    if (!parserApi || typeof parserApi.parseDemoBuffer !== 'function' || typeof parserApi.trimDemoBuffer !== 'function') {
+    if (!parserApi || typeof parserApi.parseDemoBuffer !== 'function' || typeof parserApi.trimDemoBuffer !== 'function' || typeof parserApi.combineDemoBuffers !== 'function' || typeof parserApi.smoothDemoBuffer !== 'function') {
         setWarnings(['The demo parser failed to load.']);
         setStatus('The demo parser is unavailable.', 'error');
         return;
