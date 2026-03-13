@@ -1566,15 +1566,22 @@
         var totalDuration = 0;
         var totalFrames = 0;
         var totalMessages = 0;
+        var totalWarnings = 0;
         var playerMap = {};
         var mapMap = {};
         var allChat = [];
         var weaponMap = {};
         var protocolCounts = {};
         var timeline = [];
+        var itemPickups = {};
+        var movementTotals = { distance: 0, horizontalDistance: 0, maxSpeed: 0, speedSum: 0, speedCount: 0, jumps: 0, groundTime: 0, airTime: 0, waterTime: 0, demoCount: 0 };
+        var allWarnings = [];
+        var duplicateKeys = {};
+        var headToHead = {};
 
         successful.forEach(function (item, itemIndex) {
             var data = item.data;
+            var demoName = item.fileName || item.displayName;
             totalSize += item.fileSize || 0;
             totalFrames += data.frameCount || 0;
             totalMessages += data.messageCount || 0;
@@ -1582,12 +1589,28 @@
                 totalDuration += data.duration;
             }
 
+            if (data.warnings && data.warnings.length) {
+                totalWarnings += data.warnings.length;
+                data.warnings.forEach(function (w) {
+                    allWarnings.push({ demo: demoName, message: w });
+                });
+            }
+
+            var dupKey = data.maps.map(function (m) { return (m.mapName || '').toLowerCase(); }).join('+') +
+                '|' + (Number.isFinite(data.duration) ? Math.round(data.duration) : '?') +
+                '|' + data.players.map(function (p) { return (p.displayName || p.name || '').toLowerCase(); }).sort().join(',');
+            if (!duplicateKeys[dupKey]) {
+                duplicateKeys[dupKey] = [];
+            }
+            duplicateKeys[dupKey].push(demoName);
+
             data.protocols.forEach(function (p) {
                 protocolCounts[p] = (protocolCounts[p] || 0) + 1;
             });
 
+            var playerNamesInDemo = [];
             timeline.push({
-                fileName: item.fileName || item.displayName,
+                fileName: demoName,
                 lastModified: item.lastModified,
                 fileSize: item.fileSize,
                 duration: data.duration,
@@ -1600,6 +1623,7 @@
             data.players.forEach(function (player) {
                 var nameKey = (player.displayName || player.name || '').toLowerCase().trim();
                 if (!nameKey) { nameKey = '__unnamed__'; }
+                playerNamesInDemo.push(nameKey);
                 if (!playerMap[nameKey]) {
                     playerMap[nameKey] = {
                         displayName: player.displayName || player.name,
@@ -1609,8 +1633,13 @@
                         totalPlaytime: 0,
                         appearances: 0,
                         totalChatCount: 0,
+                        totalDistance: 0,
+                        maxSpeed: 0,
+                        speedSum: 0,
+                        speedCount: 0,
                         shirts: {},
                         pants: {},
+                        aliases: {},
                         demos: []
                     };
                 }
@@ -1621,8 +1650,20 @@
                     entry.maxFrags = player.frags || 0;
                 }
                 entry.totalChatCount += player.chatCount || 0;
-                if (player.movement && Number.isFinite(player.movement.trackedTime)) {
-                    entry.totalPlaytime += player.movement.trackedTime;
+                if (player.movement) {
+                    if (Number.isFinite(player.movement.trackedTime)) {
+                        entry.totalPlaytime += player.movement.trackedTime;
+                    }
+                    if (Number.isFinite(player.movement.distance)) {
+                        entry.totalDistance += player.movement.distance;
+                    }
+                    if (Number.isFinite(player.movement.maxSpeed) && player.movement.maxSpeed > entry.maxSpeed) {
+                        entry.maxSpeed = player.movement.maxSpeed;
+                    }
+                    if (Number.isFinite(player.movement.averageSpeed) && player.movement.averageSpeed > 0) {
+                        entry.speedSum += player.movement.averageSpeed;
+                        entry.speedCount += 1;
+                    }
                 }
                 if (Number.isInteger(player.shirt)) {
                     entry.shirts[player.shirt] = (entry.shirts[player.shirt] || 0) + 1;
@@ -1633,8 +1674,33 @@
                 if (!entry.nameCodes && player.nameCodes) {
                     entry.nameCodes = player.nameCodes;
                 }
-                entry.demos.push(item.fileName || item.displayName);
+                var statusAliasPattern = /\b(ready|typing|dead|afk|brb)\b/i;
+                if (Array.isArray(player.aliases)) {
+                    player.aliases.forEach(function (alias) {
+                        var aKey = alias.toLowerCase().trim();
+                        if (aKey && aKey !== nameKey && !statusAliasPattern.test(aKey)) {
+                            entry.aliases[aKey] = alias;
+                        }
+                    });
+                }
+                var rawName = (player.name || '').trim();
+                if (rawName) {
+                    var rnKey = rawName.toLowerCase();
+                    if (rnKey !== nameKey && !statusAliasPattern.test(rnKey)) {
+                        entry.aliases[rnKey] = rawName;
+                    }
+                }
+                entry.demos.push(demoName);
             });
+
+            for (var pi = 0; pi < playerNamesInDemo.length; pi++) {
+                for (var pj = pi + 1; pj < playerNamesInDemo.length; pj++) {
+                    var pairA = playerNamesInDemo[pi];
+                    var pairB = playerNamesInDemo[pj];
+                    var pairKey = pairA < pairB ? pairA + '|||' + pairB : pairB + '|||' + pairA;
+                    headToHead[pairKey] = (headToHead[pairKey] || 0) + 1;
+                }
+            }
 
             data.maps.forEach(function (map) {
                 var mapKey = (map.mapName || map.levelName || 'unknown').toLowerCase();
@@ -1644,16 +1710,50 @@
                         levelName: map.levelName || '',
                         playCount: 0,
                         totalTime: 0,
-                        protocols: {}
+                        protocols: {},
+                        totalKills: 0,
+                        totalMonsters: 0,
+                        totalSecrets: 0,
+                        totalSecretsAvailable: 0,
+                        bestTime: Infinity,
+                        bestTimeDemo: '',
+                        bestKillPct: 0,
+                        bestKillPctDemo: '',
+                        bestSecretPct: 0,
+                        bestSecretPctDemo: ''
                     };
                 }
                 var mEntry = mapMap[mapKey];
                 mEntry.playCount += 1;
                 if (Number.isFinite(map.duration)) {
                     mEntry.totalTime += map.duration;
+                    if (map.duration < mEntry.bestTime) {
+                        mEntry.bestTime = map.duration;
+                        mEntry.bestTimeDemo = demoName;
+                    }
                 }
                 if (map.protocol) {
                     mEntry.protocols[map.protocol] = true;
+                }
+                if (map.povStats) {
+                    var kills = Number(map.povStats.kills) || 0;
+                    var monsters = Number(map.povStats.totalMonsters) || 0;
+                    var secrets = Number(map.povStats.secrets) || 0;
+                    var totalSec = Number(map.povStats.totalSecrets) || 0;
+                    mEntry.totalKills += kills;
+                    mEntry.totalMonsters += monsters;
+                    mEntry.totalSecrets += secrets;
+                    mEntry.totalSecretsAvailable += totalSec;
+                    var killPct = monsters > 0 ? (kills / monsters) * 100 : 0;
+                    var secretPct = totalSec > 0 ? (secrets / totalSec) * 100 : 0;
+                    if (killPct > mEntry.bestKillPct) {
+                        mEntry.bestKillPct = killPct;
+                        mEntry.bestKillPctDemo = demoName;
+                    }
+                    if (secretPct > mEntry.bestSecretPct) {
+                        mEntry.bestSecretPct = secretPct;
+                        mEntry.bestSecretPctDemo = demoName;
+                    }
                 }
             });
 
@@ -1665,52 +1765,127 @@
                     speakerKey: chat.speakerKey,
                     team: chat.team,
                     message: chat.message,
-                    demoFileName: item.fileName || item.displayName,
+                    demoFileName: demoName,
                     demoDate: item.lastModified,
                     demoIndex: itemIndex
                 });
             });
 
-            if (data.local && Array.isArray(data.local.weaponUsage)) {
-                data.local.weaponUsage.forEach(function (wu) {
-                    var wKey = wu.weaponName || ('weapon_' + wu.weapon);
-                    if (!weaponMap[wKey]) {
-                        weaponMap[wKey] = {
-                            weaponName: wu.weaponName,
-                            totalSwitches: 0,
-                            totalActiveTime: 0,
-                            totalAmmoSpent: 0,
-                            totalEstimatedShots: 0,
-                            unit: wu.unit,
-                            demoCount: 0
-                        };
-                    }
-                    var wEntry = weaponMap[wKey];
-                    wEntry.totalSwitches += wu.switches || 0;
-                    wEntry.totalActiveTime += wu.activeTime || 0;
-                    wEntry.totalAmmoSpent += wu.ammoSpent || 0;
-                    wEntry.totalEstimatedShots += wu.estimatedShots || 0;
-                    wEntry.demoCount += 1;
-                });
+            if (data.local) {
+                if (Array.isArray(data.local.weaponUsage)) {
+                    data.local.weaponUsage.forEach(function (wu) {
+                        var wKey = wu.weaponName || ('weapon_' + wu.weapon);
+                        if (!weaponMap[wKey]) {
+                            weaponMap[wKey] = {
+                                weaponName: wu.weaponName,
+                                totalSwitches: 0,
+                                totalActiveTime: 0,
+                                totalAmmoSpent: 0,
+                                totalEstimatedShots: 0,
+                                unit: wu.unit,
+                                demoCount: 0
+                            };
+                        }
+                        var wEntry = weaponMap[wKey];
+                        wEntry.totalSwitches += wu.switches || 0;
+                        wEntry.totalActiveTime += wu.activeTime || 0;
+                        wEntry.totalAmmoSpent += wu.ammoSpent || 0;
+                        wEntry.totalEstimatedShots += wu.estimatedShots || 0;
+                        wEntry.demoCount += 1;
+                    });
+                }
+
+                if (Array.isArray(data.local.itemEvents)) {
+                    data.local.itemEvents.forEach(function (ev) {
+                        if (ev.type === 'acquired' && ev.item) {
+                            var iKey = ev.item;
+                            if (!itemPickups[iKey]) {
+                                itemPickups[iKey] = { item: ev.item, group: ev.group || 'other', count: 0 };
+                            }
+                            itemPickups[iKey].count += 1;
+                        }
+                    });
+                }
+
+                if (data.local.movement) {
+                    var lm = data.local.movement;
+                    movementTotals.demoCount += 1;
+                    if (Number.isFinite(lm.estimatedJumps)) { movementTotals.jumps += lm.estimatedJumps; }
+                    if (Number.isFinite(lm.groundTime)) { movementTotals.groundTime += lm.groundTime; }
+                    if (Number.isFinite(lm.airTime)) { movementTotals.airTime += lm.airTime; }
+                    if (Number.isFinite(lm.waterTime)) { movementTotals.waterTime += lm.waterTime; }
+                }
             }
+
+            data.players.forEach(function (player) {
+                if (player.isPov && player.movement) {
+                    if (Number.isFinite(player.movement.distance)) {
+                        movementTotals.distance += player.movement.distance;
+                    }
+                    if (Number.isFinite(player.movement.horizontalDistance)) {
+                        movementTotals.horizontalDistance += player.movement.horizontalDistance;
+                    }
+                    if (Number.isFinite(player.movement.maxSpeed) && player.movement.maxSpeed > movementTotals.maxSpeed) {
+                        movementTotals.maxSpeed = player.movement.maxSpeed;
+                    }
+                    if (Number.isFinite(player.movement.averageSpeed) && player.movement.averageSpeed > 0) {
+                        movementTotals.speedSum += player.movement.averageSpeed;
+                        movementTotals.speedCount += 1;
+                    }
+                }
+            });
         });
 
         var playerRoster = Object.keys(playerMap).map(function (key) {
             var p = playerMap[key];
             if (p.maxFrags === -Infinity) { p.maxFrags = 0; }
+            p.avgSpeed = p.speedCount > 0 ? Math.round(p.speedSum / p.speedCount) : 0;
+            p.aliasList = Object.keys(p.aliases).map(function (k) { return p.aliases[k]; });
             return p;
         }).sort(function (a, b) { return b.totalFrags - a.totalFrags; });
 
         var mapFrequency = Object.keys(mapMap).map(function (key) {
-            return mapMap[key];
+            var m = mapMap[key];
+            if (m.bestTime === Infinity) { m.bestTime = null; }
+            return m;
         }).sort(function (a, b) { return b.playCount - a.playCount; });
 
         var weaponUsage = Object.keys(weaponMap).map(function (key) {
             return weaponMap[key];
         }).sort(function (a, b) { return b.totalAmmoSpent - a.totalAmmoSpent; });
 
+        var itemPickupList = Object.keys(itemPickups).map(function (key) {
+            return itemPickups[key];
+        }).sort(function (a, b) { return b.count - a.count; });
+
         timeline.sort(function (a, b) {
             return (a.lastModified || 0) - (b.lastModified || 0);
+        });
+
+        var headToHeadList = Object.keys(headToHead).map(function (key) {
+            var parts = key.split('|||');
+            var nameA = (playerMap[parts[0]] && playerMap[parts[0]].displayName) || parts[0];
+            var nameB = (playerMap[parts[1]] && playerMap[parts[1]].displayName) || parts[1];
+            var codesA = playerMap[parts[0]] && playerMap[parts[0]].nameCodes;
+            var codesB = playerMap[parts[1]] && playerMap[parts[1]].nameCodes;
+            return { playerA: nameA, playerB: nameB, codesA: codesA, codesB: codesB, count: headToHead[key] };
+        }).sort(function (a, b) { return b.count - a.count; });
+
+        var colorCensus = { shirts: {}, pants: {} };
+        playerRoster.forEach(function (p) {
+            Object.keys(p.shirts).forEach(function (c) {
+                colorCensus.shirts[c] = (colorCensus.shirts[c] || 0) + p.shirts[c];
+            });
+            Object.keys(p.pants).forEach(function (c) {
+                colorCensus.pants[c] = (colorCensus.pants[c] || 0) + p.pants[c];
+            });
+        });
+
+        var duplicates = [];
+        Object.keys(duplicateKeys).forEach(function (key) {
+            if (duplicateKeys[key].length > 1) {
+                duplicates.push(duplicateKeys[key]);
+            }
         });
 
         return {
@@ -1720,14 +1895,21 @@
                 totalSize: totalSize,
                 totalDuration: totalDuration,
                 totalFrames: totalFrames,
-                totalMessages: totalMessages
+                totalMessages: totalMessages,
+                totalWarnings: totalWarnings
             },
             playerRoster: playerRoster,
             mapFrequency: mapFrequency,
             chatLog: allChat,
             timeline: timeline,
             weaponUsage: weaponUsage,
-            protocolCounts: protocolCounts
+            protocolCounts: protocolCounts,
+            itemPickups: itemPickupList,
+            movementTotals: movementTotals,
+            headToHead: headToHeadList,
+            colorCensus: colorCensus,
+            warnings: allWarnings,
+            duplicates: duplicates
         };
     }
 
@@ -1741,6 +1923,9 @@
         ];
         if (meta.failCount > 0) {
             cards.push(renderStatCard('Parse failures', String(meta.failCount)));
+        }
+        if (meta.totalWarnings > 0) {
+            cards.push(renderStatCard('Warnings', String(meta.totalWarnings)));
         }
         return '<div class="summary-grid">' + cards.join('') + '</div>';
     }
@@ -1757,6 +1942,8 @@
             '<button class="folder-sort-button" type="button" data-sort="appearances">Demos</button>',
             '<button class="folder-sort-button" type="button" data-sort="playtime">Playtime</button>',
             '<button class="folder-sort-button" type="button" data-sort="chat">Chat</button>',
+            '<button class="folder-sort-button" type="button" data-sort="speed">Avg speed</button>',
+            '<button class="folder-sort-button" type="button" data-sort="maxspeed">Max speed</button>',
             '</div>'
         ].join('');
 
@@ -1782,6 +1969,8 @@
                 ' data-sort-appearances="' + escapeAttribute(player.appearances) + '"',
                 ' data-sort-playtime="' + escapeAttribute(Math.round(player.totalPlaytime)) + '"',
                 ' data-sort-chat="' + escapeAttribute(player.totalChatCount) + '"',
+                ' data-sort-speed="' + escapeAttribute(player.avgSpeed) + '"',
+                ' data-sort-maxspeed="' + escapeAttribute(Math.round(player.maxSpeed)) + '"',
                 '>',
                 '<div class="player-title">',
                 renderQuakePreview(player.nameCodes, player.displayName),
@@ -1793,6 +1982,9 @@
                 renderMiniMetric('Total playtime', formatDuration(player.totalPlaytime)),
                 renderMiniMetric('Chat lines', String(player.totalChatCount)),
                 renderMiniMetric('Avg frags', player.appearances ? String(Math.round(player.totalFrags / player.appearances)) : '0'),
+                renderMiniMetric('Avg speed', formatDecimal(player.avgSpeed, ' u/s')),
+                renderMiniMetric('Max speed', formatDecimal(player.maxSpeed, ' u/s')),
+                renderMiniMetric('Distance', formatDecimal(player.totalDistance, ' u')),
                 '</div>',
                 '</div>'
             ].join('');
@@ -1819,20 +2011,51 @@
             '<span class="folder-sort-label">Sort by:</span>',
             '<button class="folder-sort-button active" type="button" data-sort="count">Play count</button>',
             '<button class="folder-sort-button" type="button" data-sort="time">Total time</button>',
+            '<button class="folder-sort-button" type="button" data-sort="killpct">Kill %</button>',
             '</div>'
         ].join('');
 
         var cards = maps.map(function (map) {
+            var killPct = map.totalMonsters > 0 ? Math.round((map.totalKills / map.totalMonsters) * 100) : 0;
+            var secretPct = map.totalSecretsAvailable > 0 ? Math.round((map.totalSecrets / map.totalSecretsAvailable) * 100) : 0;
+            var hasStats = map.totalMonsters > 0 || map.totalSecretsAvailable > 0;
+            var hasBest = map.bestTime !== null || map.bestKillPct > 0;
+
+            var statsHtml = '';
+            if (hasStats) {
+                statsHtml =
+                    renderMiniMetric('Kills', map.totalKills + ' / ' + map.totalMonsters + ' (' + killPct + '%)') +
+                    renderMiniMetric('Secrets', map.totalSecrets + ' / ' + map.totalSecretsAvailable + ' (' + secretPct + '%)');
+            }
+
+            var bestHtml = '';
+            if (hasBest) {
+                var bestParts = [];
+                if (map.bestTime !== null) {
+                    bestParts.push(renderMiniMetric('Fastest run', formatDuration(map.bestTime)));
+                }
+                if (map.bestKillPct > 0) {
+                    bestParts.push(renderMiniMetric('Best kill %', Math.round(map.bestKillPct) + '%'));
+                }
+                if (map.bestSecretPct > 0) {
+                    bestParts.push(renderMiniMetric('Best secret %', Math.round(map.bestSecretPct) + '%'));
+                }
+                bestHtml = bestParts.join('');
+            }
+
             return [
                 '<div class="map-card folder-map-card"',
                 ' data-sort-count="' + escapeAttribute(map.playCount) + '"',
                 ' data-sort-time="' + escapeAttribute(Math.round(map.totalTime)) + '"',
+                ' data-sort-killpct="' + escapeAttribute(killPct) + '"',
                 '>',
                 '<div class="map-title">' + escapeHtml(map.mapName) + '</div>',
                 map.levelName ? '<div class="map-subtitle">' + escapeHtml(map.levelName) + '</div>' : '',
                 '<div class="mini-metrics">',
                 renderMiniMetric('Times played', String(map.playCount)),
                 renderMiniMetric('Total time', formatDuration(map.totalTime)),
+                statsHtml,
+                bestHtml,
                 '</div>',
                 '</div>'
             ].join('');
@@ -1964,6 +2187,197 @@
         ].join('');
     }
 
+    function renderFolderHeadToHead(pairs) {
+        if (!pairs.length) {
+            return '';
+        }
+
+        var top = pairs.slice(0, 30);
+        var rows = top.map(function (pair) {
+            return [
+                '<div class="folder-h2h-row">',
+                '<span class="folder-h2h-players">',
+                renderQuakePreview(pair.codesA, pair.playerA),
+                ' <span class="folder-h2h-vs">+</span> ',
+                renderQuakePreview(pair.codesB, pair.playerB),
+                '</span>',
+                '<span class="folder-h2h-count">' + pair.count + ' demo' + (pair.count === 1 ? '' : 's') + '</span>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Head-to-Head (top ' + top.length + ' pairs)</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="folder-h2h-list">' + rows.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderColorCensus(colorCensus) {
+        var shirtKeys = Object.keys(colorCensus.shirts).sort(function (a, b) {
+            return colorCensus.shirts[b] - colorCensus.shirts[a];
+        });
+        var pantsKeys = Object.keys(colorCensus.pants).sort(function (a, b) {
+            return colorCensus.pants[b] - colorCensus.pants[a];
+        });
+
+        if (!shirtKeys.length && !pantsKeys.length) {
+            return '';
+        }
+
+        function renderColorBar(keys, counts) {
+            return keys.map(function (c) {
+                var idx = Number(c);
+                var tint = LEGACY_PANTS_TINTS[idx];
+                var bg = tint ? 'rgb(' + tint[0] + ',' + tint[1] + ',' + tint[2] + ')' : '#555';
+                return '<div class="folder-color-swatch" style="background:' + bg + ';" title="Color ' + c + ': ' + counts[c] + ' uses">' +
+                    '<span class="folder-color-count">' + counts[c] + '</span></div>';
+            }).join('');
+        }
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Color Census</span></div></summary>',
+            '<div class="disclosure-body">',
+            shirtKeys.length ? '<div class="folder-color-section"><h4 class="folder-color-heading">Shirt Colors</h4><div class="folder-color-bar">' + renderColorBar(shirtKeys, colorCensus.shirts) + '</div></div>' : '',
+            pantsKeys.length ? '<div class="folder-color-section"><h4 class="folder-color-heading">Pants Colors</h4><div class="folder-color-bar">' + renderColorBar(pantsKeys, colorCensus.pants) + '</div></div>' : '',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderItemPickups(itemPickups) {
+        if (!itemPickups.length) {
+            return '';
+        }
+
+        var groups = {};
+        itemPickups.forEach(function (ip) {
+            var g = ip.group || 'other';
+            if (!groups[g]) { groups[g] = []; }
+            groups[g].push(ip);
+        });
+
+        var groupOrder = ['weapons', 'inventory', 'powerups', 'keys', 'sigils', 'other'];
+        var html = groupOrder.map(function (g) {
+            if (!groups[g] || !groups[g].length) { return ''; }
+            var items = groups[g].sort(function (a, b) { return b.count - a.count; });
+            var cards = items.map(function (ip) {
+                return [
+                    '<div class="folder-item-entry">',
+                    '<span class="folder-item-name">' + escapeHtml(ip.item) + '</span>',
+                    '<span class="folder-item-count">' + ip.count + '</span>',
+                    '</div>'
+                ].join('');
+            });
+            return [
+                '<div class="event-group-card">',
+                '<div class="event-group-head">',
+                '<span class="event-group-title">' + escapeHtml(g) + '</span>',
+                '</div>',
+                '<div class="folder-item-list">' + cards.join('') + '</div>',
+                '</div>'
+            ].join('');
+        }).filter(Boolean);
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Item Pickups (' + itemPickups.reduce(function (s, i) { return s + i.count; }, 0) + ' total)</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="event-group-grid">' + html.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderMovement(m) {
+        if (!m.demoCount) {
+            return '';
+        }
+
+        var avgSpeed = m.speedCount > 0 ? Math.round(m.speedSum / m.speedCount) : 0;
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">POV Movement Stats</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="mini-metrics">',
+            renderMiniMetric('Total distance', formatDecimal(m.distance, ' u')),
+            renderMiniMetric('Horiz. distance', formatDecimal(m.horizontalDistance, ' u')),
+            renderMiniMetric('Max speed', formatDecimal(m.maxSpeed, ' u/s')),
+            renderMiniMetric('Avg speed', formatDecimal(avgSpeed, ' u/s')),
+            renderMiniMetric('Est. jumps', String(m.jumps)),
+            renderMiniMetric('Ground time', formatDuration(m.groundTime)),
+            renderMiniMetric('Air time', formatDuration(m.airTime)),
+            renderMiniMetric('Water time', formatDuration(m.waterTime)),
+            renderMiniMetric('Demos with POV', String(m.demoCount)),
+            '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderWarnings(warnings) {
+        if (!warnings.length) {
+            return '';
+        }
+
+        var grouped = {};
+        warnings.forEach(function (w) {
+            if (!grouped[w.message]) {
+                grouped[w.message] = [];
+            }
+            grouped[w.message].push(w.demo);
+        });
+
+        var rows = Object.keys(grouped).map(function (msg) {
+            var demos = grouped[msg];
+            return [
+                '<div class="warning-card">',
+                '<div class="folder-warning-msg">' + escapeHtml(msg) + '</div>',
+                '<div class="folder-warning-demos">' + demos.length + ' demo' + (demos.length === 1 ? '' : 's') + ': ' + escapeHtml(demos.slice(0, 5).join(', ')) + (demos.length > 5 ? '...' : '') + '</div>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Warnings (' + warnings.length + ')</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="warning-grid">' + rows.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderDuplicates(duplicates) {
+        if (!duplicates.length) {
+            return '';
+        }
+
+        var rows = duplicates.map(function (group) {
+            return [
+                '<div class="warning-card">',
+                '<div class="folder-warning-msg">Possible duplicates (' + group.length + ' demos)</div>',
+                '<ul class="alias-list">' + group.map(function (name) {
+                    return '<li>' + escapeHtml(name) + '</li>';
+                }).join('') + '</ul>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Possible Duplicates (' + duplicates.length + ' group' + (duplicates.length === 1 ? '' : 's') + ')</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="warning-grid">' + rows.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
     function renderFolderAnalysis(items) {
         var analysis = buildFolderAnalysis(items);
 
@@ -1972,10 +2386,16 @@
             renderFolderMeta(analysis.meta),
             renderFolderProtocols(analysis.protocolCounts),
             renderFolderPlayerRoster(analysis.playerRoster),
+            renderFolderHeadToHead(analysis.headToHead),
+            renderFolderColorCensus(analysis.colorCensus),
             renderFolderMapFrequency(analysis.mapFrequency),
             renderFolderWeaponUsage(analysis.weaponUsage),
+            renderFolderItemPickups(analysis.itemPickups),
+            renderFolderMovement(analysis.movementTotals),
             renderFolderChatExport(analysis.chatLog),
             renderFolderTimeline(analysis.timeline),
+            renderFolderDuplicates(analysis.duplicates),
+            renderFolderWarnings(analysis.warnings),
             '</div>'
         ].join('');
 

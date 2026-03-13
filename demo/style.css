@@ -840,6 +840,121 @@
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.folder-h2h-list {
+    display: grid;
+    gap: 8px;
+}
+
+.folder-h2h-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #56473f;
+    background: rgba(22, 18, 17, 0.68);
+    flex-wrap: wrap;
+}
+
+.folder-h2h-players {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.folder-h2h-vs {
+    color: #a99788;
+    font-size: 0.82rem;
+}
+
+.folder-h2h-count {
+    color: #f2dfca;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.folder-color-section {
+    margin-bottom: 14px;
+}
+
+.folder-color-section:last-child {
+    margin-bottom: 0;
+}
+
+.folder-color-heading {
+    margin: 0 0 8px;
+    color: #d4b37f;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.folder-color-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.folder-color-swatch {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.folder-color-count {
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.folder-item-list {
+    display: grid;
+    gap: 4px;
+    margin-top: 10px;
+}
+
+.folder-item-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(86, 71, 63, 0.4);
+}
+
+.folder-item-entry:last-child {
+    border-bottom: none;
+}
+
+.folder-item-name {
+    color: #f0ddc7;
+}
+
+.folder-item-count {
+    color: #d4b37f;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.folder-warning-msg {
+    color: #f0ce98;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.folder-warning-demos {
+    color: #b8a797;
+    font-size: 0.85rem;
+}
+
 @media (max-width: 760px) {
     .trim-actions {
         align-items: stretch;
