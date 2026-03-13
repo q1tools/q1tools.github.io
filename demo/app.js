@@ -420,6 +420,24 @@
         }).join('');
     }
 
+    function renderTrimTimelineHeader(data) {
+        if (!data.maps.length) {
+            return '';
+        }
+
+        if (data.maps.length === 1) {
+            const map = data.maps[0];
+            return [
+                '<div class="trim-map-caption">',
+                '<div class="trim-map-name">' + escapeHtml(map.mapName || '(unknown map)') + '</div>',
+                '<div class="trim-map-subtitle">' + escapeHtml(map.levelName || '(no level title)') + '</div>',
+                '</div>'
+            ].join('');
+        }
+
+        return '<div class="trim-map-rail">' + renderTrimTimelineMaps(data) + '</div>';
+    }
+
     function renderTrimSection(item, index) {
         const data = item.data;
         if (!trimExportSupported(data)) {
@@ -451,13 +469,11 @@
             renderPill('Timeline export'),
             '</div>',
             '<div class="mini-metrics trim-summary-metrics">',
-            '<div class="mini-metric"><div class="mini-label">Clip start</div><div class="mini-value" data-trim-output="start-time">' + escapeHtml(formatTrimTime(startTime)) + '</div></div>',
-            '<div class="mini-metric"><div class="mini-label">Clip end</div><div class="mini-value" data-trim-output="end-time">' + escapeHtml(formatTrimTime(endTime)) + '</div></div>',
             '<div class="mini-metric"><div class="mini-label">Clip length</div><div class="mini-value" data-trim-output="clip-length">' + escapeHtml(formatDuration(endTime - startTime)) + '</div></div>',
             '<div class="mini-metric"><div class="mini-label">Included frames</div><div class="mini-value" data-trim-output="frame-count">' + escapeHtml(String(endFrame - startFrame + 1)) + '</div></div>',
             '</div>',
             '<div class="trim-timeline-shell">',
-            '<div class="trim-map-rail">' + renderTrimTimelineMaps(data) + '</div>',
+            renderTrimTimelineHeader(data),
             '<div class="trim-slider">',
             '<div class="trim-slider-track"></div>',
             '<div class="trim-slider-selection" data-trim-selection></div>',
@@ -548,22 +564,12 @@
                 renderMiniMetric('Chat lines', String(player.chatCount))
             ].join('');
 
-            const aliasList = player.aliases.length > 1 ? [
-                '<div class="alias-label">Aliases</div>',
-                '<ul class="alias-list">',
-                player.aliases.slice(1).map(function (alias) {
-                    return '<li>' + escapeHtml(alias) + '</li>';
-                }).join(''),
-                '</ul>'
-            ].join('') : '';
-
             return [
                 '<div class="player-card" style="' + escapeAttribute(playerCardStyle(player)) + '">',
                 '<div class="player-title">' + renderQuakePreview(player.nameCodes, readableName) + '</div>',
                 '<div class="player-readable-name">' + escapeHtml(readableName) + '</div>',
                 '<div class="player-subtitle">' + escapeHtml(subtitleParts.join(' · ') || 'No color or slot metadata') + '</div>',
                 '<div class="mini-metrics">' + metrics + '</div>',
-                aliasList,
                 '</div>'
             ].join('');
         }).join('');
@@ -609,19 +615,57 @@
         return count + ' ' + (count === 1 ? singular : (plural || singular + 's'));
     }
 
-    function summarizeItemEvents(events) {
+    function shouldUseFlagLabels(happenings) {
+        let redFlagMentions = 0;
+        let blueFlagMentions = 0;
+
+        (happenings || []).forEach(function (entry) {
+            const text = String(entry.text || '').toUpperCase();
+            if (text.includes('RED FLAG')) {
+                redFlagMentions += 1;
+            }
+            if (text.includes('BLUE FLAG')) {
+                blueFlagMentions += 1;
+            }
+        });
+
+        return redFlagMentions > 0 && blueFlagMentions > 0;
+    }
+
+    function remapItemEventForFlags(event) {
+        if (!event || event.group !== 'keys') {
+            return event;
+        }
+
+        if (event.item === 'Gold Key') {
+            return Object.assign({}, event, {
+                item: 'Red Flag'
+            });
+        }
+        if (event.item === 'Silver Key') {
+            return Object.assign({}, event, {
+                item: 'Blue Flag'
+            });
+        }
+
+        return event;
+    }
+
+    function summarizeItemEvents(events, options) {
+        const useFlagLabels = !!(options && options.useFlagLabels);
         const groupOrder = ['weapons', 'inventory', 'keys', 'powerups', 'sigils'];
         const groupLabels = {
             weapons: 'Weapons',
             inventory: 'Inventory',
-            keys: 'Keys',
+            keys: useFlagLabels ? 'Flags' : 'Keys',
             powerups: 'Powerups',
             sigils: 'Sigils'
         };
         const groups = new Map();
 
         events.forEach(function (event) {
-            const groupKey = groupLabels[event.group] ? event.group : 'other';
+            const normalizedEvent = useFlagLabels ? remapItemEventForFlags(event) : event;
+            const groupKey = groupLabels[normalizedEvent.group] ? normalizedEvent.group : 'other';
             if (!groups.has(groupKey)) {
                 groups.set(groupKey, {
                     key: groupKey,
@@ -634,22 +678,22 @@
             const group = groups.get(groupKey);
             group.count += 1;
 
-            if (!group.entries.has(event.item)) {
-                group.entries.set(event.item, {
-                    item: event.item,
+            if (!group.entries.has(normalizedEvent.item)) {
+                group.entries.set(normalizedEvent.item, {
+                    item: normalizedEvent.item,
                     acquired: 0,
                     lost: 0,
-                    lastTime: event.time
+                    lastTime: normalizedEvent.time
                 });
             }
 
-            const summary = group.entries.get(event.item);
-            if (event.type === 'acquired') {
+            const summary = group.entries.get(normalizedEvent.item);
+            if (normalizedEvent.type === 'acquired') {
                 summary.acquired += 1;
-            } else if (event.type === 'lost') {
+            } else if (normalizedEvent.type === 'lost') {
                 summary.lost += 1;
             }
-            summary.lastTime = Math.max(summary.lastTime, event.time);
+            summary.lastTime = Math.max(summary.lastTime, normalizedEvent.time);
         });
 
         return Array.from(groups.values())
@@ -719,12 +763,12 @@
         });
     }
 
-    function renderItemEventSummary(events) {
+    function renderItemEventSummary(events, options) {
         if (!events.length) {
             return renderEmptyState('No POV item-bit transitions were tracked.');
         }
 
-        const groups = summarizeItemEvents(events);
+        const groups = summarizeItemEvents(events, options);
         const uniqueItems = groups.reduce(function (sum, group) {
             return sum + group.entries.length;
         }, 0);
@@ -880,12 +924,10 @@
         return items;
     }
 
-    function renderLocalSection(data) {
+    function renderLocalSection(data, options) {
         const stats = data.local.finalStats || {};
         const movement = data.local.movement || {};
         const summaryMetrics = [
-            renderMetric('Health', String(stats.health || 0)),
-            renderMetric('Armor', String(stats.armor || 0)),
             renderMetric('Estimated jumps', String(movement.estimatedJumps || 0)),
             renderMetric('Ground time', formatDuration(movement.groundTime)),
             renderMetric('Air time', formatDuration(movement.airTime)),
@@ -900,7 +942,9 @@
             summaryMetrics.splice(insertIndex, 0, renderMetric('Secrets', formatProgressValue(stats.secrets, stats.totalSecrets)));
         }
 
-        const itemEvents = renderItemEventSummary(data.local.itemEvents);
+        const itemEvents = renderItemEventSummary(data.local.itemEvents, {
+            useFlagLabels: !!(options && options.useFlagLabels)
+        });
         const resourceEvents = renderResourceChangeSummary(data.local.resourceEvents);
 
         return [
@@ -957,7 +1001,7 @@
             return [
                 '<div class="chat-entry ' + (entry.team ? 'team' : '') + '" data-speaker-key="' + escapeAttribute(entry.speakerKey) + '">',
                 '<div class="chat-time">' + escapeHtml(formatDuration(entry.time)) + '</div>',
-                '<div class="chat-speaker">' + escapeHtml(entry.speaker) + (entry.team ? ' (team)' : '') + '</div>',
+                '<div class="chat-speaker">' + escapeHtml(entry.team ? '(' + entry.speaker + ')' : entry.speaker) + '</div>',
                 '<div class="chat-message">' + escapeHtml(entry.message) + '</div>',
                 '</div>'
             ].join('');
@@ -1057,9 +1101,10 @@
 
         const data = item.data;
         const happenings = collectServerHappenings(data);
+        const useFlagLabels = shouldUseFlagLabels(happenings);
         const pills = [];
         data.protocols.forEach(function (protocol) {
-            pills.push(renderPill(protocol));
+            pills.push(renderPill('Protocol ' + protocol));
         });
         pills.push(renderPill(data.maps.length + ' map' + (data.maps.length === 1 ? '' : 's')));
         pills.push(renderPill(data.players.length + ' player' + (data.players.length === 1 ? '' : 's')));
@@ -1098,12 +1143,19 @@
             '<div class="metrics">' + metrics.join('') + '</div>',
             '<div class="section-stack">',
             '<section class="subsection">',
-            '<div class="subsection-head"><h3 class="subsection-title">Trim</h3></div>',
-            renderTrimSection(item, index),
-            '</section>',
-            '<section class="subsection">',
-            '<div class="subsection-head"><h3 class="subsection-title">Maps</h3></div>',
+            '<div class="subsection-head"><h3 class="subsection-title">' + escapeHtml(data.maps.length === 1 ? 'Map' : 'Maps') + '</h3></div>',
             '<div class="map-grid">' + renderMapSection(data) + '</div>',
+            '</section>',
+            '<section class="subsection subsection-collapsible">',
+            '<details class="section-disclosure">',
+            '<summary class="subsection-head disclosure-summary">',
+            '<span class="subsection-title">Trim</span>',
+            '<span class="disclosure-meta" aria-hidden="true"></span>',
+            '</summary>',
+            '<div class="disclosure-body">',
+            renderTrimSection(item, index),
+            '</div>',
+            '</details>',
             '</section>',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">Players</h3></div>',
@@ -1111,7 +1163,7 @@
             '</section>',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">POV Analytics</h3></div>',
-            renderLocalSection(data),
+            renderLocalSection(data, { useFlagLabels: useFlagLabels }),
             '</section>',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">Server Happenings</h3></div>',
@@ -1121,10 +1173,12 @@
             '<div class="subsection-head"><h3 class="subsection-title">Chat Log</h3></div>',
             renderChatSection(data, index),
             '</section>',
-            '<section class="subsection">',
-            '<div class="subsection-head"><h3 class="subsection-title">Warnings</h3></div>',
-            renderWarningsSection(data),
-            '</section>',
+            data.warnings.length ? [
+                '<section class="subsection">',
+                '<div class="subsection-head"><h3 class="subsection-title">Warnings</h3></div>',
+                renderWarningsSection(data),
+                '</section>'
+            ].join('') : '',
             '</div>',
             '</div>',
             '</article>'
@@ -1171,7 +1225,7 @@
         summaryGrid.innerHTML = [
             renderStatCard('Demos', String(successful.length)),
             renderStatCard('Unique maps', String(mapSet.size)),
-            renderStatCard('Protocols', Array.from(protocolSet).join(', ')),
+            renderStatCard(successful.length === 1 ? 'Protocol' : 'Protocols', Array.from(protocolSet).join(', ')),
             renderStatCard('Players seen', String(playerSet.size)),
             renderStatCard('Server events', String(serverEvents)),
             renderStatCard('Chat lines', String(chatLines)),
@@ -1220,8 +1274,6 @@
             }
 
             const outputs = {
-                startTime: panel.querySelector('[data-trim-output="start-time"]'),
-                endTime: panel.querySelector('[data-trim-output="end-time"]'),
                 clipLength: panel.querySelector('[data-trim-output="clip-length"]'),
                 frameCount: panel.querySelector('[data-trim-output="frame-count"]')
             };
@@ -1248,11 +1300,9 @@
                 startTimeInput.value = formatTrimTime(startTime);
                 endTimeInput.value = formatTrimTime(endTime);
 
-                selection.style.left = left + '%';
-                selection.style.width = Math.max(1, right - left) + '%';
+                selection.style.setProperty('--trim-selection-start', String(left));
+                selection.style.setProperty('--trim-selection-end', String(right));
 
-                outputs.startTime.textContent = formatTrimTime(startTime);
-                outputs.endTime.textContent = formatTrimTime(endTime);
                 outputs.clipLength.textContent = formatDuration(Math.max(0, endTime - startTime));
                 outputs.frameCount.textContent = String((safeEnd - safeStart) + 1);
             };

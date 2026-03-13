@@ -430,12 +430,4 @@ body {
         grid-template-columns: 1fr;
         gap: 4px;
     }
-
-    #footer {
-        position: relative;
-        right: auto;
-        bottom: auto;
-        margin: 18px auto 0;
-        text-align: center;
-    }
 }

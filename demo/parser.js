@@ -286,7 +286,7 @@
         { mask: 16, label: 'Grenade Launcher', group: 'weapons' },
         { mask: 32, label: 'Rocket Launcher', group: 'weapons' },
         { mask: 64, label: 'Lightning Gun', group: 'weapons' },
-        { mask: 128, label: 'Super Lightning', group: 'weapons' },
+        { mask: 128, label: 'Lightning Gun', group: 'weapons' },
         { mask: 8192, label: 'Green Armor', group: 'inventory' },
         { mask: 16384, label: 'Yellow Armor', group: 'inventory' },
         { mask: 32768, label: 'Red Armor', group: 'inventory' },
@@ -312,7 +312,7 @@
         [16, 'Grenade Launcher'],
         [32, 'Rocket Launcher'],
         [64, 'Lightning Gun'],
-        [128, 'Super Lightning']
+        [128, 'Lightning Gun']
     ]);
 
     const WEAPON_AMMO = new Map([
@@ -2814,8 +2814,17 @@
     }
 
     function finalisePlayers(parser) {
-        return collectFinalPlayerRecords(parser)
+        const records = collectFinalPlayerRecords(parser);
+        const likelyMultiplayer = parser.runtime.gameType === 1 ||
+            records.length > 1 ||
+            parser.chatLog.length > 0 ||
+            records.some(function (player) {
+                return player.frags !== 0;
+            });
+
+        return records
             .map(function (player) {
+                const disconnected = likelyMultiplayer && player.frags === -99;
                 return {
                     key: player.key,
                     slot: player.slot,
@@ -2824,17 +2833,21 @@
                     nameCodes: player.nameCodes.slice(),
                     displayName: decodeScoreboardBytes(player.nameCodes).trim() || decodeScoreboardBytes(quakeBytesFromString(player.name)).trim() || player.name,
                     aliases: player.names.slice(),
-                    shirt: player.shirt,
-                    pants: player.pants,
+                    shirt: disconnected ? 0 : player.shirt,
+                    pants: disconnected ? 0 : player.pants,
                     frags: player.frags,
                     maxFrags: player.maxFrags,
                     minFrags: player.minFrags,
                     chatCount: player.chatCount,
                     isPov: player.isPov,
+                    disconnected: disconnected,
                     movement: summariseMovement(player.samples)
                 };
             })
             .sort(function (left, right) {
+                if (left.disconnected !== right.disconnected) {
+                    return left.disconnected ? 1 : -1;
+                }
                 const leftHasSlot = left.slot !== null && left.slot !== undefined;
                 const rightHasSlot = right.slot !== null && right.slot !== undefined;
                 const leftHasColors = left.shirt !== null && left.shirt !== undefined && left.pants !== null && left.pants !== undefined;
@@ -3858,11 +3871,6 @@
             }
             return sum + Math.max(0, segment.endTime - segment.startTime);
         }, 0);
-
-        appendWarning(
-            parser,
-            'Perspective demo limitation: HUD stats, items, ammo, weapon usage, and single-player progression are complete for the POV player only.'
-        );
 
         return {
             fileName: parser.fileMeta.name || 'demo.dem',

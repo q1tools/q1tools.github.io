@@ -215,14 +215,14 @@ body.tool-index {
     min-width: 0;
     aspect-ratio: 1 / 1;
     box-sizing: border-box;
-    font-size: clamp(13px, 2vw, 20px);
+    font-size: clamp(14px, 2.15vw, 21px);
     padding: clamp(8px, 1vw, 12px);
 }
 
 .tool-grid .clickable-div img {
     width: 72%;
     max-height: 72%;
-    margin-bottom: clamp(6px, 1vw, 10px);
+    margin-bottom: clamp(10px, 1.5vw, 16px);
 }
 
 body.tool-index footer {
@@ -248,7 +248,7 @@ body.tool-index footer {
     .tool-grid .clickable-div {
         width: 100%;
         height: auto;
-        font-size: clamp(11px, 2.8vw, 15px);
+        font-size: clamp(12px, 3vw, 16px);
         padding: 6px;
         border-radius: 12px;
     }
