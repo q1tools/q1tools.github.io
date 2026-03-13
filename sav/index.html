@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quake Save Inspector</title>
+    <link rel="icon" type="image/png" href="sav.png">
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script defer src="app.js"></script>
+</head>
+<body>
+    <main class="page">
+        <header class="hero">
+            <div id="quakefontheader">quake save inspector</div>
+        </header>
+
+        <section class="panel input-panel">
+            <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-controls="fileInput">
+                <strong>Drop one or more <code>.sav</code> files here</strong>
+                <small>or click to choose them from your computer</small>
+            </div>
+            <input id="fileInput" type="file" accept=".sav,.SAV,text/plain" multiple hidden>
+
+            <div class="actions">
+                <button id="clearButton" type="button" disabled>Clear</button>
+                <div id="status" class="status" aria-live="polite">No savegames loaded.</div>
+            </div>
+
+            <ul id="warnings" class="warnings" hidden></ul>
+        </section>
+
+        <section id="summaryPanel" class="panel" hidden>
+            <div class="section-head">
+                <h2>Summary</h2>
+            </div>
+            <div id="summaryGrid" class="summary-grid"></div>
+        </section>
+
+        <section id="resultsPanel" class="results" hidden></section>
+    </main>
+
+    <div id="footer">
+        Created by woods &nbsp;&nbsp;| &nbsp;&nbsp;<a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </div>
+</body>
+</html>

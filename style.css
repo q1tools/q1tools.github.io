@@ -187,3 +187,81 @@ footer {
     color: #955544; /* Ensure links within #quakefontheader use the same color */
     text-decoration: none; /* Remove text decoration from links */
 }
+
+body.tool-index {
+    display: block;
+    min-height: 100vh;
+    box-sizing: border-box;
+    padding: clamp(14px, 2.6vw, 28px) 0 clamp(32px, 4.5vw, 52px);
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(24px, 2.8vw, 42px);
+    width: min(1180px, calc(100vw - 56px));
+    margin: 0 auto;
+    padding: clamp(22px, 3.2vw, 36px) clamp(24px, 3vw, 42px);
+    box-sizing: border-box;
+    align-items: stretch;
+}
+
+.tool-grid > .row {
+    display: contents;
+}
+
+.tool-grid .clickable-div {
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+    box-sizing: border-box;
+    font-size: clamp(13px, 2vw, 20px);
+    padding: clamp(8px, 1vw, 12px);
+}
+
+.tool-grid .clickable-div img {
+    width: 72%;
+    max-height: 72%;
+    margin-bottom: clamp(6px, 1vw, 10px);
+}
+
+body.tool-index footer {
+    position: fixed;
+}
+
+@media screen and (max-width: 580px) {
+    body.tool-index {
+        padding: 10px 0 24px;
+    }
+
+    .tool-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: min(100vw, calc(100vw - 24px));
+        gap: 18px;
+        padding: 18px 12px 24px;
+    }
+
+    .tool-grid > .row {
+        display: contents;
+    }
+
+    .tool-grid .clickable-div {
+        width: 100%;
+        height: auto;
+        font-size: clamp(11px, 2.8vw, 15px);
+        padding: 6px;
+        border-radius: 12px;
+    }
+
+    .tool-grid .clickable-div img {
+        width: 74%;
+        max-height: 74%;
+    }
+
+    body.tool-index footer {
+        font-size: 0.9em;
+        position: fixed;
+        text-align: right;
+        margin-top: 0;
+    }
+}

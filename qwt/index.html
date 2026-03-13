@@ -39,7 +39,7 @@
       <div id="holder" class="filedrop" style="min-height: 100px"
            aria-label="Drop files here">
         <h1 style="font-size: 2em">DROP FILES HERE</h1>
-        <p>Drag Quake file format files (pak, pk3, wad, bsp, lmp, spr, mdl, md3, map,
+        <p>Drag Quake file format files (pak, pk3, wad, bsp, lmp, pcx, spr, mdl, md3, map,
         pal) into this area to load their content in your browser. For MD3
         models you can optionally drop matching PNG/JPG/TGA textures alongside the
         model. Prefer to pick files manually? Use the select button below.</p>
@@ -61,7 +61,7 @@
       <!-- Hidden file input to support click-to-select -->
       <input id="file_input" type="file" style="display:none"
              multiple
-             accept=".pak,.pk3,.wad,.bsp,.lmp,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg,.tga" />
+             accept=".pak,.pk3,.wad,.bsp,.lmp,.pcx,.spr,.mdl,.md3,.map,.pal,.png,.jpg,.jpeg,.tga" />
     </article>
 
 
@@ -390,6 +390,7 @@ function handleFile(file) {
           break;
         case "lmp":
         case "pal":
+        case "pcx":
           QWT.ImageUtil.generateHTMLPreview({image_datas: [QWT.ImageUtil.getImageData(filename, arraybuffer)]},
             QWT.DEFAULT_PALETTE, "file-content");
           break;

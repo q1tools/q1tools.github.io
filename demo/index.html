@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quake Demo Tool</title>
+    <link rel="icon" type="image/png" href="demo.png">
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../sav/style.css">
+    <link rel="stylesheet" href="style.css?v=20260313f">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script defer src="parser.js?v=20260313f"></script>
+    <script defer src="app.js?v=20260313f"></script>
+</head>
+<body>
+    <main class="page">
+        <header class="hero">
+            <div id="quakefontheader">quake demo tool</div>
+        </header>
+
+        <section class="panel input-panel">
+            <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-controls="fileInput">
+                <strong>Drop one or more <code>.dem</code> files here</strong>
+                <small>or click to choose them from your computer</small>
+            </div>
+            <input id="fileInput" type="file" accept=".dem,.DEM,application/octet-stream" multiple hidden>
+
+            <div class="actions">
+                <button id="clearButton" type="button" disabled>Clear</button>
+                <div id="status" class="status" aria-live="polite">No demos loaded.</div>
+            </div>
+
+            <ul id="warnings" class="warnings" hidden></ul>
+        </section>
+
+        <section class="panel note-panel">
+            <div class="section-head">
+                <h2>What This Can See</h2>
+            </div>
+            <p class="note-text">
+                Standard Quake demos are POV recordings. That means roster, chat, map changes, scoreboard state, and visible movement are available for everyone, but HUD stats, inventory, weapon usage, item pickups, and single-player progression are only complete for the recorder.
+            </p>
+        </section>
+
+        <section id="summaryPanel" class="panel" hidden>
+            <div class="section-head">
+                <h2>Summary</h2>
+            </div>
+            <div id="summaryGrid" class="summary-grid"></div>
+        </section>
+
+        <section id="resultsPanel" class="results" hidden></section>
+    </main>
+
+    <div id="footer">
+        Created by woods &nbsp;&nbsp;| &nbsp;&nbsp;<a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </div>
+</body>
+</html>

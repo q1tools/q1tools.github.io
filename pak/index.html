@@ -2393,6 +2393,29 @@
                     previewCell.appendChild(imageCanvas);
                 }
 
+                // pcx
+                else if (/\.(pcx)$/i.test(filename)) {
+                    const fileArrayBuffer = arrayBuffer;
+
+                    if (fileArrayBuffer instanceof ArrayBuffer) {
+                        var pcxImageData = QWT.ImageUtil.getImageData(filename, fileArrayBuffer);
+                        if (!pcxImageData) {
+                            previewCell.textContent = 'Unable to parse PCX file.';
+                            continue;
+                        }
+
+                        var pcxPreviewContainer = document.createElement('div');
+                        pcxPreviewContainer.id = 'preview-container-' + i;
+                        previewCell.appendChild(pcxPreviewContainer);
+
+                        QuakeWebTools.ImageUtil.generateHTMLPreviewSimple({
+                            image_datas: [pcxImageData]
+                        }, QWT.DEFAULT_PALETTE, pcxPreviewContainer.id);
+                    } else {
+                        previewCell.textContent = 'Unable to read PCX file.';
+                    }
+                }
+
                 //bmodels
                 else if (/\/b_(shell[01]|nail[01]|rock[01]|batt[01]|bh10|bh100|bh25)\.bsp$/i.test(filename)) {
                     console.log(`Debug: Processing BSP Filename = ${filename}`);

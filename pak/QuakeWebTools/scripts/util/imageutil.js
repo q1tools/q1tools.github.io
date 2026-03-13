@@ -31,6 +31,126 @@ QuakeWebTools.ImageUtil.newImageData = function(name, width, height) {
   };
 };
 
+QuakeWebTools.ImageUtil.isPCXPath = function(name) {
+  return /\.pcx$/i.test(name || "");
+};
+
+QuakeWebTools.ImageUtil.decodePCXRLE = function(bytes, start_offset, expected_length, end_offset) {
+  var decoded = new Uint8Array(expected_length);
+  var decoded_index = 0;
+  var offset = start_offset;
+
+  while (decoded_index < expected_length && offset < end_offset) {
+    var value = bytes[offset++];
+    var count = 1;
+
+    if ((value & 0xC0) === 0xC0) {
+      count = value & 0x3F;
+      if (offset >= end_offset) {
+        throw new Error("Unexpected end of PCX data while decoding run");
+      }
+      value = bytes[offset++];
+    }
+
+    while (count > 0 && decoded_index < expected_length) {
+      decoded[decoded_index++] = value;
+      count -= 1;
+    }
+  }
+
+  if (decoded_index !== expected_length) {
+    throw new Error("PCX data ended before the image was fully decoded");
+  }
+
+  return decoded;
+};
+
+QuakeWebTools.ImageUtil.getPCXImageData = function(name, arraybuffer, header_only) {
+  var IU = QuakeWebTools.ImageUtil;
+  var data = new DataView(arraybuffer);
+  var bytes = new Uint8Array(arraybuffer);
+  var image_data = IU.newImageData(name);
+
+  if (arraybuffer.byteLength < 128) {
+    throw new Error("PCX header is incomplete");
+  }
+
+  var manufacturer = data.getUint8(0);
+  var encoding = data.getUint8(2);
+  var bits_per_pixel = data.getUint8(3);
+  var xmin = data.getUint16(4, true);
+  var ymin = data.getUint16(6, true);
+  var xmax = data.getUint16(8, true);
+  var ymax = data.getUint16(10, true);
+  var color_planes = data.getUint8(65);
+  var bytes_per_line = data.getUint16(66, true);
+  var width = xmax - xmin + 1;
+  var height = ymax - ymin + 1;
+
+  if (manufacturer !== 0x0A) {
+    throw new Error("Not a ZSoft PCX file");
+  }
+  if (encoding !== 1) {
+    throw new Error("Unsupported PCX encoding");
+  }
+  if (width <= 0 || height <= 0) {
+    throw new Error("Invalid PCX dimensions");
+  }
+
+  image_data.width = width;
+  image_data.height = height;
+  if (header_only) {
+    return image_data;
+  }
+
+  var decoded_stride = bytes_per_line * color_planes;
+  var decoded = IU.decodePCXRLE(bytes, 128, decoded_stride * height, bytes.length);
+
+  if (bits_per_pixel === 8 && color_planes === 1) {
+    if (bytes.length < 769 || bytes[bytes.length - 769] !== 0x0C) {
+      throw new Error("8-bit PCX palette marker not found");
+    }
+
+    var palette = bytes.subarray(bytes.length - 768);
+    var rgb_pixels = new Uint8Array(width * height * 3);
+
+    for (var y = 0; y < height; ++y) {
+      var row_offset = y * decoded_stride;
+      for (var x = 0; x < width; ++x) {
+        var color_index = decoded[row_offset + x] * 3;
+        var pixel_offset = (y * width + x) * 3;
+        rgb_pixels[pixel_offset    ] = palette[color_index];
+        rgb_pixels[pixel_offset + 1] = palette[color_index + 1];
+        rgb_pixels[pixel_offset + 2] = palette[color_index + 2];
+      }
+    }
+
+    image_data.pixel_type = IU.PIXELTYPE_RGB;
+    image_data.pixels = rgb_pixels;
+    return image_data;
+  }
+
+  if (bits_per_pixel === 8 && color_planes === 3) {
+    var rgb_data = new Uint8Array(width * height * 3);
+
+    for (var row = 0; row < height; ++row) {
+      var base_offset = row * decoded_stride;
+      for (var col = 0; col < width; ++col) {
+        var rgb_offset = (row * width + col) * 3;
+        rgb_data[rgb_offset    ] = decoded[base_offset + col];
+        rgb_data[rgb_offset + 1] = decoded[base_offset + bytes_per_line + col];
+        rgb_data[rgb_offset + 2] = decoded[base_offset + (bytes_per_line * 2) + col];
+      }
+    }
+
+    image_data.pixel_type = IU.PIXELTYPE_RGB;
+    image_data.pixels = rgb_data;
+    return image_data;
+  }
+
+  throw new Error("Unsupported PCX format: " + bits_per_pixel + " bpp x " + color_planes + " planes");
+};
+
 //TODO: remove header_only?
 /**
 * Gets image data in the form { name, width, height, pixels, pixel_type }
@@ -47,6 +167,15 @@ QuakeWebTools.ImageUtil.newImageData = function(name, width, height) {
 QuakeWebTools.ImageUtil.getImageData = function(name, arraybuffer, entry, header_only) {
   var IU = QuakeWebTools.ImageUtil;
   var WAD = QuakeWebTools.WAD;
+
+  if (IU.isPCXPath(name)) {
+    try {
+      return IU.getPCXImageData(name, arraybuffer, header_only);
+    } catch (err) {
+      console.error("Error reading PCX image data '" + name + "':", err);
+      return null;
+    }
+  }
 
   // turning this on will stop the image data from being returned
   header_only = header_only || false;
@@ -260,6 +389,9 @@ QuakeWebTools.ImageUtil.generateHTMLPreview = function(images, palette, element_
     } else {
       var image_info = image_infos[i];
       var image_data = IU.getImageData(image_info.name, arraybuffer, image_info);
+    }
+    if (!image_data) {
+      continue;
     }
     var img_info = " (" + image_data.width + "x"
                         + image_data.height + ")";
