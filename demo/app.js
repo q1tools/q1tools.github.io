@@ -798,6 +798,9 @@
                 renderMiniMetric('Distance', formatDecimal(player.movement.distance, 'u')),
                 renderMiniMetric('Max speed', formatDecimal(player.movement.maxSpeed, 'u/s')),
                 renderMiniMetric('Avg speed', formatDecimal(player.movement.averageSpeed, 'u/s')),
+                player.movement.filteredSegments > 0
+                    ? renderMiniMetric('Filtered jumps', String(player.movement.filteredSegments))
+                    : '',
                 renderMiniMetric('Chat lines', String(player.chatCount))
             ].join('');
 

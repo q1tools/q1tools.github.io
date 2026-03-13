@@ -24,6 +24,8 @@
     const CAMERA_SMOOTH_SIZE = 60;
     const MOTION_SMOOTH_SIZE = 30;
     const MOTION_SMOOTH_RESTART_LIMIT = 200;
+    const MOVEMENT_DISCONTINUITY_DISTANCE = 128;
+    const MOVEMENT_DISCONTINUITY_SPEED = 1000;
     const ROLL_TARGET = 10;
     const ROLL_TRIGGER_ANGLE = 0.3;
     const ROLL_SPEED = 0.2;
@@ -1063,7 +1065,7 @@
         return base;
     }
 
-    function updatePlayerMovement(parser, entityNumber, state) {
+    function updatePlayerMovement(parser, entityNumber, state, discontinuous) {
         const slot = entityNumber - 1;
         if (slot < 0 || slot >= parser.runtime.players.length) {
             return;
@@ -1073,7 +1075,8 @@
         const sample = {
             time: parser.runtime.time,
             origin: state.origin.slice(),
-            angles: state.angles.slice()
+            angles: state.angles.slice(),
+            discontinuous: !!discontinuous
         };
         const lastSample = player.samples[player.samples.length - 1];
         if (lastSample &&
@@ -1084,6 +1087,33 @@
             return;
         }
         player.samples.push(sample);
+    }
+
+    function segmentDistance3d(previous, current) {
+        const dx = current.origin[0] - previous.origin[0];
+        const dy = current.origin[1] - previous.origin[1];
+        const dz = current.origin[2] - previous.origin[2];
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    function segmentDistance2d(previous, current) {
+        const dx = current.origin[0] - previous.origin[0];
+        const dy = current.origin[1] - previous.origin[1];
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function shouldIgnoreMovementSegment(previous, current, segmentDistance, dt) {
+        if (!previous || !current) {
+            return true;
+        }
+        if (current.discontinuous) {
+            return true;
+        }
+        if (!(dt > 0)) {
+            return false;
+        }
+        return segmentDistance >= MOVEMENT_DISCONTINUITY_DISTANCE &&
+            (segmentDistance / dt) >= MOVEMENT_DISCONTINUITY_SPEED;
     }
 
     function recordChat(parser, rawText, source) {
@@ -1789,10 +1819,11 @@
             }
         }
 
+        const wasActive = target.active;
         target.state = state;
         target.active = true;
         target.lastTime = parser.runtime.time;
-        updatePlayerMovement(parser, entityNumber, state);
+        updatePlayerMovement(parser, entityNumber, state, !wasActive);
         captureSuperimposeUpdate(parser, entityNumber, state);
 
         if (smoothingLocation && !parser.smoothing.unsupportedReason) {
@@ -2061,12 +2092,13 @@
                 continue;
             }
             const target = ensureEntity(parser, entityValue);
+            const wasActive = target.active;
             const nextState = entityState();
             readFteDelta(parser, reader, entityValue, nextState, target.active ? target.state : null, target.baseline || entityState());
             target.state = nextState;
             target.active = true;
             target.lastTime = parser.runtime.time;
-            updatePlayerMovement(parser, entityValue, nextState);
+            updatePlayerMovement(parser, entityValue, nextState, !wasActive);
         }
 
         if ((parser.runtime.protocolPext2 & PEXT2_PREDINFO) && parser.runtime.viewEntity > 0) {
@@ -2822,7 +2854,8 @@
                 averageSpeed: 0,
                 minZ: null,
                 maxZ: null,
-                sampleCount: 0
+                sampleCount: 0,
+                filteredSegments: 0
             };
         }
 
@@ -2831,20 +2864,24 @@
         let maxSpeed = 0;
         let minZ = samples[0].origin[2];
         let maxZ = samples[0].origin[2];
+        let filteredSegments = 0;
 
         for (let index = 1; index < samples.length; index += 1) {
             const previous = samples[index - 1];
             const current = samples[index];
-            const dx = current.origin[0] - previous.origin[0];
-            const dy = current.origin[1] - previous.origin[1];
-            const dz = current.origin[2] - previous.origin[2];
-            const segmentDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            const segmentHorizontal = Math.sqrt(dx * dx + dy * dy);
+            const segmentDistance = segmentDistance3d(previous, current);
+            const segmentHorizontal = segmentDistance2d(previous, current);
+            const dt = current.time - previous.time;
+            if (shouldIgnoreMovementSegment(previous, current, segmentDistance, dt)) {
+                filteredSegments += 1;
+                minZ = Math.min(minZ, current.origin[2]);
+                maxZ = Math.max(maxZ, current.origin[2]);
+                continue;
+            }
             distance += segmentDistance;
             horizontalDistance += segmentHorizontal;
             minZ = Math.min(minZ, current.origin[2]);
             maxZ = Math.max(maxZ, current.origin[2]);
-            const dt = current.time - previous.time;
             if (dt > 0) {
                 maxSpeed = Math.max(maxSpeed, segmentDistance / dt);
             }
@@ -2859,7 +2896,8 @@
             averageSpeed: round(trackedTime > 0 ? distance / trackedTime : 0, 2),
             minZ: round(minZ, 2),
             maxZ: round(maxZ, 2),
-            sampleCount: samples.length
+            sampleCount: samples.length,
+            filteredSegments: filteredSegments
         };
     }
 

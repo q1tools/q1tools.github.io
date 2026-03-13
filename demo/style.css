@@ -373,12 +373,13 @@
 .trim-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
     flex-wrap: wrap;
 }
 
 .trim-hint {
+    width: 100%;
     color: #b8a797;
     line-height: 1.45;
     max-width: 580px;
