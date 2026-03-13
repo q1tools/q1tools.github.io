@@ -16,6 +16,10 @@
     const summaryGrid = document.getElementById('summaryGrid');
     const summaryActions = document.getElementById('summaryActions');
     const resultsPanel = document.getElementById('resultsPanel');
+    const folderInput = document.getElementById('folderInput');
+    const folderLink = document.getElementById('folderLink');
+    const folderAnalysisPanel = document.getElementById('folderAnalysisPanel');
+    const folderAnalysisContent = document.getElementById('folderAnalysisContent');
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
         [123, 123, 123],
@@ -35,6 +39,7 @@
     ];
 
     let parsedFiles = [];
+    let folderMode = false;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -1555,6 +1560,468 @@
         summaryPanel.hidden = false;
     }
 
+    function buildFolderAnalysis(items) {
+        var successful = items.filter(function (item) { return !!item.data; });
+        var totalSize = 0;
+        var totalDuration = 0;
+        var totalFrames = 0;
+        var totalMessages = 0;
+        var playerMap = {};
+        var mapMap = {};
+        var allChat = [];
+        var weaponMap = {};
+        var protocolCounts = {};
+        var timeline = [];
+
+        successful.forEach(function (item, itemIndex) {
+            var data = item.data;
+            totalSize += item.fileSize || 0;
+            totalFrames += data.frameCount || 0;
+            totalMessages += data.messageCount || 0;
+            if (Number.isFinite(data.duration)) {
+                totalDuration += data.duration;
+            }
+
+            data.protocols.forEach(function (p) {
+                protocolCounts[p] = (protocolCounts[p] || 0) + 1;
+            });
+
+            timeline.push({
+                fileName: item.fileName || item.displayName,
+                lastModified: item.lastModified,
+                fileSize: item.fileSize,
+                duration: data.duration,
+                maps: data.maps.map(function (m) { return m.mapName || m.levelName || '?'; }),
+                playerCount: data.players.length,
+                chatCount: data.chatLog.length,
+                index: itemIndex
+            });
+
+            data.players.forEach(function (player) {
+                var nameKey = (player.displayName || player.name || '').toLowerCase().trim();
+                if (!nameKey) { nameKey = '__unnamed__'; }
+                if (!playerMap[nameKey]) {
+                    playerMap[nameKey] = {
+                        displayName: player.displayName || player.name,
+                        nameCodes: player.nameCodes,
+                        totalFrags: 0,
+                        maxFrags: -Infinity,
+                        totalPlaytime: 0,
+                        appearances: 0,
+                        totalChatCount: 0,
+                        shirts: {},
+                        pants: {},
+                        demos: []
+                    };
+                }
+                var entry = playerMap[nameKey];
+                entry.appearances += 1;
+                entry.totalFrags += player.frags || 0;
+                if ((player.frags || 0) > entry.maxFrags) {
+                    entry.maxFrags = player.frags || 0;
+                }
+                entry.totalChatCount += player.chatCount || 0;
+                if (player.movement && Number.isFinite(player.movement.trackedTime)) {
+                    entry.totalPlaytime += player.movement.trackedTime;
+                }
+                if (Number.isInteger(player.shirt)) {
+                    entry.shirts[player.shirt] = (entry.shirts[player.shirt] || 0) + 1;
+                }
+                if (Number.isInteger(player.pants)) {
+                    entry.pants[player.pants] = (entry.pants[player.pants] || 0) + 1;
+                }
+                if (!entry.nameCodes && player.nameCodes) {
+                    entry.nameCodes = player.nameCodes;
+                }
+                entry.demos.push(item.fileName || item.displayName);
+            });
+
+            data.maps.forEach(function (map) {
+                var mapKey = (map.mapName || map.levelName || 'unknown').toLowerCase();
+                if (!mapMap[mapKey]) {
+                    mapMap[mapKey] = {
+                        mapName: map.mapName || map.levelName || 'unknown',
+                        levelName: map.levelName || '',
+                        playCount: 0,
+                        totalTime: 0,
+                        protocols: {}
+                    };
+                }
+                var mEntry = mapMap[mapKey];
+                mEntry.playCount += 1;
+                if (Number.isFinite(map.duration)) {
+                    mEntry.totalTime += map.duration;
+                }
+                if (map.protocol) {
+                    mEntry.protocols[map.protocol] = true;
+                }
+            });
+
+            data.chatLog.forEach(function (chat) {
+                allChat.push({
+                    time: chat.time,
+                    frame: chat.frame,
+                    speaker: chat.speaker,
+                    speakerKey: chat.speakerKey,
+                    team: chat.team,
+                    message: chat.message,
+                    demoFileName: item.fileName || item.displayName,
+                    demoDate: item.lastModified,
+                    demoIndex: itemIndex
+                });
+            });
+
+            if (data.local && Array.isArray(data.local.weaponUsage)) {
+                data.local.weaponUsage.forEach(function (wu) {
+                    var wKey = wu.weaponName || ('weapon_' + wu.weapon);
+                    if (!weaponMap[wKey]) {
+                        weaponMap[wKey] = {
+                            weaponName: wu.weaponName,
+                            totalSwitches: 0,
+                            totalActiveTime: 0,
+                            totalAmmoSpent: 0,
+                            totalEstimatedShots: 0,
+                            unit: wu.unit,
+                            demoCount: 0
+                        };
+                    }
+                    var wEntry = weaponMap[wKey];
+                    wEntry.totalSwitches += wu.switches || 0;
+                    wEntry.totalActiveTime += wu.activeTime || 0;
+                    wEntry.totalAmmoSpent += wu.ammoSpent || 0;
+                    wEntry.totalEstimatedShots += wu.estimatedShots || 0;
+                    wEntry.demoCount += 1;
+                });
+            }
+        });
+
+        var playerRoster = Object.keys(playerMap).map(function (key) {
+            var p = playerMap[key];
+            if (p.maxFrags === -Infinity) { p.maxFrags = 0; }
+            return p;
+        }).sort(function (a, b) { return b.totalFrags - a.totalFrags; });
+
+        var mapFrequency = Object.keys(mapMap).map(function (key) {
+            return mapMap[key];
+        }).sort(function (a, b) { return b.playCount - a.playCount; });
+
+        var weaponUsage = Object.keys(weaponMap).map(function (key) {
+            return weaponMap[key];
+        }).sort(function (a, b) { return b.totalAmmoSpent - a.totalAmmoSpent; });
+
+        timeline.sort(function (a, b) {
+            return (a.lastModified || 0) - (b.lastModified || 0);
+        });
+
+        return {
+            meta: {
+                demoCount: successful.length,
+                failCount: items.length - successful.length,
+                totalSize: totalSize,
+                totalDuration: totalDuration,
+                totalFrames: totalFrames,
+                totalMessages: totalMessages
+            },
+            playerRoster: playerRoster,
+            mapFrequency: mapFrequency,
+            chatLog: allChat,
+            timeline: timeline,
+            weaponUsage: weaponUsage,
+            protocolCounts: protocolCounts
+        };
+    }
+
+    function renderFolderMeta(meta) {
+        var cards = [
+            renderStatCard('Demos parsed', String(meta.demoCount)),
+            renderStatCard('Total size', formatBytes(meta.totalSize)),
+            renderStatCard('Total duration', formatDuration(meta.totalDuration)),
+            renderStatCard('Total frames', String(meta.totalFrames)),
+            renderStatCard('Total messages', String(meta.totalMessages))
+        ];
+        if (meta.failCount > 0) {
+            cards.push(renderStatCard('Parse failures', String(meta.failCount)));
+        }
+        return '<div class="summary-grid">' + cards.join('') + '</div>';
+    }
+
+    function renderFolderPlayerRoster(roster) {
+        if (!roster.length) {
+            return renderEmptyState('No players found.');
+        }
+
+        var sortButtons = [
+            '<div class="folder-sort-controls">',
+            '<span class="folder-sort-label">Sort by:</span>',
+            '<button class="folder-sort-button active" type="button" data-sort="frags">Frags</button>',
+            '<button class="folder-sort-button" type="button" data-sort="appearances">Demos</button>',
+            '<button class="folder-sort-button" type="button" data-sort="playtime">Playtime</button>',
+            '<button class="folder-sort-button" type="button" data-sort="chat">Chat</button>',
+            '</div>'
+        ].join('');
+
+        var cards = roster.map(function (player) {
+            var mostPants = null;
+            var maxPantsCount = 0;
+            Object.keys(player.pants).forEach(function (k) {
+                if (player.pants[k] > maxPantsCount) {
+                    maxPantsCount = player.pants[k];
+                    mostPants = Number(k);
+                }
+            });
+
+            var style = '';
+            if (Number.isInteger(mostPants) && LEGACY_PANTS_TINTS[mostPants]) {
+                var tint = LEGACY_PANTS_TINTS[mostPants];
+                style = ' style="--player-tint: ' + tint[0] + ', ' + tint[1] + ', ' + tint[2] + ';"';
+            }
+
+            return [
+                '<div class="player-card folder-roster-card"' + style,
+                ' data-sort-frags="' + escapeAttribute(player.totalFrags) + '"',
+                ' data-sort-appearances="' + escapeAttribute(player.appearances) + '"',
+                ' data-sort-playtime="' + escapeAttribute(Math.round(player.totalPlaytime)) + '"',
+                ' data-sort-chat="' + escapeAttribute(player.totalChatCount) + '"',
+                '>',
+                '<div class="player-title">',
+                renderQuakePreview(player.nameCodes, player.displayName),
+                '</div>',
+                '<div class="mini-metrics">',
+                renderMiniMetric('Total frags', String(player.totalFrags)),
+                renderMiniMetric('Best frags', String(player.maxFrags)),
+                renderMiniMetric('Demos played', String(player.appearances)),
+                renderMiniMetric('Total playtime', formatDuration(player.totalPlaytime)),
+                renderMiniMetric('Chat lines', String(player.totalChatCount)),
+                renderMiniMetric('Avg frags', player.appearances ? String(Math.round(player.totalFrags / player.appearances)) : '0'),
+                '</div>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible" open>',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Players (' + roster.length + ')</span></div></summary>',
+            '<div class="disclosure-body">',
+            sortButtons,
+            '<div class="player-grid folder-roster-grid">' + cards.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderMapFrequency(maps) {
+        if (!maps.length) {
+            return renderEmptyState('No maps found.');
+        }
+
+        var sortButtons = [
+            '<div class="folder-sort-controls">',
+            '<span class="folder-sort-label">Sort by:</span>',
+            '<button class="folder-sort-button active" type="button" data-sort="count">Play count</button>',
+            '<button class="folder-sort-button" type="button" data-sort="time">Total time</button>',
+            '</div>'
+        ].join('');
+
+        var cards = maps.map(function (map) {
+            return [
+                '<div class="map-card folder-map-card"',
+                ' data-sort-count="' + escapeAttribute(map.playCount) + '"',
+                ' data-sort-time="' + escapeAttribute(Math.round(map.totalTime)) + '"',
+                '>',
+                '<div class="map-title">' + escapeHtml(map.mapName) + '</div>',
+                map.levelName ? '<div class="map-subtitle">' + escapeHtml(map.levelName) + '</div>' : '',
+                '<div class="mini-metrics">',
+                renderMiniMetric('Times played', String(map.playCount)),
+                renderMiniMetric('Total time', formatDuration(map.totalTime)),
+                '</div>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible" open>',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Maps (' + maps.length + ')</span></div></summary>',
+            '<div class="disclosure-body">',
+            sortButtons,
+            '<div class="map-grid folder-map-grid">' + cards.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderChatExport(chatLog) {
+        var total = chatLog.length;
+        if (!total) {
+            return '';
+        }
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Chat Log (' + total + ' lines)</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="folder-chat-export">',
+            '<p class="subsection-copy">' + total + ' chat messages across all demos.</p>',
+            '<button class="trim-download-button folder-chat-export-button" type="button">Export chat log as .txt</button>',
+            '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderTimeline(timeline) {
+        if (!timeline.length) {
+            return '';
+        }
+
+        var dateGroups = {};
+        timeline.forEach(function (entry) {
+            var dateKey = entry.lastModified ? new Date(entry.lastModified).toLocaleDateString() : 'Unknown date';
+            if (!dateGroups[dateKey]) {
+                dateGroups[dateKey] = [];
+            }
+            dateGroups[dateKey].push(entry);
+        });
+
+        var groupKeys = Object.keys(dateGroups);
+        var html = groupKeys.map(function (dateKey) {
+            var entries = dateGroups[dateKey];
+            var rows = entries.map(function (entry) {
+                return [
+                    '<div class="timeline-card">',
+                    '<div class="timeline-title">' + escapeHtml(entry.fileName) + '</div>',
+                    '<div class="mini-metrics">',
+                    renderMiniMetric('Maps', escapeHtml(entry.maps.join(', '))),
+                    renderMiniMetric('Duration', formatDuration(entry.duration)),
+                    renderMiniMetric('Size', formatBytes(entry.fileSize)),
+                    renderMiniMetric('Players', String(entry.playerCount)),
+                    '</div>',
+                    '</div>'
+                ].join('');
+            });
+            return [
+                '<div class="folder-timeline-group">',
+                '<h4 class="folder-timeline-date">' + escapeHtml(dateKey) + '</h4>',
+                '<div class="timeline-grid">' + rows.join('') + '</div>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Timeline (' + timeline.length + ' demos)</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="folder-timeline-stack">' + html.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderWeaponUsage(weapons) {
+        if (!weapons.length) {
+            return '';
+        }
+
+        var cards = weapons.map(function (w) {
+            return [
+                '<div class="weapon-card">',
+                '<div class="weapon-title">' + escapeHtml(w.weaponName) + '</div>',
+                '<div class="mini-metrics">',
+                renderMiniMetric('Total ammo', String(w.totalAmmoSpent) + (w.unit ? ' ' + w.unit : '')),
+                renderMiniMetric('Est. shots', String(w.totalEstimatedShots)),
+                renderMiniMetric('Active time', formatDuration(w.totalActiveTime)),
+                renderMiniMetric('Switches', String(w.totalSwitches)),
+                renderMiniMetric('Demos used', String(w.demoCount)),
+                '</div>',
+                '</div>'
+            ].join('');
+        });
+
+        return [
+            '<details class="section-disclosure subsection subsection-collapsible">',
+            '<summary><div class="disclosure-summary"><span class="disclosure-meta">POV Weapon Usage</span></div></summary>',
+            '<div class="disclosure-body">',
+            '<div class="weapon-grid">' + cards.join('') + '</div>',
+            '</div>',
+            '</details>'
+        ].join('');
+    }
+
+    function renderFolderProtocols(protocolCounts) {
+        var keys = Object.keys(protocolCounts);
+        if (!keys.length) {
+            return '';
+        }
+
+        var pills = keys.sort().map(function (p) {
+            return renderPill(p + ' (' + protocolCounts[p] + ')', 'neutral');
+        }).join(' ');
+
+        return [
+            '<div class="subsection">',
+            '<div class="subsection-head"><h3 class="subsection-title">Protocols</h3></div>',
+            '<div class="folder-protocol-pills">' + pills + '</div>',
+            '</div>'
+        ].join('');
+    }
+
+    function renderFolderAnalysis(items) {
+        var analysis = buildFolderAnalysis(items);
+
+        folderAnalysisContent.innerHTML = [
+            '<div class="section-stack">',
+            renderFolderMeta(analysis.meta),
+            renderFolderProtocols(analysis.protocolCounts),
+            renderFolderPlayerRoster(analysis.playerRoster),
+            renderFolderMapFrequency(analysis.mapFrequency),
+            renderFolderWeaponUsage(analysis.weaponUsage),
+            renderFolderChatExport(analysis.chatLog),
+            renderFolderTimeline(analysis.timeline),
+            '</div>'
+        ].join('');
+
+        bindFolderSortControls();
+        bindFolderChatExport(analysis.chatLog);
+        folderAnalysisPanel.hidden = false;
+    }
+
+    function bindFolderSortControls() {
+        var containers = folderAnalysisContent.querySelectorAll('.folder-sort-controls');
+        containers.forEach(function (container) {
+            var buttons = container.querySelectorAll('.folder-sort-button');
+            var grid = container.parentElement.querySelector('.player-grid, .map-grid');
+            if (!grid) { return; }
+
+            buttons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    buttons.forEach(function (b) { b.classList.remove('active'); });
+                    button.classList.add('active');
+                    var sortKey = button.getAttribute('data-sort');
+                    var cards = Array.from(grid.children);
+                    cards.sort(function (a, b) {
+                        return (Number(b.getAttribute('data-sort-' + sortKey)) || 0) -
+                               (Number(a.getAttribute('data-sort-' + sortKey)) || 0);
+                    });
+                    cards.forEach(function (card) { grid.appendChild(card); });
+                });
+            });
+        });
+    }
+
+    function bindFolderChatExport(chatLog) {
+        var button = folderAnalysisContent.querySelector('.folder-chat-export-button');
+        if (!button || !chatLog.length) { return; }
+
+        button.addEventListener('click', function () {
+            var lines = chatLog.map(function (entry) {
+                var timeStr = Number.isFinite(entry.time) ? formatTrimTime(entry.time) : '?';
+                var prefix = entry.team ? '(team) ' : '';
+                return '[' + entry.demoFileName + ' @ ' + timeStr + '] ' + prefix + entry.speaker + ': ' + entry.message;
+            });
+            var text = lines.join('\n');
+            triggerDownload(new TextEncoder().encode(text), 'chat_log.txt');
+        });
+    }
+
     function renderResults(items) {
         if (!items.length) {
             resultsPanel.hidden = true;
@@ -2083,7 +2550,7 @@
         };
     }
 
-    async function handleFiles(fileList) {
+    async function handleFiles(fileList, isFolder) {
         const fileCount = Array.from(fileList || []).length;
         setStatus('Inspecting ' + fileCount + ' file' + (fileCount === 1 ? '' : 's') + '...');
 
@@ -2098,43 +2565,102 @@
             return;
         }
 
-        setWarnings(warnings);
-        setStatus('Reading ' + accepted.length + ' demo' + (accepted.length === 1 ? '' : 's') + '...');
+        if (isFolder) {
+            var folderWarnings = warnings.filter(function (w) {
+                return !/^Skipped .* because it is not a \.dem or \.dz file\.$/.test(w);
+            });
+            setWarnings(folderWarnings);
+        } else {
+            setWarnings(warnings);
+        }
+        folderMode = !!isFolder;
 
-        const items = await Promise.all(accepted.map(async function (input) {
-            try {
-                return {
-                    displayName: input.displayName,
-                    fileName: input.fileName,
-                    sourceFormat: input.sourceFormat,
-                    archiveName: input.archiveName,
-                    fileSize: input.fileSize,
-                    lastModified: input.lastModified,
-                    sourceBuffer: input.sourceBuffer,
-                    data: parserApi.parseDemoBuffer(input.sourceBuffer, {
-                        name: input.fileName,
-                        size: input.fileSize,
-                        lastModified: input.lastModified
-                    })
-                };
-            } catch (error) {
-                return {
-                    displayName: input.displayName,
-                    fileName: input.fileName,
-                    sourceFormat: input.sourceFormat,
-                    archiveName: input.archiveName,
-                    fileSize: input.fileSize,
-                    lastModified: input.lastModified,
-                    error: error && error.message ? error.message : String(error)
-                };
+        if (folderMode) {
+            setStatus('Parsing demo 1 of ' + accepted.length + '...');
+            var items = [];
+            for (var i = 0; i < accepted.length; i++) {
+                if (i % 5 === 0) {
+                    setStatus('Parsing demo ' + (i + 1) + ' of ' + accepted.length + '...');
+                    await new Promise(function (resolve) { setTimeout(resolve, 0); });
+                }
+                var input = accepted[i];
+                try {
+                    items.push({
+                        displayName: input.displayName,
+                        fileName: input.fileName,
+                        sourceFormat: input.sourceFormat,
+                        archiveName: input.archiveName,
+                        fileSize: input.fileSize,
+                        lastModified: input.lastModified,
+                        data: parserApi.parseDemoBuffer(input.sourceBuffer, {
+                            name: input.fileName,
+                            size: input.fileSize,
+                            lastModified: input.lastModified
+                        })
+                    });
+                } catch (error) {
+                    items.push({
+                        displayName: input.displayName,
+                        fileName: input.fileName,
+                        sourceFormat: input.sourceFormat,
+                        archiveName: input.archiveName,
+                        fileSize: input.fileSize,
+                        lastModified: input.lastModified,
+                        error: error && error.message ? error.message : String(error)
+                    });
+                }
             }
-        }));
 
-        parsedFiles = items;
-        renderResults(parsedFiles);
+            parsedFiles = items;
+            resultsPanel.hidden = true;
+            resultsPanel.innerHTML = '';
+            clearButton.disabled = false;
+            updateSummary(items);
+            if (summaryActions) {
+                summaryActions.hidden = true;
+                summaryActions.innerHTML = '';
+            }
+            renderFolderAnalysis(items);
+        } else {
+            setStatus('Reading ' + accepted.length + ' demo' + (accepted.length === 1 ? '' : 's') + '...');
 
-        const successes = items.filter(function (item) { return !!item.data; }).length;
-        const failures = items.length - successes;
+            const items = await Promise.all(accepted.map(async function (input) {
+                try {
+                    return {
+                        displayName: input.displayName,
+                        fileName: input.fileName,
+                        sourceFormat: input.sourceFormat,
+                        archiveName: input.archiveName,
+                        fileSize: input.fileSize,
+                        lastModified: input.lastModified,
+                        sourceBuffer: input.sourceBuffer,
+                        data: parserApi.parseDemoBuffer(input.sourceBuffer, {
+                            name: input.fileName,
+                            size: input.fileSize,
+                            lastModified: input.lastModified
+                        })
+                    };
+                } catch (error) {
+                    return {
+                        displayName: input.displayName,
+                        fileName: input.fileName,
+                        sourceFormat: input.sourceFormat,
+                        archiveName: input.archiveName,
+                        fileSize: input.fileSize,
+                        lastModified: input.lastModified,
+                        error: error && error.message ? error.message : String(error)
+                    };
+                }
+            }));
+
+            parsedFiles = items;
+            folderAnalysisPanel.hidden = true;
+            folderAnalysisContent.innerHTML = '';
+            renderResults(parsedFiles);
+        }
+
+        const successes = parsedFiles.filter(function (item) { return !!item.data; }).length;
+        const failures = parsedFiles.length - successes;
         if (successes && !failures) {
             setStatus('Parsed ' + successes + ' demo' + (successes === 1 ? '' : 's') + '.', 'success');
         } else if (successes) {
@@ -2146,10 +2672,63 @@
 
     function reset() {
         parsedFiles = [];
+        folderMode = false;
         fileInput.value = '';
+        folderInput.value = '';
         setWarnings([]);
         setStatus('No demos loaded.');
+        folderAnalysisPanel.hidden = true;
+        folderAnalysisContent.innerHTML = '';
         renderResults([]);
+    }
+
+    function collectDroppedFiles(dataTransferItems) {
+        var files = [];
+
+        function readEntry(entry) {
+            return new Promise(function (resolve) {
+                if (entry.isFile) {
+                    entry.file(function (file) {
+                        files.push(file);
+                        resolve();
+                    }, function () {
+                        resolve();
+                    });
+                } else if (entry.isDirectory) {
+                    var reader = entry.createReader();
+                    var allEntries = [];
+
+                    function readBatch() {
+                        reader.readEntries(function (batch) {
+                            if (batch.length === 0) {
+                                Promise.all(allEntries.map(readEntry)).then(resolve);
+                            } else {
+                                allEntries = allEntries.concat(Array.from(batch));
+                                readBatch();
+                            }
+                        }, function () {
+                            resolve();
+                        });
+                    }
+
+                    readBatch();
+                } else {
+                    resolve();
+                }
+            });
+        }
+
+        var entries = [];
+        for (var i = 0; i < dataTransferItems.length; i++) {
+            var entry = dataTransferItems[i].webkitGetAsEntry && dataTransferItems[i].webkitGetAsEntry();
+            if (entry) {
+                entries.push(entry);
+            }
+        }
+
+        return Promise.all(entries.map(readEntry)).then(function () {
+            return files;
+        });
     }
 
     function bindDropZone() {
@@ -2157,7 +2736,10 @@
             dropZone.classList.toggle('active', active);
         };
 
-        dropZone.addEventListener('click', function () {
+        dropZone.addEventListener('click', function (event) {
+            if (event.target.id === 'folderLink' || event.target.closest('#folderLink')) {
+                return;
+            }
             fileInput.click();
         });
 
@@ -2184,7 +2766,29 @@
         });
 
         dropZone.addEventListener('drop', function (event) {
-            if (event.dataTransfer && event.dataTransfer.files) {
+            if (!event.dataTransfer) { return; }
+
+            var hasDirectory = false;
+            var items = event.dataTransfer.items;
+            if (items) {
+                for (var i = 0; i < items.length; i++) {
+                    var entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
+                    if (entry && entry.isDirectory) {
+                        hasDirectory = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasDirectory) {
+                collectDroppedFiles(event.dataTransfer.items).then(function (files) {
+                    handleFiles(files, true).catch(function (error) {
+                        setWarnings([error && error.message ? error.message : String(error)]);
+                        setStatus('Failed to load the dropped folder.', 'error');
+                        renderResults([]);
+                    });
+                });
+            } else if (event.dataTransfer.files) {
                 handleFiles(event.dataTransfer.files).catch(function (error) {
                     setWarnings([error && error.message ? error.message : String(error)]);
                     setStatus('Failed to load the dropped files.', 'error');
@@ -2199,6 +2803,20 @@
         handleFiles(event.target.files).catch(function (error) {
             setWarnings([error && error.message ? error.message : String(error)]);
             setStatus('Failed to load the selected files.', 'error');
+            renderResults([]);
+        });
+    });
+
+    folderLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        folderInput.click();
+    });
+
+    folderInput.addEventListener('change', function (event) {
+        handleFiles(event.target.files, true).catch(function (error) {
+            setWarnings([error && error.message ? error.message : String(error)]);
+            setStatus('Failed to load the selected folder.', 'error');
             renderResults([]);
         });
     });

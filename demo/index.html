@@ -24,8 +24,10 @@
             <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-controls="fileInput">
                 <strong>Drop one or more <code>.dem</code> or <code>.dz</code> files here</strong>
                 <small>or click to choose them from your computer</small>
+                <small>or <a href="#" id="folderLink">select an entire demos folder</a></small>
             </div>
             <input id="fileInput" type="file" accept=".dem,.DEM,.dz,.DZ,application/octet-stream" multiple hidden>
+            <input id="folderInput" type="file" webkitdirectory directory hidden>
 
             <div class="actions">
                 <button id="clearButton" type="button" disabled>Clear</button>
@@ -41,6 +43,13 @@
             </div>
             <div id="summaryGrid" class="summary-grid"></div>
             <div id="summaryActions" class="summary-actions" hidden></div>
+        </section>
+
+        <section id="folderAnalysisPanel" class="panel" hidden>
+            <div class="section-head">
+                <h2>Folder Analysis</h2>
+            </div>
+            <div id="folderAnalysisContent"></div>
         </section>
 
         <section id="resultsPanel" class="results" hidden></section>

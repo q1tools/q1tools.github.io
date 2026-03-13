@@ -764,6 +764,82 @@
     color: #f0ce98;
 }
 
+#folderLink {
+    color: #d4a65a;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+#folderLink:hover {
+    color: #f0cb8a;
+}
+
+.folder-sort-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.folder-sort-label {
+    color: #a99788;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.folder-sort-button {
+    padding: 5px 12px;
+    border: 1px solid #624f43;
+    border-radius: 999px;
+    background: rgba(31, 24, 21, 0.55);
+    color: #cbbcab;
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.folder-sort-button.active {
+    border-color: rgba(241, 205, 144, 0.4);
+    background: rgba(213, 155, 82, 0.18);
+    color: #f0ddc7;
+}
+
+.folder-chat-export {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+}
+
+.folder-chat-export .subsection-copy {
+    flex: 1 1 auto;
+}
+
+.folder-timeline-stack {
+    display: grid;
+    gap: 22px;
+}
+
+.folder-timeline-date {
+    margin: 0 0 10px;
+    color: #d4b37f;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.folder-protocol-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.folder-roster-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
 @media (max-width: 760px) {
     .trim-actions {
         align-items: stretch;

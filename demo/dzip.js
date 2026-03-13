@@ -1184,7 +1184,7 @@
             copyMsg(ctx, (end - (ctx.offset + 2)) + 17);
             return;
         }
-        if (entityType <= 0 || entityType >= TE_SIZE.length) {
+        if (entityType < 0 || entityType >= TE_SIZE.length) {
             throw new Error('Encountered unsupported DZip temp entity ' + entityType + '.');
         }
         copyMsg(ctx, TE_SIZE[entityType]);
