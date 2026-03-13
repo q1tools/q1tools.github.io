@@ -1216,6 +1216,108 @@
         parser.smoothing.unsupportedReason = reason;
     }
 
+    function superimposeUnsupportedReason(protocol, protocolFlags, pext1, pext2) {
+        if (pext1 || pext2) {
+            return 'Demsuperimpose export currently supports classic protocol 15, 666, and 999 demos without FTE extensions.';
+        }
+        if (!trimProtocolSupported(protocol)) {
+            return 'Demsuperimpose export currently supports classic protocol 15, 666, and 999 demos only.';
+        }
+        if ((protocolFlags & (PRFL_FLOATCOORD | PRFL_INT32COORD | PRFL_24BITCOORD)) !== 0) {
+            return 'Demsuperimpose export currently supports classic short-coordinate demos only.';
+        }
+        return '';
+    }
+
+    function recordSuperimposeMaxEntity(parser, entityNumber) {
+        if (!parser || !parser.superimpose || !Number.isFinite(entityNumber) || entityNumber < 0) {
+            return;
+        }
+        parser.superimpose.maxEntityId = Math.max(parser.superimpose.maxEntityId, entityNumber);
+    }
+
+    function beginSuperimposeSegment(parser) {
+        if (!parser || !parser.superimpose) {
+            return;
+        }
+
+        const segment = {
+            index: parser.superimpose.segments.length,
+            protocol: parser.runtime.protocol,
+            protocolLabel: protocolName(parser.runtime.protocol, parser.runtime.protocolPext2),
+            protocolFlags: parser.runtime.protocolFlags >>> 0,
+            protocolPext1: parser.runtime.protocolPext1 >>> 0,
+            protocolPext2: parser.runtime.protocolPext2 >>> 0,
+            levelName: parser.runtime.levelName || '',
+            mapName: stripPathExtension(parser.runtime.modelPrecache[1] || ''),
+            worldModel: parser.runtime.modelPrecache[1] || '',
+            models: parser.runtime.modelPrecache.slice(),
+            maxClients: parser.runtime.maxClients || 0,
+            viewEntity: parser.runtime.viewEntity || 1,
+            name: '',
+            color: 0,
+            baseline: null,
+            updates: [],
+            unsupportedReason: superimposeUnsupportedReason(
+                parser.runtime.protocol,
+                parser.runtime.protocolFlags,
+                parser.runtime.protocolPext1,
+                parser.runtime.protocolPext2
+            )
+        };
+
+        parser.superimpose.currentSegment = segment;
+        parser.superimpose.segments.push(segment);
+    }
+
+    function captureSuperimposeName(parser, slot, name) {
+        if (!parser || !parser.superimpose || !parser.superimpose.currentSegment) {
+            return;
+        }
+        if (parser.superimpose.currentSegment.viewEntity === slot + 1) {
+            parser.superimpose.currentSegment.name = name || '';
+        }
+    }
+
+    function captureSuperimposeColor(parser, slot, colors) {
+        if (!parser || !parser.superimpose || !parser.superimpose.currentSegment) {
+            return;
+        }
+        if (parser.superimpose.currentSegment.viewEntity === slot + 1) {
+            parser.superimpose.currentSegment.color = colors & 0xff;
+        }
+    }
+
+    function captureSuperimposeBaseline(parser, entityNumber, baseline) {
+        if (!parser || !parser.superimpose || !parser.superimpose.currentSegment || !baseline) {
+            return;
+        }
+        recordSuperimposeMaxEntity(parser, entityNumber);
+        if (parser.superimpose.currentSegment.viewEntity === entityNumber) {
+            parser.superimpose.currentSegment.baseline = cloneEntityState(baseline);
+        }
+    }
+
+    function captureSuperimposeUpdate(parser, entityNumber, state) {
+        if (!parser || !parser.superimpose || !parser.superimpose.currentSegment || !state) {
+            return;
+        }
+        recordSuperimposeMaxEntity(parser, entityNumber);
+        if (parser.superimpose.currentSegment.unsupportedReason) {
+            return;
+        }
+        if (parser.superimpose.currentSegment.viewEntity !== entityNumber) {
+            return;
+        }
+        if (!parser.frameContext || !parser.frameContext.payload.length || parser.frameContext.payload[0] !== SVC.TIME) {
+            return;
+        }
+        parser.superimpose.currentSegment.updates.push({
+            time: parser.runtime.time,
+            state: cloneEntityState(state)
+        });
+    }
+
     function setLocalFlagSample(parser, onground, inwater) {
         const local = parser.localState;
         const time = parser.runtime.time;
@@ -1543,11 +1645,13 @@
         );
         parser.protocolsSeen.add(protocolName(parser.runtime.protocol, parser.runtime.protocolPext2));
         parser.mapsSeen.add(mapName || parser.runtime.levelName || 'unknown');
+        beginSuperimposeSegment(parser);
     }
 
-    function parseClassicBaseline(parser, reader, target, version) {
+    function parseClassicBaseline(parser, reader, target, entityNumber, version) {
         if (version === 6) {
             target.baseline = cloneEntityState(readFteBaseline(parser, reader));
+            captureSuperimposeBaseline(parser, entityNumber, target.baseline);
             return;
         }
 
@@ -1578,6 +1682,7 @@
             baseline.scale = reader.readUint8();
         }
         target.baseline = baseline;
+        captureSuperimposeBaseline(parser, entityNumber, target.baseline);
     }
 
     function parseClassicUpdate(parser, reader, firstBits) {
@@ -1688,6 +1793,7 @@
         target.active = true;
         target.lastTime = parser.runtime.time;
         updatePlayerMovement(parser, entityNumber, state);
+        captureSuperimposeUpdate(parser, entityNumber, state);
 
         if (smoothingLocation && !parser.smoothing.unsupportedReason) {
             parser.smoothing.locations.push({
@@ -2185,7 +2291,7 @@
 
     function parseStaticEntity(parser, reader, version) {
         const target = { baseline: entityState() };
-        parseClassicBaseline(parser, reader, target, version);
+        parseClassicBaseline(parser, reader, target, -1, version);
         parser.runtime.staticEntities.push({
             baseline: cloneEntityState(target.baseline)
         });
@@ -2430,6 +2536,9 @@
                 if (parser.runtime.viewEntity > 0 && parser.runtime.viewEntity - 1 < parser.runtime.players.length) {
                     ensurePlayerRecord(parser, parser.runtime.viewEntity - 1).isPov = true;
                 }
+                if (parser.superimpose && parser.superimpose.currentSegment) {
+                    parser.superimpose.currentSegment.viewEntity = parser.runtime.viewEntity;
+                }
                 break;
 
             case SVC.SOUND:
@@ -2487,6 +2596,7 @@
                 if (slot < parser.runtime.players.length) {
                     parser.runtime.players[slot].name = name;
                     addAlias(ensurePlayerRecord(parser, slot), name);
+                    captureSuperimposeName(parser, slot, name);
                 }
                 break;
             }
@@ -2521,6 +2631,7 @@
                     const record = ensurePlayerRecord(parser, slot);
                     record.shirt = parser.runtime.players[slot].shirt;
                     record.pants = parser.runtime.players[slot].pants;
+                    captureSuperimposeColor(parser, slot, colors);
                 }
                 break;
             }
@@ -2543,7 +2654,7 @@
 
             case SVC.SPAWNBASELINE: {
                 const entityNumber = reader.readUint16();
-                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), 1);
+                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), entityNumber, 1);
                 break;
             }
 
@@ -2587,7 +2698,7 @@
 
             case SVC.SPAWNBASELINE2: {
                 const entityNumber = reader.readUint16();
-                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), 2);
+                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), entityNumber, 2);
                 break;
             }
 
@@ -2629,7 +2740,7 @@
 
             case SVC.DP_SPAWNBASELINE2: {
                 const entityNumber = reader.readUint16();
-                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), 7);
+                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), entityNumber, 7);
                 break;
             }
 
@@ -2661,7 +2772,7 @@
 
             case SVC.FTE_SPAWNBASELINE2: {
                 const entityNumber = readEntityIndex(reader, parser.runtime.protocolPext2);
-                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), 6);
+                parseClassicBaseline(parser, reader, ensureEntity(parser, entityNumber), entityNumber, 6);
                 break;
             }
 
@@ -3006,6 +3117,11 @@
                 frames: [],
                 locations: [],
                 unsupportedReason: ''
+            } : null,
+            superimpose: config.enableSuperimpose ? {
+                segments: [],
+                currentSegment: null,
+                maxEntityId: 0
             } : null
         };
     }
@@ -4121,6 +4237,231 @@
         return concatByteChunks(chunks);
     }
 
+    function extractSuperimposeInfo(input) {
+        const bytes = normalizeBuffer(input);
+        const demo = scanDemoFrames(bytes);
+        const trackLine = demo.trackLine.trim();
+        const forcetrack = /^-?\d+$/.test(trackLine) ? Number(trackLine) : null;
+        const parser = createParserContext({}, forcetrack, { enableSuperimpose: true });
+        const frameTimes = [];
+        runParserFrames(parser, demo.frames, frameTimes);
+
+        return {
+            bytes: bytes,
+            demo: demo,
+            frameTimes: frameTimes,
+            maxEntityId: parser.superimpose ? parser.superimpose.maxEntityId : 0,
+            segments: parser.superimpose ? parser.superimpose.segments.slice() : []
+        };
+    }
+
+    function chooseBaseSuperimposeSegment(info) {
+        if (!info.segments.length) {
+            throw new Error('The base demo did not contain a decodable serverinfo block.');
+        }
+        if (info.segments.length !== 1) {
+            throw new Error('Demsuperimpose export currently requires the base demo to contain exactly one map.');
+        }
+        const segment = info.segments[0];
+        if (segment.unsupportedReason) {
+            throw new Error(segment.unsupportedReason);
+        }
+        return segment;
+    }
+
+    function chooseGhostSuperimposeSegment(info, baseSegment, ignoreMapName) {
+        const candidates = info.segments.filter(function (segment) {
+            if (segment.unsupportedReason) {
+                return false;
+            }
+            if (ignoreMapName) {
+                return true;
+            }
+            return segment.worldModel === baseSegment.worldModel;
+        });
+
+        if (!candidates.length) {
+            if (ignoreMapName) {
+                throw new Error('One of the ghost demos did not contain a compatible classic segment.');
+            }
+            throw new Error('One of the ghost demos does not match the base demo map.');
+        }
+
+        return candidates.reduce(function (best, segment) {
+            if (!best || segment.updates.length > best.updates.length) {
+                return segment;
+            }
+            return best;
+        }, null);
+    }
+
+    function cloneSuperimposeState(state) {
+        return cloneEntityState(state || entityState());
+    }
+
+    function remapSuperimposeModelIndex(modelindex, sourceModels, baseModelMap, baseProtocol) {
+        if (!modelindex) {
+            return modelindex;
+        }
+        const modelName = sourceModels[modelindex] || null;
+        if (!modelName || !baseModelMap.has(modelName)) {
+            throw new Error('Demsuperimpose export requires all ghost models to exist in the base demo precache.');
+        }
+        const mapped = baseModelMap.get(modelName);
+        if (baseProtocol === PROTOCOL_NETQUAKE && mapped > 255) {
+            throw new Error('Protocol 15 base demos cannot address the remapped ghost model index needed for this export.');
+        }
+        return mapped;
+    }
+
+    function remapSuperimposeState(state, sourceModels, baseModelMap, baseProtocol) {
+        const mapped = cloneSuperimposeState(state);
+        mapped.modelindex = remapSuperimposeModelIndex(mapped.modelindex, sourceModels, baseModelMap, baseProtocol);
+        return mapped;
+    }
+
+    function classicStateEquals(left, right) {
+        return left.origin[0] === right.origin[0] &&
+            left.origin[1] === right.origin[1] &&
+            left.origin[2] === right.origin[2] &&
+            left.angles[0] === right.angles[0] &&
+            left.angles[1] === right.angles[1] &&
+            left.angles[2] === right.angles[2] &&
+            left.modelindex === right.modelindex &&
+            left.frame === right.frame &&
+            left.colormap === right.colormap &&
+            left.skin === right.skin &&
+            left.effects === right.effects &&
+            left.alpha === right.alpha &&
+            left.scale === right.scale;
+    }
+
+    function findSuperimposeUpdateIndex(updates, time) {
+        const tolerance = 1e-6;
+        let low = 0;
+        let high = updates.length - 1;
+        let answer = -1;
+
+        while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (updates[mid].time <= time + tolerance) {
+                answer = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        return answer;
+    }
+
+    function buildSuperimposeBaselineFrame(baseFrame, ghosts, baseSegment) {
+        const payload = new ByteWriter();
+        ghosts.forEach(function (ghost) {
+            writeStaticOrBaseline(payload, ghost.entityNumber, ghost.baseline, {
+                protocol: baseSegment.protocol,
+                protocolFlags: baseSegment.protocolFlags,
+                protocolPext2: 0
+            });
+        });
+        return encodeDemoMessage(payload.finish(), baseFrame.viewAngles);
+    }
+
+    function buildSuperimposedFrame(frame, frameTime, ghosts, baseSegment) {
+        const payload = new ByteWriter();
+        payload.raw(frame.payload);
+
+        ghosts.forEach(function (ghost) {
+            const updateIndex = findSuperimposeUpdateIndex(ghost.updates, frameTime);
+            if (updateIndex < 0) {
+                return;
+            }
+
+            const nextState = ghost.updates[updateIndex].state;
+            if (classicStateEquals(ghost.lastState, nextState)) {
+                return;
+            }
+
+            writeClassicEntityUpdate(
+                payload,
+                ghost.entityNumber,
+                ghost.lastState,
+                nextState,
+                baseSegment.protocol,
+                baseSegment.protocolFlags
+            );
+            ghost.lastState = cloneSuperimposeState(nextState);
+        });
+
+        return encodeDemoMessage(payload.finish(), frame.viewAngles);
+    }
+
+    function superimposeDemoBuffers(inputs, options) {
+        const list = Array.from(inputs || []);
+        if (list.length < 2) {
+            throw new TypeError('superimposeDemoBuffers expects a base demo and at least one ghost demo.');
+        }
+
+        const config = options || {};
+        const scans = list.map(extractSuperimposeInfo);
+        const baseInfo = scans[0];
+        const ghostInfos = scans.slice(1);
+        const baseSegment = chooseBaseSuperimposeSegment(baseInfo);
+        const ghosts = [];
+        const baseModelMap = new Map();
+
+        baseSegment.models.forEach(function (modelName, index) {
+            if (index > 0 && modelName && !baseModelMap.has(modelName)) {
+                baseModelMap.set(modelName, index);
+            }
+        });
+
+        ghostInfos.forEach(function (info, index) {
+            const segment = chooseGhostSuperimposeSegment(info, baseSegment, !!config.ignoreMapName);
+            if (!segment.baseline) {
+                throw new Error('Ghost demo ' + (index + 2) + ' did not expose a decodable POV baseline.');
+            }
+
+            ghosts.push({
+                entityNumber: baseInfo.maxEntityId + 1 + index,
+                baseline: remapSuperimposeState(segment.baseline, segment.models, baseModelMap, baseSegment.protocol),
+                updates: segment.updates.map(function (entry) {
+                    return {
+                        time: entry.time,
+                        state: remapSuperimposeState(entry.state, segment.models, baseModelMap, baseSegment.protocol)
+                    };
+                }),
+                lastState: remapSuperimposeState(segment.baseline, segment.models, baseModelMap, baseSegment.protocol)
+            });
+        });
+
+        if (!ghosts.length) {
+            throw new Error('No compatible ghost demos were available to superimpose.');
+        }
+
+        const outputChunks = [new Uint8Array(baseInfo.demo.headerBytes)];
+        const frames = baseInfo.demo.frames;
+
+        if (!frames.length) {
+            return concatByteChunks(outputChunks);
+        }
+
+        outputChunks.push(baseInfo.bytes.subarray(frames[0].messageOffset, frames[0].endOffset));
+        outputChunks.push(buildSuperimposeBaselineFrame(frames[0], ghosts, baseSegment));
+
+        for (let index = 1; index < frames.length; index += 1) {
+            const frame = frames[index];
+            const frameTime = Number.isFinite(baseInfo.frameTimes[index]) ? baseInfo.frameTimes[index] : 0;
+            if (frame.payload.length && frame.payload[0] === SVC.TIME) {
+                outputChunks.push(buildSuperimposedFrame(frame, frameTime, ghosts, baseSegment));
+            } else {
+                outputChunks.push(baseInfo.bytes.subarray(frame.messageOffset, frame.endOffset));
+            }
+        }
+
+        return concatByteChunks(outputChunks);
+    }
+
     function smoothDemoBuffer(input) {
         const bytes = normalizeBuffer(input);
         const demo = scanDemoFrames(bytes);
@@ -4228,6 +4569,7 @@
         parseDemoBuffer: parseDemoBuffer,
         trimDemoBuffer: trimDemoBuffer,
         combineDemoBuffers: combineDemoBuffers,
+        superimposeDemoBuffers: superimposeDemoBuffers,
         smoothDemoBuffer: smoothDemoBuffer,
         decodeQuakeBytes: dequakeBytes,
         decodeScoreboardBytes: decodeScoreboardBytes,

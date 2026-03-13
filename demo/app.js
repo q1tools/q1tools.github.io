@@ -2,6 +2,10 @@
     'use strict';
 
     const parserApi = window.QuakeDemoParser;
+    const dzipApi = window.QuakeDemoDzip;
+    const dzipSupported = !!(dzipApi &&
+        typeof dzipApi.extractDemoEntries === 'function' &&
+        typeof dzipApi.createDzipFromDemoBuffer === 'function');
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -385,13 +389,19 @@
         return formatTrimTime(seconds).replace(/[:.]/g, '-');
     }
 
+    function downloadBaseName(fileName, fallback) {
+        const text = String(fileName || fallback || '').replace(/\\/g, '/');
+        const parts = text.split('/').filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : String(fallback || 'demo.dem');
+    }
+
     function buildClipFileName(fileName, startSeconds, endSeconds) {
-        const baseName = String(fileName || 'demo.dem').replace(/\.dem$/i, '');
+        const baseName = downloadBaseName(fileName, 'demo.dem').replace(/\.dem$/i, '');
         return baseName + '__clip_' + safeClipLabel(startSeconds) + '__' + safeClipLabel(endSeconds) + '.dem';
     }
 
     function buildSmoothFileName(fileName) {
-        const baseName = String(fileName || 'demo.dem').replace(/\.dem$/i, '');
+        const baseName = downloadBaseName(fileName, 'demo.dem').replace(/\.dem$/i, '');
         return baseName + '__smoothed.dem';
     }
 
@@ -401,10 +411,58 @@
             return 'combined_demos.dem';
         }
         if (count === 1) {
-            return String(items[0].data.fileName || 'demo.dem').replace(/\.dem$/i, '') + '__combined.dem';
+            return downloadBaseName(items[0].data.fileName, 'demo.dem').replace(/\.dem$/i, '') + '__combined.dem';
         }
-        const firstName = String(items[0].data.fileName || 'demo').replace(/\.dem$/i, '');
+        const firstName = downloadBaseName(items[0].data.fileName, 'demo.dem').replace(/\.dem$/i, '');
         return firstName + '__plus_' + (count - 1) + '_more.dem';
+    }
+
+    function buildSuperimposedFileName(items) {
+        const baseItem = Array.isArray(items) && items.length ? items[0] : null;
+        const baseName = baseItem && baseItem.data
+            ? downloadBaseName(baseItem.data.fileName, 'demo.dem').replace(/\.dem$/i, '')
+            : 'demo';
+        return baseName + '__superimposed.dem';
+    }
+
+    function buildDzipFileName(fileName) {
+        const baseName = downloadBaseName(fileName, 'demo.dem');
+        if (/\.dz$/i.test(baseName)) {
+            return baseName;
+        }
+        if (/\.dem$/i.test(baseName)) {
+            return baseName.replace(/\.dem$/i, '.dz');
+        }
+        return baseName + '.dz';
+    }
+
+    function cloneArrayBuffer(bufferLike) {
+        if (bufferLike instanceof ArrayBuffer) {
+            return bufferLike.slice(0);
+        }
+        if (ArrayBuffer.isView(bufferLike)) {
+            const view = bufferLike;
+            return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+        }
+        throw new TypeError('Expected binary demo data.');
+    }
+
+    async function triggerDemoDownload(bytes, fileName, format, lastModified) {
+        if (format === 'dz') {
+            if (!dzipSupported) {
+                throw new Error('DZip export support is unavailable.');
+            }
+            const archiveBytes = await dzipApi.createDzipFromDemoBuffer(bytes, fileName, {
+                lastModified: lastModified
+            });
+            triggerDownload(archiveBytes, buildDzipFileName(fileName));
+            return;
+        }
+        triggerDownload(bytes, downloadBaseName(fileName, 'demo.dem'));
+    }
+
+    function exportFormatLabel(format) {
+        return format === 'dz' ? '.dz archive' : '.dem';
     }
 
     function triggerDownload(bytes, fileName) {
@@ -529,7 +587,8 @@
             '</div>',
             '<div class="trim-actions">',
             '<div class="trim-hint">Mid-demo trims rebuild signon state from the selected frame so the clip can start cleanly.</div>',
-            '<button class="trim-download-button" type="button">Export clipped .dem</button>',
+            '<button class="trim-download-button trim-download-dem-button" type="button">Export clipped .dem</button>',
+            dzipSupported ? '<button class="trim-download-button trim-download-dzip-button" type="button">Export clipped .dz</button>' : '',
             '</div>',
             '</div>'
         ].join('');
@@ -569,6 +628,7 @@
             '<div class="trim-actions">',
             '<div class="trim-hint">This writes a separate smoothed copy and leaves the original demo untouched. Classic non-FTE streams only.</div>',
             '<button class="trim-download-button smooth-download-button" type="button">Export smoothed .dem</button>',
+            dzipSupported ? '<button class="trim-download-button smooth-download-dzip-button" type="button">Export smoothed .dz</button>' : '',
             '</div>',
             '</div>'
         ].join('');
@@ -622,6 +682,64 @@
                 ? 'Only successfully parsed demos are included. The first demo header is kept, and each demo’s complete frame stream is appended after it.'
                 : 'Load at least two successfully parsed demos to export a combined file.') + '</div>',
             '<button id="combineDownloadButton" class="trim-download-button" type="button"' + (combineEnabled ? '' : ' disabled aria-disabled="true"') + '>Export combined .dem</button>',
+            dzipSupported ? '<button id="combineDownloadDzipButton" class="trim-download-button" type="button"' + (combineEnabled ? '' : ' disabled aria-disabled="true"') + '>Export combined .dz</button>' : '',
+            '</div>',
+            '</div>',
+            '</div>',
+            '</details>',
+            '</section>'
+        ].join('');
+    }
+
+    function renderSuperimposeSection(items) {
+        const successful = items.filter(function (item) {
+            return !!item.data;
+        });
+        if (!successful.length) {
+            return '';
+        }
+
+        const enabled = successful.length >= 2;
+        const baseDemo = successful[0].data;
+        const ghostCount = Math.max(0, successful.length - 1);
+
+        return [
+            '<section class="subsection subsection-collapsible">',
+            '<details class="section-disclosure">',
+            '<summary class="subsection-head disclosure-summary">',
+            '<span class="subsection-title">Superimpose</span>',
+            '<span class="disclosure-meta" aria-hidden="true"></span>',
+            '</summary>',
+            '<div class="disclosure-body">',
+            '<div class="trim-panel combine-panel' + (enabled ? '' : ' trim-panel-disabled combine-panel-disabled') + '">',
+            '<div class="trim-header-row">',
+            '<div>',
+            '<h4 class="trim-title">Superimpose Ghosts</h4>',
+            '<p class="trim-copy">Add ghost runs from the later loaded demos into the first loaded base demo, then export one combined ghosted <code>.dem</code>. Based on demsuperimpose by Matthew Earl.</p>',
+            '</div>',
+            renderPill(enabled ? 'Summary export' : 'Need 2 demos', enabled ? 'neutral' : 'bad'),
+            '</div>',
+            '<div class="mini-metrics trim-summary-metrics">',
+            '<div class="mini-metric"><div class="mini-label">Base demo</div><div class="mini-value">' + escapeHtml(baseDemo.fileName) + '</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Ghost demos</div><div class="mini-value">' + escapeHtml(String(ghostCount)) + '</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Map mode</div><div class="mini-value">Single map</div></div>',
+            '<div class="mini-metric"><div class="mini-label">Ghost style</div><div class="mini-value">View entity only</div></div>',
+            '</div>',
+            '<ol class="combine-order-list">',
+            successful.map(function (item, index) {
+                return '<li>' + escapeHtml(index === 0 ? item.data.fileName + ' (base)' : item.data.fileName + ' (ghost)') + '</li>';
+            }).join(''),
+            '</ol>',
+            '<label class="summary-option">',
+            '<input id="superimposeIgnoreMapToggle" type="checkbox">',
+            '<span>Ignore map name</span>',
+            '</label>',
+            '<div class="trim-actions">',
+            '<div class="trim-hint">' + escapeHtml(enabled
+                ? 'Current browser export supports classic single-map demos only. Ghost names and scoreboard colors are not rewritten yet; the base demo stays the first loaded file.'
+                : 'Load at least two successfully parsed demos to export a ghosted file.') + '</div>',
+            '<button id="superimposeDownloadButton" class="trim-download-button" type="button"' + (enabled ? '' : ' disabled aria-disabled="true"') + '>Export superimposed .dem</button>',
+            dzipSupported ? '<button id="superimposeDownloadDzipButton" class="trim-download-button" type="button"' + (enabled ? '' : ' disabled aria-disabled="true"') + '>Export superimposed .dz</button>' : '',
             '</div>',
             '</div>',
             '</div>',
@@ -1194,14 +1312,67 @@
         ].join('');
     }
 
+    function renderSaveAsSection(item, index) {
+        const sourceFormat = item && item.sourceFormat === 'dz' ? 'dz' : 'dem';
+        const targetFormat = sourceFormat === 'dz' ? 'dem' : 'dz';
+
+        if (targetFormat === 'dz' && !dzipSupported) {
+            return [
+                '<section class="subsection subsection-collapsible">',
+                '<details class="section-disclosure">',
+                '<summary class="subsection-head disclosure-summary">',
+                '<span class="subsection-title">Save As</span>',
+                '<span class="disclosure-meta" aria-hidden="true"></span>',
+                '</summary>',
+                '<div class="disclosure-body">',
+                '<div class="trim-panel trim-panel-disabled">',
+                '<p class="subsection-copy">Repackage the loaded demo as a fresh <code>.dz</code> archive.</p>',
+                '<div class="trim-actions">',
+                '<div class="trim-hint">DZip export support is unavailable in this browser.</div>',
+                '</div>',
+                '</div>',
+                '</div>',
+                '</details>',
+                '</section>'
+            ].join('');
+        }
+
+        const copy = targetFormat === 'dem'
+            ? 'Extract the loaded demo entry as a raw <code>.dem</code> file.'
+            : 'Repackage the loaded demo as a fresh <code>.dz</code> archive.';
+        const hint = targetFormat === 'dem'
+            ? 'This saves the extracted demo stream without the surrounding DZip archive.'
+            : 'This writes a new DZip archive containing the loaded demo entry.';
+
+        return [
+            '<section class="subsection subsection-collapsible">',
+            '<details class="section-disclosure">',
+            '<summary class="subsection-head disclosure-summary">',
+            '<span class="subsection-title">Save As</span>',
+            '<span class="disclosure-meta" aria-hidden="true"></span>',
+            '</summary>',
+            '<div class="disclosure-body">',
+            '<div class="trim-panel save-as-panel" data-demo-index="' + escapeAttribute(index) + '">',
+            '<p class="subsection-copy">' + copy + '</p>',
+            '<div class="trim-actions">',
+            '<div class="trim-hint">' + hint + '</div>',
+            '<button class="trim-download-button save-as-button" type="button" data-export-format="' + escapeAttribute(targetFormat) + '">Save as .' + escapeHtml(targetFormat) + '</button>',
+            '</div>',
+            '</div>',
+            '</div>',
+            '</details>',
+            '</section>'
+        ].join('');
+    }
+
     function renderDemoError(item) {
         return [
             '<article class="save-card demo-card">',
             '<div class="save-header">',
             '<div class="save-headline">',
             '<div>',
-            '<h2 class="save-title">' + escapeHtml(item.file.name) + '</h2>',
-            '<div class="save-subtitle">' + escapeHtml(formatBytes(item.file.size)) + ' · ' + escapeHtml(formatDate(item.file.lastModified)) + '</div>',
+            '<h2 class="save-title">' + escapeHtml(item.displayName || item.fileName || '(unknown demo)') + '</h2>',
+            '<div class="save-subtitle">' + escapeHtml(formatBytes(item.fileSize)) + ' · ' + escapeHtml(formatDate(item.lastModified)) + (item.archiveName ? ' · ' + escapeHtml('from ' + item.archiveName) : '') + '</div>',
             '</div>',
             '<div class="save-meta">' + renderPill('Parse failed', 'bad') + '</div>',
             '</div>',
@@ -1232,6 +1403,9 @@
         if (data.players.some(function (player) { return player.isPov; })) {
             pills.push(renderPill('POV detected', 'pov'));
         }
+        if (item.archiveName) {
+            pills.push(renderPill('From ' + item.archiveName));
+        }
 
         const metrics = [
             renderMetric('Duration', formatDuration(data.duration)),
@@ -1253,7 +1427,7 @@
             '<div class="save-headline">',
             '<div>',
             '<h2 class="save-title">' + escapeHtml(data.fileName) + '</h2>',
-            '<div class="save-subtitle">' + escapeHtml(formatBytes(data.fileSize)) + ' · ' + escapeHtml(formatDate(data.lastModified)) + '</div>',
+            '<div class="save-subtitle">' + escapeHtml(formatBytes(data.fileSize)) + ' · ' + escapeHtml(formatDate(data.lastModified)) + (item.archiveName ? ' · ' + escapeHtml('from ' + item.archiveName) : '') + '</div>',
             '</div>',
             '<div class="save-meta">' + pills.join('') + '</div>',
             '</div>',
@@ -1287,6 +1461,7 @@
             '</div>',
             '</details>',
             '</section>',
+            renderSaveAsSection(item, index),
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">Players</h3></div>',
             '<div class="player-grid">' + renderPlayerSection(data) + '</div>',
@@ -1367,9 +1542,12 @@
             renderStatCard('Decoded time', formatDuration(duration))
         ].join('');
         if (summaryActions) {
-            const combineMarkup = renderCombineSection(items);
-            summaryActions.innerHTML = combineMarkup;
-            summaryActions.hidden = !combineMarkup;
+            const sections = [
+                renderCombineSection(items),
+                renderSuperimposeSection(items)
+            ].filter(Boolean);
+            summaryActions.innerHTML = sections.join('');
+            summaryActions.hidden = sections.length === 0;
         }
         summaryPanel.hidden = false;
     }
@@ -1387,11 +1565,54 @@
         clearButton.disabled = false;
         resultsPanel.innerHTML = items.map(renderDemoCard).join('');
         updateSummary(items);
+        bindSaveAsPanels();
         bindCombinePanel();
+        bindSuperimposePanel();
         bindTrimPanels();
         bindSmoothPanels();
         bindChatFilters();
         bindServerFilters();
+    }
+
+    function bindSaveAsPanels() {
+        const panels = resultsPanel.querySelectorAll('.save-as-panel[data-demo-index]');
+
+        panels.forEach(function (panel) {
+            const demoIndex = Number(panel.getAttribute('data-demo-index'));
+            const item = parsedFiles[demoIndex];
+            if (!item || !item.data) {
+                return;
+            }
+
+            const button = panel.querySelector('.save-as-button');
+            if (!button) {
+                return;
+            }
+
+            const runExport = async function (format) {
+                button.disabled = true;
+                button.textContent = 'Saving .' + format + '...';
+
+                try {
+                    await triggerDemoDownload(
+                        item.sourceBuffer,
+                        item.data.fileName,
+                        format,
+                        item.data.lastModified
+                    );
+                    setStatus('Prepared ' + downloadBaseName(item.data.fileName, 'demo.dem') + ' as ' + exportFormatLabel(format) + '.', 'success');
+                } catch (error) {
+                    setStatus(error && error.message ? error.message : 'Failed to save the loaded demo.', 'error');
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Save as .' + format;
+                }
+            };
+
+            button.addEventListener('click', function () {
+                runExport(button.getAttribute('data-export-format') || 'dem');
+            });
+        });
     }
 
     function bindCombinePanel() {
@@ -1399,12 +1620,13 @@
             return;
         }
 
-        const button = summaryActions.querySelector('#combineDownloadButton');
-        if (!button) {
+        const demButton = summaryActions.querySelector('#combineDownloadButton');
+        const dzButton = summaryActions.querySelector('#combineDownloadDzipButton');
+        if (!demButton && !dzButton) {
             return;
         }
 
-        button.addEventListener('click', function () {
+        const runExport = async function (format) {
             const successful = parsedFiles.filter(function (item) {
                 return !!item.data;
             });
@@ -1414,22 +1636,110 @@
                 return;
             }
 
-            button.disabled = true;
-            button.textContent = 'Building combined demo...';
+            if (demButton) {
+                demButton.disabled = true;
+                demButton.textContent = 'Building combined demo...';
+            }
+            if (dzButton) {
+                dzButton.disabled = true;
+                dzButton.textContent = 'Building combined DZip...';
+            }
 
             try {
                 const combined = parserApi.combineDemoBuffers(successful.map(function (item) {
                     return item.sourceBuffer;
                 }));
-                triggerDownload(combined, buildCombinedFileName(successful));
-                setStatus('Prepared combined demo from ' + successful.length + ' loaded demos.', 'success');
+                await triggerDemoDownload(combined, buildCombinedFileName(successful), format);
+                setStatus('Prepared combined ' + exportFormatLabel(format) + ' from ' + successful.length + ' loaded demos.', 'success');
             } catch (error) {
                 setStatus(error && error.message ? error.message : 'Failed to export combined demo.', 'error');
             } finally {
-                button.disabled = false;
-                button.textContent = 'Export combined .dem';
+                if (demButton) {
+                    demButton.disabled = false;
+                    demButton.textContent = 'Export combined .dem';
+                }
+                if (dzButton) {
+                    dzButton.disabled = false;
+                    dzButton.textContent = 'Export combined .dz';
+                }
             }
-        });
+        };
+
+        if (demButton) {
+            demButton.addEventListener('click', function () {
+                runExport('dem');
+            });
+        }
+        if (dzButton) {
+            dzButton.addEventListener('click', function () {
+                runExport('dz');
+            });
+        }
+    }
+
+    function bindSuperimposePanel() {
+        if (!summaryActions || summaryActions.hidden) {
+            return;
+        }
+
+        const demButton = summaryActions.querySelector('#superimposeDownloadButton');
+        const dzButton = summaryActions.querySelector('#superimposeDownloadDzipButton');
+        const ignoreMapToggle = summaryActions.querySelector('#superimposeIgnoreMapToggle');
+        if (!demButton && !dzButton) {
+            return;
+        }
+
+        const runExport = async function (format) {
+            const successful = parsedFiles.filter(function (item) {
+                return !!item.data;
+            });
+
+            if (successful.length < 2) {
+                setStatus('Load at least two parsed demos to superimpose them.', 'error');
+                return;
+            }
+
+            if (demButton) {
+                demButton.disabled = true;
+                demButton.textContent = 'Building ghost demo...';
+            }
+            if (dzButton) {
+                dzButton.disabled = true;
+                dzButton.textContent = 'Building ghost DZip...';
+            }
+
+            try {
+                const output = parserApi.superimposeDemoBuffers(successful.map(function (item) {
+                    return item.sourceBuffer;
+                }), {
+                    ignoreMapName: !!(ignoreMapToggle && ignoreMapToggle.checked)
+                });
+                await triggerDemoDownload(output, buildSuperimposedFileName(successful), format);
+                setStatus('Prepared superimposed ' + exportFormatLabel(format) + ' using ' + successful[0].data.fileName + ' as the base.', 'success');
+            } catch (error) {
+                setStatus(error && error.message ? error.message : 'Failed to export superimposed demo.', 'error');
+            } finally {
+                if (demButton) {
+                    demButton.disabled = false;
+                    demButton.textContent = 'Export superimposed .dem';
+                }
+                if (dzButton) {
+                    dzButton.disabled = false;
+                    dzButton.textContent = 'Export superimposed .dz';
+                }
+            }
+        };
+
+        if (demButton) {
+            demButton.addEventListener('click', function () {
+                runExport('dem');
+            });
+        }
+        if (dzButton) {
+            dzButton.addEventListener('click', function () {
+                runExport('dz');
+            });
+        }
     }
 
     function bindTrimPanels() {
@@ -1446,9 +1756,10 @@
             const startFrameInput = panel.querySelector('.trim-frame-input[data-boundary="start"]');
             const endFrameInput = panel.querySelector('.trim-frame-input[data-boundary="end"]');
             const selection = panel.querySelector('[data-trim-selection]');
-            const exportButton = panel.querySelector('.trim-download-button');
+            const demButton = panel.querySelector('.trim-download-dem-button');
+            const dzButton = panel.querySelector('.trim-download-dzip-button');
 
-            if (!item || !data || !startRange || !endRange || !startTimeInput || !endTimeInput || !startFrameInput || !endFrameInput || !selection || !exportButton) {
+            if (!item || !data || !startRange || !endRange || !startTimeInput || !endTimeInput || !startFrameInput || !endFrameInput || !selection || !demButton) {
                 return;
             }
 
@@ -1535,7 +1846,7 @@
                 syncFromTimes('end');
             });
 
-            exportButton.addEventListener('click', function () {
+            const runExport = async function (format) {
                 const state = readState();
                 const startTime = relativeFrameTime(data, state.startFrame);
                 const endTime = relativeFrameTime(data, state.endFrame);
@@ -1543,8 +1854,12 @@
                     return map.startFrame === state.startFrame;
                 });
 
-                exportButton.disabled = true;
-                exportButton.textContent = 'Building clip...';
+                demButton.disabled = true;
+                demButton.textContent = 'Building clip...';
+                if (dzButton) {
+                    dzButton.disabled = true;
+                    dzButton.textContent = 'Building DZip...';
+                }
 
                 try {
                     const clippedBytes = parserApi.trimDemoBuffer(item.sourceBuffer, {
@@ -1553,15 +1868,33 @@
                         syntheticStart: syntheticStart
                     });
 
-                    triggerDownload(clippedBytes, buildClipFileName(data.fileName, startTime, endTime));
-                    setStatus('Prepared clipped demo from ' + formatTrimTime(startTime) + ' to ' + formatTrimTime(endTime) + '.', 'success');
+                    await triggerDemoDownload(
+                        clippedBytes,
+                        buildClipFileName(data.fileName, startTime, endTime),
+                        format,
+                        data.lastModified
+                    );
+                    setStatus('Prepared clipped ' + exportFormatLabel(format) + ' from ' + formatTrimTime(startTime) + ' to ' + formatTrimTime(endTime) + '.', 'success');
                 } catch (error) {
                     setStatus(error && error.message ? error.message : 'Failed to export trimmed demo.', 'error');
                 } finally {
-                    exportButton.disabled = false;
-                    exportButton.textContent = 'Export clipped .dem';
+                    demButton.disabled = false;
+                    demButton.textContent = 'Export clipped .dem';
+                    if (dzButton) {
+                        dzButton.disabled = false;
+                        dzButton.textContent = 'Export clipped .dz';
+                    }
                 }
+            };
+
+            demButton.addEventListener('click', function () {
+                runExport('dem');
             });
+            if (dzButton) {
+                dzButton.addEventListener('click', function () {
+                    runExport('dz');
+                });
+            }
 
             writeState(1, data.frameCount);
         });
@@ -1577,26 +1910,49 @@
                 return;
             }
 
-            const exportButton = panel.querySelector('.smooth-download-button');
-            if (!exportButton) {
+            const demButton = panel.querySelector('.smooth-download-button');
+            const dzButton = panel.querySelector('.smooth-download-dzip-button');
+            if (!demButton) {
                 return;
             }
 
-            exportButton.addEventListener('click', function () {
-                exportButton.disabled = true;
-                exportButton.textContent = 'Building smoothed demo...';
+            const runExport = async function (format) {
+                demButton.disabled = true;
+                demButton.textContent = 'Building smoothed demo...';
+                if (dzButton) {
+                    dzButton.disabled = true;
+                    dzButton.textContent = 'Building smoothed DZip...';
+                }
 
                 try {
                     const smoothedBytes = parserApi.smoothDemoBuffer(item.sourceBuffer);
-                    triggerDownload(smoothedBytes, buildSmoothFileName(item.data.fileName));
-                    setStatus('Prepared demsmooth export for ' + item.data.fileName + '.', 'success');
+                    await triggerDemoDownload(
+                        smoothedBytes,
+                        buildSmoothFileName(item.data.fileName),
+                        format,
+                        item.data.lastModified
+                    );
+                    setStatus('Prepared demsmooth ' + exportFormatLabel(format) + ' for ' + item.data.fileName + '.', 'success');
                 } catch (error) {
                     setStatus(error && error.message ? error.message : 'Failed to export smoothed demo.', 'error');
                 } finally {
-                    exportButton.disabled = false;
-                    exportButton.textContent = 'Export smoothed .dem';
+                    demButton.disabled = false;
+                    demButton.textContent = 'Export smoothed .dem';
+                    if (dzButton) {
+                        dzButton.disabled = false;
+                        dzButton.textContent = 'Export smoothed .dz';
+                    }
                 }
+            };
+
+            demButton.addEventListener('click', function () {
+                runExport('dem');
             });
+            if (dzButton) {
+                dzButton.addEventListener('click', function () {
+                    runExport('dz');
+                });
+            }
         });
     }
 
@@ -1667,20 +2023,73 @@
         });
     }
 
-    async function handleFiles(fileList) {
+    async function collectAcceptedInputs(fileList) {
         const warnings = [];
         const accepted = [];
 
-        Array.from(fileList || []).forEach(function (file) {
+        for (const file of Array.from(fileList || [])) {
             if (/\.dem$/i.test(file.name)) {
-                accepted.push(file);
-            } else {
-                warnings.push('Skipped "' + file.name + '" because it does not end in .dem.');
+                accepted.push({
+                    displayName: file.name,
+                    fileName: file.name,
+                    sourceFormat: 'dem',
+                    sourceBuffer: await file.arrayBuffer(),
+                    fileSize: file.size,
+                    lastModified: file.lastModified
+                });
+                continue;
             }
-        });
+
+            if (/\.dz$/i.test(file.name)) {
+                if (!dzipSupported) {
+                    warnings.push('Skipped "' + file.name + '" because DZip support is unavailable.');
+                    continue;
+                }
+
+                try {
+                    const archiveBuffer = await file.arrayBuffer();
+                    const entries = await dzipApi.extractDemoEntries(archiveBuffer);
+                    if (!entries.length) {
+                        warnings.push('Skipped "' + file.name + '" because it does not contain any .dem entries.');
+                        continue;
+                    }
+
+                    entries.forEach(function (entry) {
+                        accepted.push({
+                            displayName: entry.name,
+                            fileName: entry.name,
+                            sourceFormat: 'dz',
+                            archiveName: file.name,
+                            sourceBuffer: cloneArrayBuffer(entry.bytes),
+                            fileSize: entry.bytes.byteLength,
+                            lastModified: entry.lastModified || file.lastModified
+                        });
+                    });
+                } catch (error) {
+                    warnings.push('Skipped "' + file.name + '" because the DZip archive could not be read: ' + (error && error.message ? error.message : String(error)));
+                }
+                continue;
+            }
+
+            warnings.push('Skipped "' + file.name + '" because it is not a .dem or .dz file.');
+        }
+
+        return {
+            warnings: warnings,
+            accepted: accepted
+        };
+    }
+
+    async function handleFiles(fileList) {
+        const fileCount = Array.from(fileList || []).length;
+        setStatus('Inspecting ' + fileCount + ' file' + (fileCount === 1 ? '' : 's') + '...');
+
+        const inputResult = await collectAcceptedInputs(fileList);
+        const warnings = inputResult.warnings;
+        const accepted = inputResult.accepted;
 
         if (!accepted.length) {
-            setWarnings(warnings.length ? warnings : ['No .dem files were provided.']);
+            setWarnings(warnings.length ? warnings : ['No .dem or .dz files were provided.']);
             setStatus('No supported demos were loaded.', 'error');
             renderResults([]);
             return;
@@ -1689,21 +2098,30 @@
         setWarnings(warnings);
         setStatus('Reading ' + accepted.length + ' demo' + (accepted.length === 1 ? '' : 's') + '...');
 
-        const items = await Promise.all(accepted.map(async function (file) {
+        const items = await Promise.all(accepted.map(async function (input) {
             try {
-                const buffer = await file.arrayBuffer();
                 return {
-                    file: file,
-                    sourceBuffer: buffer,
-                    data: parserApi.parseDemoBuffer(buffer, {
-                        name: file.name,
-                        size: file.size,
-                        lastModified: file.lastModified
+                    displayName: input.displayName,
+                    fileName: input.fileName,
+                    sourceFormat: input.sourceFormat,
+                    archiveName: input.archiveName,
+                    fileSize: input.fileSize,
+                    lastModified: input.lastModified,
+                    sourceBuffer: input.sourceBuffer,
+                    data: parserApi.parseDemoBuffer(input.sourceBuffer, {
+                        name: input.fileName,
+                        size: input.fileSize,
+                        lastModified: input.lastModified
                     })
                 };
             } catch (error) {
                 return {
-                    file: file,
+                    displayName: input.displayName,
+                    fileName: input.fileName,
+                    sourceFormat: input.sourceFormat,
+                    archiveName: input.archiveName,
+                    fileSize: input.fileSize,
+                    lastModified: input.lastModified,
                     error: error && error.message ? error.message : String(error)
                 };
             }
@@ -1764,17 +2182,25 @@
 
         dropZone.addEventListener('drop', function (event) {
             if (event.dataTransfer && event.dataTransfer.files) {
-                handleFiles(event.dataTransfer.files);
+                handleFiles(event.dataTransfer.files).catch(function (error) {
+                    setWarnings([error && error.message ? error.message : String(error)]);
+                    setStatus('Failed to load the dropped files.', 'error');
+                    renderResults([]);
+                });
             }
         });
     }
 
     clearButton.addEventListener('click', reset);
     fileInput.addEventListener('change', function (event) {
-        handleFiles(event.target.files);
+        handleFiles(event.target.files).catch(function (error) {
+            setWarnings([error && error.message ? error.message : String(error)]);
+            setStatus('Failed to load the selected files.', 'error');
+            renderResults([]);
+        });
     });
 
-    if (!parserApi || typeof parserApi.parseDemoBuffer !== 'function' || typeof parserApi.trimDemoBuffer !== 'function' || typeof parserApi.combineDemoBuffers !== 'function' || typeof parserApi.smoothDemoBuffer !== 'function') {
+    if (!parserApi || typeof parserApi.parseDemoBuffer !== 'function' || typeof parserApi.trimDemoBuffer !== 'function' || typeof parserApi.combineDemoBuffers !== 'function' || typeof parserApi.superimposeDemoBuffers !== 'function' || typeof parserApi.smoothDemoBuffer !== 'function') {
         setWarnings(['The demo parser failed to load.']);
         setStatus('The demo parser is unavailable.', 'error');
         return;

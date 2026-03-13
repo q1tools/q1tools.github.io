@@ -49,6 +49,20 @@
     margin-top: 6px;
 }
 
+.summary-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #dcccbc;
+    font-size: 0.95rem;
+}
+
+.summary-option input {
+    width: 18px;
+    height: 18px;
+    accent-color: #d48f52;
+}
+
 .demo-card {
     position: relative;
 }
