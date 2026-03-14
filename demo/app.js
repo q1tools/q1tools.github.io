@@ -283,8 +283,30 @@
         return String(fallbackLabel || '(unnamed player)');
     }
 
+    function cleanNameCodes(codes) {
+        if (!Array.isArray(codes) || !codes.length) { return codes; }
+        var ascii = '';
+        for (var i = 0; i < codes.length; i++) {
+            ascii += String.fromCharCode(codes[i] & 127);
+        }
+        var lower = ascii.toLowerCase();
+        var statusWords = ['ready', 'dead', 'afk', 'typing', 'brb'];
+        var cutAt = codes.length;
+        for (var s = 0; s < statusWords.length; s++) {
+            var idx = lower.indexOf(statusWords[s]);
+            if (idx >= 0) {
+                var trim = idx;
+                while (trim > 0 && (ascii.charCodeAt(trim - 1) === 32)) { trim--; }
+                if (trim < cutAt) { cutAt = trim; }
+            }
+        }
+        var result = codes.slice(0, cutAt);
+        if (result.length > 15) { result = result.slice(0, 15); }
+        return result;
+    }
+
     function renderQuakePreview(previewCodes, fallbackLabel) {
-        const codes = Array.isArray(previewCodes) ? previewCodes.filter(Number.isFinite) : [];
+        const codes = cleanNameCodes(Array.isArray(previewCodes) ? previewCodes.filter(Number.isFinite) : []);
         if (!codes.length) {
             return '<span class="quake-name-fallback">' + escapeHtml(fallbackLabel || '(unnamed player)') + '</span>';
         }

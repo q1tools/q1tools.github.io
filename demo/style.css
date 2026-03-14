@@ -511,9 +511,7 @@
     gap: 1px;
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
+    overflow: hidden;
 }
 
 .preview-strip img {
