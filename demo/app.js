@@ -20,6 +20,8 @@
     const folderLink = document.getElementById('folderLink');
     const folderAnalysisPanel = document.getElementById('folderAnalysisPanel');
     const folderAnalysisContent = document.getElementById('folderAnalysisContent');
+    const captimePanel = document.getElementById('captimePanel');
+    const captimeContent = document.getElementById('captimeContent');
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
         [123, 123, 123],
@@ -315,7 +317,7 @@
             '<div class="preview-strip" title="' + escapeAttribute((fallbackLabel || '').trim() || 'Quake name') + '">',
             codes.map(function (code) {
                 const padded = padByte(code);
-                return '<img src="' + PREVIEW_ROOT + padded + '.gif" alt="" aria-hidden="true" width="16" height="16">';
+                return '<img src="' + PREVIEW_ROOT + padded + '.gif" alt="" aria-hidden="true" width="14" height="14">';
             }).join(''),
             '</div>'
         ].join('');
@@ -899,6 +901,339 @@
         return redFlagMentions > 0 && blueFlagMentions > 0;
     }
 
+    function extractCaptimeRecords(happenings) {
+        var records = [];
+        var captimePattern = /^New (\d+(?:st|nd|rd|th)) place match captime/i;
+        var detailPattern = /^(.+?)\s+-\s+(\d+:\d+\.\d+)\s*([RB]?)$/;
+
+        for (var i = 0; i < happenings.length; i++) {
+            var match = captimePattern.exec(happenings[i].text);
+            if (match) {
+                var place = match[1];
+                var isRecord = /record was set/i.test(happenings[i].text);
+                var record = {
+                    place: place,
+                    isRecord: isRecord,
+                    time: happenings[i].time,
+                    player: null,
+                    captime: null,
+                    team: null
+                };
+
+                if (i + 1 < happenings.length) {
+                    var detailMatch = detailPattern.exec(happenings[i + 1].text);
+                    if (detailMatch) {
+                        record.player = detailMatch[1].trim();
+                        record.captime = detailMatch[2];
+                        record.team = detailMatch[3] || null;
+                        i++;
+                    }
+                }
+
+                records.push(record);
+            }
+        }
+
+        return records;
+    }
+
+    function updateCaptimePanel(items) {
+        var allRecords = [];
+
+        items.forEach(function (item) {
+            if (!item.data) { return; }
+            var happenings = collectServerHappenings(item.data);
+            var records = extractCaptimeRecords(happenings);
+            if (records.length) {
+                allRecords.push({
+                    demoName: item.data.fileName || item.fileName || item.displayName,
+                    records: records
+                });
+            }
+        });
+
+        if (!allRecords.length) {
+            captimePanel.hidden = true;
+            captimeContent.innerHTML = '';
+            return;
+        }
+
+        var totalRecords = 0;
+        allRecords.forEach(function (entry) { totalRecords += entry.records.length; });
+
+        var html = allRecords.map(function (entry) {
+            var rows = entry.records.map(function (rec) {
+                var teamLabel = rec.team === 'R' ? 'Red' : rec.team === 'B' ? 'Blue' : '';
+                var teamClass = rec.team === 'R' ? 'captime-team-red' : rec.team === 'B' ? 'captime-team-blue' : '';
+
+                return [
+                    '<div class="captime-entry' + (rec.isRecord ? ' captime-new-record' : '') + '">',
+                    '<div class="captime-place">' + escapeHtml(rec.place) + ' place' + (rec.isRecord ? ' (new record!)' : '') + '</div>',
+                    rec.player ? '<div class="captime-player">' + escapeHtml(rec.player) + '</div>' : '',
+                    '<div class="captime-details">',
+                    rec.captime ? '<span class="captime-time">' + escapeHtml(rec.captime) + '</span>' : '',
+                    teamLabel ? '<span class="captime-team ' + teamClass + '">' + escapeHtml(teamLabel) + '</span>' : '',
+                    '</div>',
+                    '</div>'
+                ].join('');
+            });
+
+            return [
+                '<div class="captime-demo-group">',
+                allRecords.length > 1 ? '<div class="captime-demo-name">' + escapeHtml(entry.demoName) + '</div>' : '',
+                '<div class="captime-list">' + rows.join('') + '</div>',
+                '</div>'
+            ].join('');
+        });
+
+        captimeContent.innerHTML = [
+            '<p class="subsection-copy">' + totalRecords + ' captime record' + (totalRecords === 1 ? '' : 's') + ' found across ' + allRecords.length + ' demo' + (allRecords.length === 1 ? '' : 's') + '.</p>',
+            html.join('')
+        ].join('');
+        captimePanel.hidden = false;
+    }
+
+    function extractMatchStats(data) {
+        var prints = (data && data.prints) || [];
+        var startIndex = -1;
+        for (var i = 0; i < prints.length; i++) {
+            if (/^\s*match statistics\s*$/i.test(prints[i].text)) {
+                startIndex = i;
+                break;
+            }
+        }
+        if (startIndex === -1) { return null; }
+
+        var endIndex = prints.length;
+        for (var i = startIndex + 1; i < prints.length; i++) {
+            if (/^\s*The match is over\s*$/i.test(prints[i].text)) {
+                endIndex = i + 1;
+                while (endIndex < prints.length && /^The\s+(Red|Blue)\s+team has\s+\d+\s+frags$/i.test(prints[endIndex].text.trim())) {
+                    endIndex++;
+                }
+                break;
+            }
+        }
+
+        var lines = [];
+        for (var i = startIndex + 1; i < endIndex; i++) {
+            lines.push(prints[i].text);
+        }
+        if (!lines.length) { return null; }
+
+        function isSep(line) {
+            var t = line.trim();
+            return t.length > 0 && /^[-+\s]+$/.test(t) && t.includes('+') && t.includes('-');
+        }
+
+        var header = { map: '', date: '', server: '' };
+        var sections = [];
+        var lastTableEnd = 0;
+
+        var bodyStart = 0;
+        for (var i = 0; i < lines.length; i++) {
+            var t = lines[i].trim();
+            if (t.includes('|') || isSep(t)) { bodyStart = i; break; }
+            if (/^map:\s*/i.test(t)) {
+                header.map = t.replace(/^map:\s*/i, '').trim();
+            } else if (/^\d{2}-\d{2}-\d{4}/.test(t)) {
+                header.date = t;
+            } else if (header.map && header.date && !header.server) {
+                header.server = t;
+            } else {
+                bodyStart = i;
+                break;
+            }
+            bodyStart = i + 1;
+        }
+
+        var pendingTitle = '';
+        var i = bodyStart;
+        while (i < lines.length) {
+            var t = lines[i].trim();
+
+            if (isSep(t)) {
+                var headerLine = '';
+                for (var h = i - 1; h >= bodyStart; h--) {
+                    if (lines[h].includes('|')) {
+                        headerLine = lines[h];
+                        break;
+                    }
+                }
+                var headers = headerLine ? headerLine.split('|').map(function (s) { return s.trim(); }) : [];
+                while (headers.length > 0 && headers[headers.length - 1] === '') { headers.pop(); }
+
+                var rows = [];
+                i++;
+                while (i < lines.length && lines[i].includes('|') && !isSep(lines[i].trim())) {
+                    if (i + 1 < lines.length && isSep(lines[i + 1].trim())) {
+                        break;
+                    }
+                    var cells = lines[i].split('|').map(function (s) { return s.trim(); });
+                    while (cells.length > 0 && cells[cells.length - 1] === '') { cells.pop(); }
+                    rows.push(cells);
+                    i++;
+                }
+
+                if (headers.length > 0) {
+                    sections.push({ title: pendingTitle, headers: headers, rows: rows });
+                    lastTableEnd = i;
+                }
+                pendingTitle = '';
+                continue;
+            }
+
+            if (t.includes('|')) {
+                i++;
+                continue;
+            }
+
+            pendingTitle = t;
+            i++;
+        }
+
+        var footer = [];
+        for (var i = lastTableEnd; i < lines.length; i++) {
+            var t = lines[i].trim();
+            if (t && !t.includes('|') && !isSep(t)) {
+                footer.push(t);
+            }
+        }
+
+        if (!sections.length) { return null; }
+
+        return { header: header, sections: sections, footer: footer };
+    }
+
+    function renderMatchStatsSection(stats) {
+        var html = [];
+
+        var teamScores = [];
+        if (stats.footer) {
+            stats.footer.forEach(function (line) {
+                var m = line.match(/^The\s+(Red|Blue)\s+team has\s+(\d+)\s+frags$/i);
+                if (m) {
+                    teamScores.push({ team: m[1], frags: m[2] });
+                }
+            });
+        }
+
+        if (stats.header.map || stats.header.date || stats.header.server || teamScores.length) {
+            html.push('<div class="match-stats-header">');
+            if (stats.header.map) {
+                html.push('<div class="match-stats-map">' + escapeHtml(stats.header.map) + '</div>');
+            }
+            var sub = [];
+            if (stats.header.date) { sub.push(escapeHtml(stats.header.date)); }
+            if (stats.header.server) { sub.push(escapeHtml(stats.header.server)); }
+            if (sub.length) {
+                html.push('<div class="match-stats-sub">' + sub.join(' &middot; ') + '</div>');
+            }
+            if (teamScores.length) {
+                html.push('<div class="match-stats-scores">');
+                teamScores.forEach(function (ts) {
+                    var cls = ts.team.toLowerCase() === 'red' ? 'match-stats-score-red' : 'match-stats-score-blue';
+                    html.push('<div class="match-stats-score ' + cls + '">' + escapeHtml(ts.team) + ' <span class="match-stats-score-value">' + escapeHtml(ts.frags) + '</span></div>');
+                });
+                html.push('</div>');
+            }
+            html.push('</div>');
+        }
+
+        stats.sections.forEach(function (section) {
+            if (section.title) {
+                html.push('<h4 class="match-stats-section-title">' + escapeHtml(section.title) + '</h4>');
+            }
+
+            var headers = section.headers;
+            var rows = section.rows;
+            var lastIdx = headers.length - 1;
+            if (lastIdx >= 0 && headers[lastIdx].toLowerCase().trim() === 'name') {
+                headers = [headers[lastIdx]].concat(headers.slice(0, lastIdx));
+                rows = rows.map(function (row) {
+                    if (row.length > lastIdx) {
+                        return [row[lastIdx]].concat(row.slice(0, lastIdx));
+                    }
+                    return row;
+                });
+            }
+
+            html.push('<div class="match-stats-table-wrap">');
+            html.push('<table class="match-stats-table">');
+            html.push('<thead><tr>');
+            headers.forEach(function (h) {
+                html.push('<th>' + escapeHtml(h || '') + '</th>');
+            });
+            html.push('</tr></thead>');
+            html.push('<tbody>');
+            rows.forEach(function (row) {
+                html.push('<tr>');
+                for (var c = 0; c < headers.length; c++) {
+                    html.push('<td>' + escapeHtml(row[c] || '') + '</td>');
+                }
+                html.push('</tr>');
+            });
+            html.push('</tbody>');
+            html.push('</table>');
+            html.push('</div>');
+        });
+
+        if (stats.footer && stats.footer.length) {
+            var captimeLines = [];
+            var otherLines = [];
+
+            stats.footer.forEach(function (line) {
+                if (/capture-time record:/i.test(line)) {
+                    captimeLines.push(line);
+                } else if (/the match is over/i.test(line) || /team has \d+ frags/i.test(line) || /team has won/i.test(line)) {
+                    // team scores shown at top, skip these
+                } else {
+                    otherLines.push(line);
+                }
+            });
+
+            if (!captimeLines.length && !otherLines.length) {
+                return html.join('');
+            }
+
+            html.push('<div class="match-stats-footer">');
+
+            if (captimeLines.length) {
+                html.push('<div class="match-stats-captime-block">');
+                captimeLines.forEach(function (line) {
+                    var m = line.match(/^(.+?)\s+(match|trial)\s+capture-time record:\s*(\S+)\s+([rb])\s+(.+)$/i);
+                    if (m) {
+                        var teamLetter = m[4].toUpperCase();
+                        var teamLabel = teamLetter === 'R' ? 'Red' : 'Blue';
+                        var teamClass = teamLetter === 'R' ? 'captime-team-red' : 'captime-team-blue';
+                        html.push(
+                            '<div class="match-stats-captime-row">' +
+                            '<span class="match-stats-captime-type">' + escapeHtml(m[2]) + ' record</span>' +
+                            '<span class="match-stats-captime-player">' + escapeHtml(m[5]) + '</span>' +
+                            '<span class="captime-time">' + escapeHtml(m[3]) + '</span>' +
+                            '<span class="captime-team ' + teamClass + '">' + escapeHtml(teamLabel) + '</span>' +
+                            '</div>'
+                        );
+                    } else {
+                        html.push('<div class="match-stats-footer-line">' + escapeHtml(line) + '</div>');
+                    }
+                });
+                html.push('</div>');
+            }
+
+
+            if (otherLines.length) {
+                otherLines.forEach(function (line) {
+                    html.push('<div class="match-stats-footer-line">' + escapeHtml(line) + '</div>');
+                });
+            }
+
+            html.push('</div>');
+        }
+
+        return html.join('');
+    }
+
     function remapItemEventForFlags(event) {
         if (!event || event.group !== 'keys') {
             return event;
@@ -1108,7 +1443,7 @@
         let pending = null;
 
         function isPingTimesHeader(text) {
-            return /^Client ping times:\s*$/i.test(text);
+            return /^Client ping times:/i.test(text);
         }
 
         function isPingTimesLine(text) {
@@ -1436,6 +1771,14 @@
         if (item.archiveName) {
             pills.push(renderPill('From ' + item.archiveName));
         }
+        var captimeRecords = extractCaptimeRecords(happenings);
+        if (captimeRecords.length) {
+            pills.push(renderPill(captimeRecords.length + ' captime' + (captimeRecords.length === 1 ? '' : 's'), 'captime'));
+        }
+        var matchStats = extractMatchStats(data);
+        if (matchStats) {
+            pills.push(renderPill('Match Stats', 'match-stats'));
+        }
 
         const metrics = [
             renderMetric('Duration', formatDuration(data.duration)),
@@ -1496,16 +1839,29 @@
             '<div class="subsection-head"><h3 class="subsection-title">Players</h3></div>',
             '<div class="player-grid">' + renderPlayerSection(data) + '</div>',
             '</section>',
+            matchStats ? [
+                '<section class="subsection subsection-collapsible">',
+                '<details class="section-disclosure" open>',
+                '<summary class="subsection-head disclosure-summary">',
+                '<span class="subsection-title">Match Statistics</span>',
+                '<span class="disclosure-meta" aria-hidden="true"></span>',
+                '</summary>',
+                '<div class="disclosure-body">',
+                renderMatchStatsSection(matchStats),
+                '</div>',
+                '</details>',
+                '</section>'
+            ].join('') : '',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">POV Analytics</h3></div>',
             renderLocalSection(data, { useFlagLabels: useFlagLabels }),
             '</section>',
             '<section class="subsection">',
-            '<div class="subsection-head"><h3 class="subsection-title">Server Happenings</h3></div>',
+            '<div class="subsection-head"><h3 class="subsection-title">Server Happenings</h3>' + (happenings.length ? '<button type="button" class="txt-export-button" data-export="server" data-demo-index="' + index + '" title="Save as .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M4.5 7 8 10.5 11.5 7"/><path d="M2.5 12.5v1.5h11v-1.5"/></svg></button>' : '') + '</div>',
             renderServerHappeningsSection(happenings, index),
             '</section>',
             '<section class="subsection">',
-            '<div class="subsection-head"><h3 class="subsection-title">Chat Log</h3></div>',
+            '<div class="subsection-head"><h3 class="subsection-title">Chat Log</h3>' + (data.chatLog.length ? '<button type="button" class="txt-export-button" data-export="chat" data-demo-index="' + index + '" title="Save as .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M4.5 7 8 10.5 11.5 7"/><path d="M2.5 12.5v1.5h11v-1.5"/></svg></button>' : '') + '</div>',
             renderChatSection(data, index),
             '</section>',
             data.warnings.length ? [
@@ -2484,6 +2840,7 @@
         bindSmoothPanels();
         bindChatFilters();
         bindServerFilters();
+        bindTextExportButtons();
     }
 
     function bindSaveAsPanels() {
@@ -2935,6 +3292,44 @@
         });
     }
 
+    function bindTextExportButtons() {
+        var buttons = resultsPanel.querySelectorAll('.txt-export-button[data-demo-index]');
+
+        buttons.forEach(function (button) {
+            var demoIndex = Number(button.getAttribute('data-demo-index'));
+            var exportType = button.getAttribute('data-export');
+
+            button.addEventListener('click', function () {
+                var item = parsedFiles[demoIndex];
+                if (!item || !item.data) { return; }
+
+                var data = item.data;
+                var baseName = downloadBaseName(data.fileName, 'demo.dem').replace(/\.(dem|dz)$/i, '');
+                var lines;
+                var fileName;
+
+                if (exportType === 'chat') {
+                    lines = data.chatLog.map(function (entry) {
+                        var timeStr = Number.isFinite(entry.time) ? formatTrimTime(entry.time) : '?';
+                        var prefix = entry.team ? '(team) ' : '';
+                        return '[' + timeStr + '] ' + prefix + entry.speaker + ': ' + entry.message;
+                    });
+                    fileName = baseName + '_chat.txt';
+                } else {
+                    var happenings = collectServerHappenings(data);
+                    lines = happenings.map(function (entry) {
+                        var timeStr = Number.isFinite(entry.time) ? formatTrimTime(entry.time) : '?';
+                        return '[' + timeStr + '] ' + entry.text;
+                    });
+                    fileName = baseName + '_server.txt';
+                }
+
+                if (!lines.length) { return; }
+                triggerDownload(new TextEncoder().encode(lines.join('\n')), fileName);
+            });
+        });
+    }
+
     async function collectAcceptedInputs(fileList) {
         const warnings = [];
         const accepted = [];
@@ -3063,6 +3458,7 @@
                 summaryActions.innerHTML = '';
             }
             renderFolderAnalysis(items);
+            updateCaptimePanel(items);
         } else {
             setStatus('Reading ' + accepted.length + ' demo' + (accepted.length === 1 ? '' : 's') + '...');
 
@@ -3099,6 +3495,7 @@
             folderAnalysisPanel.hidden = true;
             folderAnalysisContent.innerHTML = '';
             renderResults(parsedFiles);
+            updateCaptimePanel(parsedFiles);
         }
 
         const successes = parsedFiles.filter(function (item) { return !!item.data; }).length;
@@ -3121,6 +3518,8 @@
         setStatus('No demos loaded.');
         folderAnalysisPanel.hidden = true;
         folderAnalysisContent.innerHTML = '';
+        captimePanel.hidden = true;
+        captimeContent.innerHTML = '';
         renderResults([]);
     }
 
