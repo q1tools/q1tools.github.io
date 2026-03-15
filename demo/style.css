@@ -535,6 +535,16 @@
     overflow: hidden;
 }
 
+.preview-strip {
+    cursor: pointer;
+}
+
+.preview-strip.copied {
+    outline: 2px solid #c8956c;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
 .preview-strip img {
     width: 14px;
     height: 14px;

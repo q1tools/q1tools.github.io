@@ -268,6 +268,27 @@
         return '<div class="empty-state">' + escapeHtml(message) + '</div>';
     }
 
+    // Quake byte → Unicode (using Windows-1252 for 128-159 to avoid invisible C1 control chars)
+    var QUAKE_CHR_OVERRIDES = {
+        0:'\u001C', 4:'\u201E', 6:'\u2020', 7:'\u2021', 8:'\u02C6', 9:'\u2030',
+        10:' ', 13:'>',
+        128:'\u20AC', 130:'\u201A', 131:'\u0192', 132:'\u201E', 133:'\u2026',
+        134:'\u2020', 135:'\u2021', 136:'\u02C6', 137:'\u2030', 138:'\u0160',
+        139:'\u2039', 140:'\u0152', 142:'\u017D',
+        144:'[', 145:'\u2018', 146:'\u2019', 147:'\u201C', 148:'\u201D', 149:'\u2022',
+        150:'\u2013', 151:'\u2014', 152:'\u02DC', 153:'\u2122', 154:'\u0161',
+        155:'\u203A', 156:'\u0153', 158:'\u017E', 159:'\u0178'
+    };
+
+    function encodeQuakeName(codes) {
+        var result = '';
+        for (var i = 0; i < codes.length; i++) {
+            var c = codes[i] & 255;
+            result += (c in QUAKE_CHR_OVERRIDES) ? QUAKE_CHR_OVERRIDES[c] : String.fromCharCode(c);
+        }
+        return result;
+    }
+
     function decodePlayerName(previewCodes, fallbackLabel) {
         const codes = Array.isArray(previewCodes) ? previewCodes.filter(Number.isFinite) : [];
         if (codes.length && parserApi && typeof parserApi.decodeScoreboardBytes === 'function') {
@@ -313,8 +334,12 @@
             return '<span class="quake-name-fallback">' + escapeHtml(fallbackLabel || '(unnamed player)') + '</span>';
         }
 
+        var quakeName = encodeQuakeName(codes);
+        var displayName = decodePlayerName(codes, fallbackLabel);
+        var rawCodes = JSON.stringify(codes.map(function (c) { return c & 255; }));
+
         return [
-            '<div class="preview-strip" title="' + escapeAttribute((fallbackLabel || '').trim() || 'Quake name') + '">',
+            '<div class="preview-strip" title="Double-click to copy: ' + escapeAttribute(displayName) + '" data-quake-name="' + escapeAttribute(quakeName) + '" data-quake-codes="' + escapeAttribute(rawCodes) + '">',
             codes.map(function (code) {
                 const padded = padByte(code);
                 return '<img src="' + PREVIEW_ROOT + padded + '.gif" alt="" aria-hidden="true" width="14" height="14">';
@@ -3696,4 +3721,17 @@
 
     bindDropZone();
     reset();
+
+    document.addEventListener('dblclick', function (e) {
+        var strip = e.target.closest('.preview-strip');
+        if (!strip) { return; }
+        var codesStr = strip.getAttribute('data-quake-codes');
+        if (!codesStr) { return; }
+        var codes = JSON.parse(codesStr);
+        var text = encodeQuakeName(codes);
+        navigator.clipboard.writeText(text).then(function () {
+            strip.classList.add('copied');
+            setTimeout(function () { strip.classList.remove('copied'); }, 800);
+        });
+    });
 }());
