@@ -1149,7 +1149,6 @@
 .match-stats-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
     font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
 }
@@ -1184,6 +1183,14 @@
 .match-stats-table td:first-child,
 .match-stats-table th:first-child {
     color: #e8d5c2;
+}
+
+.match-stats-table .match-stats-row-red td:first-child {
+    color: #f0a8a8;
+}
+
+.match-stats-table .match-stats-row-blue td:first-child {
+    color: #a8c8f0;
     position: sticky;
     left: 0;
     background: inherit;

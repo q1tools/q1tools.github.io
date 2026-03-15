@@ -1158,6 +1158,28 @@
                 });
             }
 
+            var teamIndices = [];
+            rows.forEach(function (row, idx) {
+                var name = (row[0] || '').trim();
+                if (!/team$/i.test(name)) { return; }
+                var empty = 0;
+                for (var c = 1; c < row.length; c++) {
+                    if (!(row[c] || '').trim()) { empty++; }
+                }
+                if (empty >= row.length - 2) { teamIndices.push(idx); }
+            });
+            if (teamIndices.length) {
+                var reordered = [];
+                var lastEnd = 0;
+                teamIndices.forEach(function (ti) {
+                    reordered.push(rows[ti]);
+                    for (var r = lastEnd; r < ti; r++) { reordered.push(rows[r]); }
+                    lastEnd = ti + 1;
+                });
+                for (var r = lastEnd; r < rows.length; r++) { reordered.push(rows[r]); }
+                rows = reordered;
+            }
+
             html.push('<div class="match-stats-table-wrap">');
             html.push('<table class="match-stats-table">');
             html.push('<thead><tr>');
@@ -1167,7 +1189,11 @@
             html.push('</tr></thead>');
             html.push('<tbody>');
             rows.forEach(function (row) {
-                html.push('<tr>');
+                var name = (row[0] || '').trim().toLowerCase();
+                var rowClass = '';
+                if (/^red\s+team$/i.test(name)) { rowClass = ' class="match-stats-row-red"'; }
+                else if (/^blue\s+team$/i.test(name)) { rowClass = ' class="match-stats-row-blue"'; }
+                html.push('<tr' + rowClass + '>');
                 for (var c = 0; c < headers.length; c++) {
                     html.push('<td>' + escapeHtml(row[c] || '') + '</td>');
                 }
@@ -1640,7 +1666,7 @@
             '</label>',
             '<label class="toggle-control server-toggle">',
             '<input type="checkbox" class="server-filter-checkbox" value="center">',
-            'Center',
+            'Centerprint',
             '</label>',
             '</div>',
             '<div id="serverLog' + index + '" class="server-log">',
