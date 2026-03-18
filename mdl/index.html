@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quake MDL Tool</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>Quake MDL Tool</h1>
+
+      <section class="panel">
+        <h2>Assets</h2>
+        <label class="file-drop" for="asset-input">
+          <span class="file-drop-copy">
+            <span class="file-drop-text">Drop files or click to browse</span>
+            <span class="file-drop-hint">.mdl / .pak / .lmp</span>
+          </span>
+          <input id="asset-input" type="file" multiple accept=".mdl,.pak,.lmp,application/octet-stream">
+        </label>
+
+        <label for="model-select">Models</label>
+        <select id="model-select" size="8"></select>
+
+        <div class="status-grid">
+          <div>Palette</div>
+          <div id="palette-status">Default Quake palette</div>
+          <div>Current model</div>
+          <div id="model-status">None</div>
+        </div>
+      </section>
+
+      <section id="details-panel" class="panel is-hidden" aria-hidden="true">
+        <h2>Details</h2>
+        <div class="tablist" role="tablist" aria-label="Model details">
+          <button
+            id="skin-tab"
+            class="tab-button is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="skin-panel"
+            data-tab-target="skin"
+          >Skins</button>
+          <button
+            id="properties-tab"
+            class="tab-button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="properties-panel"
+            data-tab-target="properties"
+            tabindex="-1"
+          >Properties</button>
+        </div>
+
+        <div
+          id="skin-panel"
+          class="tab-panel is-active"
+          role="tabpanel"
+          aria-labelledby="skin-tab"
+        >
+          <div class="skin-actions">
+            <button id="import-skin-button" type="button">Import Skin</button>
+            <input id="import-skin-input" type="file" accept=".bmp,image/bmp,.png,.gif,.jpg,.jpeg,image/*" hidden>
+          </div>
+          <label for="skin-select">Skin</label>
+          <select id="skin-select"></select>
+
+          <div id="player-color-controls" class="player-color-controls is-hidden" aria-hidden="true">
+            <label class="checkbox">
+              <input id="recolor-toggle" type="checkbox">
+              <span>Apply Quake player colors</span>
+            </label>
+
+            <label for="topcolor-range">Top / shirt <span id="topcolor-value">0</span></label>
+            <input id="topcolor-range" type="range" min="0" max="15" step="1" value="0">
+
+            <label for="bottomcolor-range">Bottom / pants <span id="bottomcolor-value">0</span></label>
+            <input id="bottomcolor-range" type="range" min="0" max="15" step="1" value="0">
+          </div>
+
+          <canvas id="skin-preview" width="256" height="256"></canvas>
+          <div id="skin-status" class="hint">No skin loaded</div>
+        </div>
+
+        <div
+          id="properties-panel"
+          class="tab-panel"
+          role="tabpanel"
+          aria-labelledby="properties-tab"
+          hidden
+        >
+          <div id="properties-grid" class="properties-grid"></div>
+        </div>
+      </section>
+
+      <details id="lighting-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Lighting</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <label for="light-azimuth-range">Azimuth <span id="light-azimuth-value">45°</span></label>
+          <input id="light-azimuth-range" type="range" min="0" max="360" step="1" value="45">
+
+          <label for="light-elevation-range">Elevation <span id="light-elevation-value">60°</span></label>
+          <input id="light-elevation-range" type="range" min="-90" max="90" step="1" value="60">
+
+          <label for="light-ambient-range">Ambient <span id="light-ambient-value">0.45</span></label>
+          <input id="light-ambient-range" type="range" min="0" max="1" step="0.01" value="0.45">
+
+          <label for="light-direct-range">Direct <span id="light-direct-value">0.45</span></label>
+          <input id="light-direct-range" type="range" min="0" max="1" step="0.01" value="0.45">
+
+          <label for="light-hemi-range">Hemisphere <span id="light-hemi-value">0.25</span></label>
+          <input id="light-hemi-range" type="range" min="0" max="1" step="0.01" value="0.25">
+        </div>
+      </details>
+
+      <details id="frames-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Frames</h2>
+        </summary>
+        <div id="frame-tree" class="frame-tree" aria-label="Frame groups"></div>
+      </details>
+
+      <details id="playback-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Playback</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <label for="frame-group-select">Frame / group</label>
+          <select id="frame-group-select"></select>
+
+          <div class="control-row">
+            <button id="play-toggle" type="button">Play</button>
+            <button id="reset-camera" type="button">Reset Camera</button>
+          </div>
+
+          <label for="speed-range">Speed <span id="speed-value">1.00x</span></label>
+          <input id="speed-range" type="range" min="0.1" max="3" step="0.05" value="1">
+
+          <label for="frame-range">Pose <span id="frame-value">0</span></label>
+          <input id="frame-range" type="range" min="0" max="0" step="1" value="0">
+          <div id="frame-name" class="hint">No frame selected</div>
+
+          <label class="checkbox">
+            <input id="interpolate-toggle" type="checkbox" checked>
+            <span>Interpolate poses</span>
+          </label>
+        </div>
+      </details>
+
+      <section id="save-panel" class="panel is-hidden" aria-hidden="true">
+        <h2>Save</h2>
+        <div class="property-actions">
+          <button id="save-model-button" type="button">Save .mdl</button>
+          <div id="save-model-status" class="hint">Edit fields below, then save or export the model.</div>
+        </div>
+      </section>
+    </aside>
+
+    <div
+      id="sidebar-splitter"
+      class="splitter"
+      role="separator"
+      aria-label="Resize sidebar"
+      aria-orientation="vertical"
+      tabindex="0"
+    ></div>
+
+    <main class="viewer-shell">
+      <div class="toolbar-row">
+        <div class="view-mode-toolbar" aria-label="Viewport mode">
+          <button
+            id="view-mode-orbit"
+            class="view-mode-pill is-active"
+            type="button"
+            aria-pressed="true"
+          >Orbit</button>
+          <button
+            id="view-mode-multi"
+            class="view-mode-pill"
+            type="button"
+            aria-pressed="false"
+          >Orbit / Front / Left</button>
+        </div>
+        <div class="bg-mode-toolbar" aria-label="Background mode">
+          <button id="bg-dark" class="bg-mode-pill is-active" type="button" aria-pressed="true" title="Dark background">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" fill="#17191e"/></svg>
+          </button>
+          <button id="bg-white" class="bg-mode-pill" type="button" aria-pressed="false" title="White background">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" fill="#fff"/></svg>
+          </button>
+          <button id="bg-grid" class="bg-mode-pill" type="button" aria-pressed="false" title="Transparent grid">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" fill="#ccc"/><rect x="1" y="1" width="7" height="7" fill="#fff"/><rect x="8" y="8" width="7" height="7" fill="#fff"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="viewer-canvas-area">
+        <canvas id="gl-canvas"></canvas>
+        <div id="viewer-layout" class="viewer-layout is-orbit-only" aria-hidden="true">
+          <section id="view-main" class="viewport-pane viewport-pane-main">
+            <div class="viewport-label">Orbit</div>
+          </section>
+          <div class="viewport-stack">
+            <section id="view-front" class="viewport-pane viewport-pane-preview">
+              <div class="viewport-label">Front</div>
+            </section>
+            <section id="view-left" class="viewport-pane viewport-pane-preview">
+              <div class="viewport-label">Left</div>
+            </section>
+          </div>
+        </div>
+        <div id="viewport-overlay">Load a `.mdl` or `pak0.pak` to begin.</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
