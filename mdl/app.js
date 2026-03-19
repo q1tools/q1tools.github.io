@@ -5,6 +5,8 @@
   const BOTTOM_RANGE = 96;
   const DEFAULT_FRAME_DURATION = 0.1;
   const SIDEBAR_WIDTH_KEY = "qss-mdl-viewer-sidebar-width";
+  const PALETTE_GRID_DIMENSION = 16;
+  const PALETTE_CANVAS_SIZE = 256;
   const DEFAULT_QUAKE_PALETTE_RGB24 = [
     0x000000, 0x0f0f0f, 0x1f1f1f, 0x2f2f2f, 0x3f3f3f, 0x4b4b4b, 0x5b5b5b, 0x6b6b6b,
     0x7b7b7b, 0x8b8b8b, 0x9b9b9b, 0xababab, 0xbbbbbb, 0xcbcbcb, 0xdbdbdb, 0xebebeb,
@@ -66,10 +68,7 @@
     playbackPanel: document.getElementById("playback-panel"),
     detailsPanel: document.getElementById("details-panel"),
     savePanel: document.getElementById("save-panel"),
-    skinPanel: document.getElementById("skin-panel"),
-    propertiesPanel: document.getElementById("properties-panel"),
-    skinTab: document.getElementById("skin-tab"),
-    propertiesTab: document.getElementById("properties-tab"),
+    skinsPanel: document.getElementById("skins-panel"),
     playToggle: document.getElementById("play-toggle"),
     resetCamera: document.getElementById("reset-camera"),
     speedRange: document.getElementById("speed-range"),
@@ -81,6 +80,17 @@
     interpolateToggle: document.getElementById("interpolate-toggle"),
     importSkinButton: document.getElementById("import-skin-button"),
     importSkinInput: document.getElementById("import-skin-input"),
+    skinPolyToggle: document.getElementById("skin-poly-toggle"),
+    skinPaletteUnusedToggle: document.getElementById("skin-palette-unused-toggle"),
+    skinPaletteScope: document.getElementById("skin-palette-scope"),
+    skinPaletteRanges: document.getElementById("skin-palette-ranges"),
+    skinPaletteCanvas: document.getElementById("skin-palette-canvas"),
+    skinPaletteTargetButton: document.getElementById("skin-palette-target-button"),
+    skinPaletteApplyButton: document.getElementById("skin-palette-apply-button"),
+    skinPaletteClearButton: document.getElementById("skin-palette-clear-button"),
+    skinPaletteSelection: document.getElementById("skin-palette-selection"),
+    skinPaletteTarget: document.getElementById("skin-palette-target"),
+    skinPaletteHelp: document.getElementById("skin-palette-help"),
     skinSelect: document.getElementById("skin-select"),
     playerColorControls: document.getElementById("player-color-controls"),
     recolorToggle: document.getElementById("recolor-toggle"),
@@ -104,6 +114,20 @@
     overlay: document.getElementById("viewport-overlay"),
     splitter: document.getElementById("sidebar-splitter"),
     canvasArea: document.querySelector(".viewer-canvas-area"),
+    objectToolsPanel: document.getElementById("object-tools-panel"),
+    objMoveX: document.getElementById("obj-move-x"),
+    objMoveY: document.getElementById("obj-move-y"),
+    objMoveZ: document.getElementById("obj-move-z"),
+    objRotateX: document.getElementById("obj-rotate-x"),
+    objRotateY: document.getElementById("obj-rotate-y"),
+    objRotateZ: document.getElementById("obj-rotate-z"),
+    objScaleX: document.getElementById("obj-scale-x"),
+    objScaleY: document.getElementById("obj-scale-y"),
+    objScaleZ: document.getElementById("obj-scale-z"),
+    objToolsScope: document.getElementById("obj-tools-scope"),
+    objToolsMode: document.getElementById("obj-tools-mode"),
+    objToolsApply: document.getElementById("obj-tools-apply"),
+    objToolsReset: document.getElementById("obj-tools-reset"),
     lightingPanel: document.getElementById("lighting-panel"),
     lightAzimuthRange: document.getElementById("light-azimuth-range"),
     lightAzimuthValue: document.getElementById("light-azimuth-value"),
@@ -115,12 +139,14 @@
     lightDirectValue: document.getElementById("light-direct-value"),
     lightHemiRange: document.getElementById("light-hemi-range"),
     lightHemiValue: document.getElementById("light-hemi-value"),
+    groundPlaneToggle: document.getElementById("ground-plane-toggle"),
     bgDark: document.getElementById("bg-dark"),
     bgWhite: document.getElementById("bg-white"),
     bgGrid: document.getElementById("bg-grid"),
   };
 
   const skinPreviewContext = dom.skinPreview.getContext("2d", { alpha: true });
+  const skinPaletteContext = dom.skinPaletteCanvas.getContext("2d", { alpha: true });
 
   const state = {
     assets: new Map(),
@@ -134,16 +160,24 @@
     selectedFrameGroupIndex: 0,
     manualFrameIndex: 0,
     frameTreeOpen: new Set(),
-    activeDetailsTab: "skin",
     viewportMode: "orbit",
     bgMode: "dark",
+    showGroundPlane: true,
     lightAzimuth: 45,
     lightElevation: 60,
     lightAmbient: 0.45,
     lightDirect: 0.45,
-    lightHemi: 0.25,
+    lightHemi: 1.0,
     interpolate: true,
     selectedSkinIndex: 0,
+    showSkinPolys: false,
+    skinPaletteShowUnused: true,
+    skinPaletteScope: "frame",
+    skinPaletteRangeEnabled: Array.from({ length: PALETTE_GRID_DIMENSION }, () => true),
+    skinPaletteSourceIndices: new Set(),
+    skinPaletteTargetIndex: -1,
+    skinPalettePickingTarget: false,
+    skinPaletteHoverIndex: -1,
     recolorEnabled: false,
     topColor: 0,
     bottomColor: 0,
@@ -170,18 +204,63 @@
 
   function init() {
     applyDefaultPalette();
+    buildSkinPaletteRanges();
+    syncSkinPaletteControls();
     applySidebarWidth(loadSidebarWidth());
     initRenderer();
     bindEvents();
     refreshModelList();
-    setActiveDetailsTab("skin");
+
     setViewportMode("orbit");
     setBgMode("dark");
     updatePlaybackControls();
     syncModelDependentPanels();
     updateColorLabels();
+    updateSkinPaletteEditor();
     updateOverlay("Load a `.mdl` or `.pak` to begin. Using the default Quake palette; load `palette.lmp` to override it.");
     requestAnimationFrame(frame);
+  }
+
+  function buildSkinPaletteRanges() {
+    dom.skinPaletteRanges.innerHTML = "";
+    for (let rangeIndex = 0; rangeIndex < PALETTE_GRID_DIMENSION; rangeIndex++) {
+      const row = document.createElement("label");
+      row.className = "skin-palette-range";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = state.skinPaletteRangeEnabled[rangeIndex];
+      input.dataset.rangeIndex = String(rangeIndex);
+
+      const text = document.createElement("span");
+      text.className = "skin-palette-range-text";
+
+      const title = document.createElement("span");
+      title.className = "skin-palette-range-title";
+      title.textContent = getSkinPaletteRangeTitle(rangeIndex);
+      text.appendChild(title);
+
+      const subtitle = getSkinPaletteRangeSubtitle(rangeIndex);
+      if (subtitle) {
+        const meta = document.createElement("span");
+        meta.className = "skin-palette-range-meta";
+        meta.textContent = subtitle;
+        text.appendChild(meta);
+      }
+
+      row.appendChild(input);
+      row.appendChild(text);
+      dom.skinPaletteRanges.appendChild(row);
+    }
+  }
+
+  function syncSkinPaletteControls() {
+    dom.skinPaletteUnusedToggle.checked = state.skinPaletteShowUnused;
+    dom.skinPaletteScope.value = state.skinPaletteScope;
+    dom.skinPaletteRanges.querySelectorAll("input[data-range-index]").forEach((input) => {
+      const rangeIndex = clamp(parseInt(input.dataset.rangeIndex, 10) || 0, 0, PALETTE_GRID_DIMENSION - 1);
+      input.checked = !!state.skinPaletteRangeEnabled[rangeIndex];
+    });
   }
 
   function bindEvents() {
@@ -201,11 +280,6 @@
       loadModelByKey(dom.modelSelect.value);
     });
 
-    [dom.skinTab, dom.propertiesTab].forEach((tab) => {
-      tab.addEventListener("click", () => {
-        setActiveDetailsTab(tab.dataset.tabTarget);
-      });
-    });
 
     dom.viewModeOrbit.addEventListener("click", () => {
       setViewportMode("orbit");
@@ -213,6 +287,12 @@
 
     dom.viewModeMulti.addEventListener("click", () => {
       setViewportMode("multi");
+    });
+
+    dom.groundPlaneToggle.addEventListener("click", () => {
+      state.showGroundPlane = !state.showGroundPlane;
+      dom.groundPlaneToggle.classList.toggle("is-active", state.showGroundPlane);
+      dom.groundPlaneToggle.setAttribute("aria-pressed", state.showGroundPlane ? "true" : "false");
     });
 
     dom.bgDark.addEventListener("click", () => setBgMode("dark"));
@@ -257,6 +337,14 @@
       await saveCurrentModel();
     });
 
+    dom.objToolsApply.addEventListener("click", () => {
+      applyObjectTransform();
+    });
+
+    dom.objToolsReset.addEventListener("click", () => {
+      resetObjectToolsInputs();
+    });
+
     dom.importSkinButton.addEventListener("click", () => {
       dom.importSkinInput.click();
     });
@@ -267,6 +355,72 @@
         await importSkinFile(file);
       }
       dom.importSkinInput.value = "";
+    });
+
+    dom.skinPaletteUnusedToggle.addEventListener("change", () => {
+      state.skinPaletteShowUnused = dom.skinPaletteUnusedToggle.checked;
+      pruneSkinPaletteSourceSelection();
+      updateSkinPaletteEditor();
+    });
+
+    dom.skinPaletteScope.addEventListener("change", () => {
+      state.skinPaletteScope = dom.skinPaletteScope.value === "skin" ? "skin" : "frame";
+      pruneSkinPaletteSourceSelection();
+      updateSkinPaletteEditor();
+    });
+
+    dom.skinPaletteRanges.addEventListener("change", (event) => {
+      const checkbox = event.target.closest("input[data-range-index]");
+      if (!checkbox) {
+        return;
+      }
+
+      const rangeIndex = clamp(parseInt(checkbox.dataset.rangeIndex, 10) || 0, 0, PALETTE_GRID_DIMENSION - 1);
+      state.skinPaletteRangeEnabled[rangeIndex] = checkbox.checked;
+      pruneSkinPaletteSourceSelection();
+      updateSkinPaletteEditor();
+    });
+
+    dom.skinPaletteTargetButton.addEventListener("click", () => {
+      state.skinPalettePickingTarget = !state.skinPalettePickingTarget;
+      updateSkinPaletteEditor();
+    });
+
+    dom.skinPaletteApplyButton.addEventListener("click", () => {
+      applySkinPaletteRemap();
+    });
+
+    dom.skinPaletteClearButton.addEventListener("click", () => {
+      clearSkinPaletteSelection(true);
+      updateSkinPaletteEditor();
+    });
+
+    dom.skinPaletteCanvas.addEventListener("click", (event) => {
+      if (event.detail > 1) {
+        return;
+      }
+      handleSkinPaletteCanvasClick(event, false);
+    });
+
+    dom.skinPaletteCanvas.addEventListener("dblclick", (event) => {
+      handleSkinPaletteCanvasClick(event, true);
+    });
+
+    dom.skinPaletteCanvas.addEventListener("mousemove", (event) => {
+      const hoverIndex = getSkinPaletteIndexFromEvent(event);
+      if (hoverIndex === state.skinPaletteHoverIndex) {
+        return;
+      }
+      state.skinPaletteHoverIndex = hoverIndex;
+      updateSkinPaletteEditor();
+    });
+
+    dom.skinPaletteCanvas.addEventListener("mouseleave", () => {
+      if (state.skinPaletteHoverIndex === -1) {
+        return;
+      }
+      state.skinPaletteHoverIndex = -1;
+      updateSkinPaletteEditor();
     });
 
     dom.frameTree.addEventListener("click", (event) => {
@@ -333,8 +487,14 @@
 
     dom.skinSelect.addEventListener("change", () => {
       state.selectedSkinIndex = parseInt(dom.skinSelect.value, 10) || 0;
+      clearSkinPaletteSelection(true);
       state.textureDirty = true;
       updateSkinStatus();
+    });
+
+    dom.skinPolyToggle.addEventListener("change", () => {
+      state.showSkinPolys = dom.skinPolyToggle.checked;
+      state.textureDirty = true;
     });
 
     dom.recolorToggle.addEventListener("change", () => {
@@ -565,12 +725,13 @@
       populateSkinList(model);
       populateProperties(model);
       setSaveStatus("Edit fields below, then save or export the model.");
-      setActiveDetailsTab("skin");
+  
       const defaultFrameGroupIndex = findFirstPlayableFrameGroupIndex(model);
       state.selectedFrameGroupIndex = defaultFrameGroupIndex >= 0 ? defaultFrameGroupIndex : 0;
       dom.frameGroupSelect.value = String(state.selectedFrameGroupIndex);
       state.selectedSkinIndex = 0;
       dom.skinSelect.value = "0";
+      clearSkinPaletteSelection(true);
       state.recolorEnabled = /(^|\/)player\.mdl$/i.test(model.path);
       dom.recolorToggle.checked = state.recolorEnabled;
       syncPlayerColorControls();
@@ -1011,6 +1172,12 @@
     dom.frameGroupSelect.disabled = !state.model;
     dom.frameRange.disabled = !state.model;
     dom.skinSelect.disabled = !state.model;
+    dom.skinPolyToggle.disabled = !state.model;
+    dom.skinPaletteUnusedToggle.disabled = !state.model;
+    dom.skinPaletteScope.disabled = !state.model;
+    dom.skinPaletteTargetButton.disabled = !state.model;
+    dom.skinPaletteApplyButton.disabled = !state.model;
+    dom.skinPaletteClearButton.disabled = !state.model;
     dom.recolorToggle.disabled = !state.model;
     dom.topRange.disabled = !state.model;
     dom.bottomRange.disabled = !state.model;
@@ -1024,7 +1191,9 @@
     const panels = [
       dom.framesPanel,
       dom.playbackPanel,
+      dom.skinsPanel,
       dom.detailsPanel,
+      dom.objectToolsPanel,
       dom.lightingPanel,
       dom.savePanel,
     ];
@@ -1035,23 +1204,6 @@
     });
   }
 
-  function setActiveDetailsTab(tabName) {
-    state.activeDetailsTab = tabName;
-
-    const tabs = [
-      { button: dom.skinTab, panel: dom.skinPanel, name: "skin" },
-      { button: dom.propertiesTab, panel: dom.propertiesPanel, name: "properties" },
-    ];
-
-    tabs.forEach(({ button, panel, name }) => {
-      const isActive = name === tabName;
-      button.classList.toggle("is-active", isActive);
-      button.setAttribute("aria-selected", isActive ? "true" : "false");
-      button.tabIndex = isActive ? 0 : -1;
-      panel.classList.toggle("is-active", isActive);
-      panel.hidden = !isActive;
-    });
-  }
 
   function setViewportMode(mode) {
     const normalizedMode = mode === "multi" ? "multi" : "orbit";
@@ -1371,6 +1523,7 @@
       dom.skinStatus.textContent = "No skin loaded";
       clearSkinPreview();
       syncPlayerColorControls();
+      updateSkinPaletteEditor();
       return;
     }
 
@@ -1380,6 +1533,315 @@
     const recolor = isPlayerModel && state.recolorEnabled ? `, top=${state.topColor} bottom=${state.bottomColor}` : "";
     dom.skinStatus.textContent = `${state.model.skinWidth} x ${state.model.skinHeight}${animated}${recolor}`;
     syncPlayerColorControls();
+    updateSkinPaletteEditor();
+  }
+
+  function getSkinPaletteRangeTitle(rangeIndex) {
+    const start = rangeIndex * PALETTE_GRID_DIMENSION;
+    if (start === TOP_RANGE) {
+      return "Shirt";
+    }
+    if (start === BOTTOM_RANGE) {
+      return "Pants";
+    }
+    return `${start}-${start + PALETTE_GRID_DIMENSION - 1}`;
+  }
+
+  function getSkinPaletteRangeSubtitle(rangeIndex) {
+    return "";
+  }
+
+  function clearSkinPaletteSelection(clearTarget = false) {
+    state.skinPaletteSourceIndices.clear();
+    state.skinPalettePickingTarget = false;
+    if (clearTarget) {
+      state.skinPaletteTargetIndex = -1;
+    }
+  }
+
+  function getSkinPaletteUsage() {
+    const usage = new Uint32Array(256);
+    if (!state.model) {
+      return usage;
+    }
+
+    const skin = state.model.skins[state.selectedSkinIndex];
+    if (!skin || !skin.frames.length) {
+      return usage;
+    }
+
+    const frameIndices = state.skinPaletteScope === "skin"
+      ? skin.frames.map((_, index) => index)
+      : [clamp(getCurrentSkinFrameIndex(), 0, skin.frames.length - 1)];
+
+    frameIndices.forEach((frameIndex) => {
+      const frame = skin.frames[frameIndex];
+      for (let i = 0; i < frame.length; i++) {
+        usage[frame[i]] += 1;
+      }
+    });
+
+    return usage;
+  }
+
+  function isSkinPaletteRangeEnabled(index) {
+    const rangeIndex = clamp(Math.floor(index / PALETTE_GRID_DIMENSION), 0, PALETTE_GRID_DIMENSION - 1);
+    return !!state.skinPaletteRangeEnabled[rangeIndex];
+  }
+
+  function isSkinPaletteSourceSelectable(index, usage) {
+    return isSkinPaletteRangeEnabled(index) && (state.skinPaletteShowUnused || usage[index] > 0);
+  }
+
+  function pruneSkinPaletteSourceSelection() {
+    const usage = getSkinPaletteUsage();
+    const next = new Set();
+    state.skinPaletteSourceIndices.forEach((index) => {
+      if (isSkinPaletteSourceSelectable(index, usage)) {
+        next.add(index);
+      }
+    });
+    state.skinPaletteSourceIndices = next;
+  }
+
+  function getSortedSkinPaletteSources() {
+    return Array.from(state.skinPaletteSourceIndices).sort((a, b) => a - b);
+  }
+
+  function updateSkinPaletteEditor() {
+    syncSkinPaletteControls();
+
+    const usage = getSkinPaletteUsage();
+    const palette = state.paletteRGBA
+      ? buildDisplayPalette(state.paletteRGBA, state.recolorEnabled, state.topColor, state.bottomColor)
+      : buildDefaultPaletteRGBA();
+
+    pruneSkinPaletteSourceSelection();
+    drawSkinPaletteCanvas(palette, usage);
+
+    dom.skinPaletteRanges.querySelectorAll(".skin-palette-range").forEach((row, rangeIndex) => {
+      const start = rangeIndex * PALETTE_GRID_DIMENSION;
+      let usedPixels = 0;
+      for (let i = start; i < start + PALETTE_GRID_DIMENSION; i++) {
+        usedPixels += usage[i];
+      }
+      row.classList.toggle("is-disabled", !state.skinPaletteRangeEnabled[rangeIndex]);
+      row.classList.toggle("is-unused", usedPixels === 0);
+      row.title = `${start}-${start + PALETTE_GRID_DIMENSION - 1}: ${usedPixels} pixel${usedPixels === 1 ? "" : "s"}`;
+    });
+
+    if (!state.model) {
+      dom.skinPaletteSelection.textContent = "Source: none";
+      dom.skinPaletteTarget.textContent = "Target: none";
+      dom.skinPaletteHelp.textContent = "Load a model to remap skin palette indices.";
+      dom.skinPaletteTargetButton.textContent = "Pick Target";
+      dom.skinPaletteApplyButton.disabled = true;
+      dom.skinPaletteClearButton.disabled = true;
+      dom.skinPaletteCanvas.style.cursor = "default";
+      dom.skinPaletteCanvas.title = "Load a model to edit palette indices";
+      return;
+    }
+
+    const sourceIndices = getSortedSkinPaletteSources();
+    const previewText = sourceIndices.length
+      ? sourceIndices.slice(0, 8).join(", ") + (sourceIndices.length > 8 ? ", ..." : "")
+      : "none";
+    dom.skinPaletteSelection.textContent = sourceIndices.length
+      ? `Source: ${sourceIndices.length} color${sourceIndices.length === 1 ? "" : "s"} (${previewText})`
+      : "Source: none";
+    dom.skinPaletteTarget.textContent = state.skinPaletteTargetIndex >= 0
+      ? `Target: ${state.skinPaletteTargetIndex}`
+      : "Target: none";
+    dom.skinPaletteHelp.textContent = state.skinPalettePickingTarget
+      ? "Click a palette color to set the remap target."
+      : "Click source colors, pick a target, then apply. Double-click a target swatch to remap immediately.";
+    dom.skinPaletteTargetButton.textContent = state.skinPalettePickingTarget
+      ? "Click Target..."
+      : state.skinPaletteTargetIndex >= 0
+        ? `Target ${state.skinPaletteTargetIndex}`
+        : "Pick Target";
+    dom.skinPaletteCanvas.style.cursor = state.skinPalettePickingTarget ? "copy" : "crosshair";
+    dom.skinPaletteCanvas.title = state.skinPaletteHoverIndex >= 0
+      ? `Palette ${state.skinPaletteHoverIndex}: ${usage[state.skinPaletteHoverIndex]} pixel${usage[state.skinPaletteHoverIndex] === 1 ? "" : "s"} in scope`
+      : "Palette mapping grid";
+
+    const canApply = state.skinPaletteTargetIndex >= 0 &&
+      sourceIndices.some((index) => index !== state.skinPaletteTargetIndex);
+    dom.skinPaletteApplyButton.disabled = !canApply;
+    dom.skinPaletteClearButton.disabled = !sourceIndices.length && state.skinPaletteTargetIndex < 0 && !state.skinPalettePickingTarget;
+  }
+
+  function drawSkinPaletteCanvas(palette, usage) {
+    const canvas = dom.skinPaletteCanvas;
+    if (canvas.width !== PALETTE_CANVAS_SIZE) {
+      canvas.width = PALETTE_CANVAS_SIZE;
+    }
+    if (canvas.height !== PALETTE_CANVAS_SIZE) {
+      canvas.height = PALETTE_CANVAS_SIZE;
+    }
+
+    const cellSize = canvas.width / PALETTE_GRID_DIMENSION;
+    skinPaletteContext.clearRect(0, 0, canvas.width, canvas.height);
+    skinPaletteContext.fillStyle = "#0c1016";
+    skinPaletteContext.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let index = 0; index < 256; index++) {
+      const x = (index % PALETTE_GRID_DIMENSION) * cellSize;
+      const y = Math.floor(index / PALETTE_GRID_DIMENSION) * cellSize;
+
+      skinPaletteContext.fillStyle = `rgba(${palette[index * 4 + 0]}, ${palette[index * 4 + 1]}, ${palette[index * 4 + 2]}, 1)`;
+      skinPaletteContext.fillRect(x, y, cellSize, cellSize);
+
+      if (!state.skinPaletteShowUnused && usage[index] === 0) {
+        skinPaletteContext.fillStyle = "rgba(4, 6, 10, 0.78)";
+        skinPaletteContext.fillRect(x, y, cellSize, cellSize);
+      }
+
+      if (!isSkinPaletteRangeEnabled(index)) {
+        skinPaletteContext.fillStyle = "rgba(7, 10, 14, 0.56)";
+        skinPaletteContext.fillRect(x, y, cellSize, cellSize);
+      }
+
+      skinPaletteContext.strokeStyle = "rgba(0, 0, 0, 0.45)";
+      skinPaletteContext.lineWidth = 1;
+      skinPaletteContext.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+
+      if (usage[index] === 0) {
+        skinPaletteContext.strokeStyle = "rgba(0, 0, 0, 0.55)";
+        skinPaletteContext.lineWidth = 1;
+        skinPaletteContext.beginPath();
+        skinPaletteContext.moveTo(x + 2, y + 2);
+        skinPaletteContext.lineTo(x + cellSize - 2, y + cellSize - 2);
+        skinPaletteContext.moveTo(x + cellSize - 2, y + 2);
+        skinPaletteContext.lineTo(x + 2, y + cellSize - 2);
+        skinPaletteContext.stroke();
+      }
+
+      if (state.skinPaletteSourceIndices.has(index)) {
+        skinPaletteContext.strokeStyle = "rgba(162, 224, 95, 0.98)";
+        skinPaletteContext.lineWidth = 2;
+        skinPaletteContext.strokeRect(x + 1.5, y + 1.5, cellSize - 3, cellSize - 3);
+      }
+
+      if (state.skinPaletteTargetIndex === index) {
+        skinPaletteContext.strokeStyle = "rgba(244, 247, 252, 0.98)";
+        skinPaletteContext.lineWidth = 3;
+        skinPaletteContext.strokeRect(x + 1.5, y + 1.5, cellSize - 3, cellSize - 3);
+        skinPaletteContext.strokeStyle = "rgba(95, 214, 224, 0.98)";
+        skinPaletteContext.lineWidth = 1;
+        skinPaletteContext.strokeRect(x + 4.5, y + 4.5, cellSize - 9, cellSize - 9);
+      } else if (state.skinPaletteHoverIndex === index) {
+        skinPaletteContext.strokeStyle = "rgba(95, 214, 224, 0.65)";
+        skinPaletteContext.lineWidth = 1.5;
+        skinPaletteContext.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+      }
+    }
+  }
+
+  function getSkinPaletteIndexFromEvent(event) {
+    if (!state.model) {
+      return -1;
+    }
+
+    const rect = dom.skinPaletteCanvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return -1;
+    }
+
+    const x = (event.clientX - rect.left) * (dom.skinPaletteCanvas.width / rect.width);
+    const y = (event.clientY - rect.top) * (dom.skinPaletteCanvas.height / rect.height);
+    if (x < 0 || y < 0 || x >= dom.skinPaletteCanvas.width || y >= dom.skinPaletteCanvas.height) {
+      return -1;
+    }
+
+    const cellSize = dom.skinPaletteCanvas.width / PALETTE_GRID_DIMENSION;
+    const column = clamp(Math.floor(x / cellSize), 0, PALETTE_GRID_DIMENSION - 1);
+    const row = clamp(Math.floor(y / cellSize), 0, PALETTE_GRID_DIMENSION - 1);
+    return row * PALETTE_GRID_DIMENSION + column;
+  }
+
+  function handleSkinPaletteCanvasClick(event, applyDirect) {
+    if (!state.model) {
+      return;
+    }
+
+    const index = getSkinPaletteIndexFromEvent(event);
+    if (index < 0) {
+      return;
+    }
+
+    if (state.skinPalettePickingTarget) {
+      state.skinPaletteTargetIndex = index;
+      state.skinPalettePickingTarget = false;
+      if (applyDirect && state.skinPaletteSourceIndices.size) {
+        applySkinPaletteRemap();
+        return;
+      }
+      updateSkinPaletteEditor();
+      return;
+    }
+
+    if (applyDirect && state.skinPaletteSourceIndices.size) {
+      state.skinPaletteTargetIndex = index;
+      applySkinPaletteRemap();
+      return;
+    }
+
+    const usage = getSkinPaletteUsage();
+    if (!isSkinPaletteSourceSelectable(index, usage)) {
+      return;
+    }
+
+    if (state.skinPaletteSourceIndices.has(index)) {
+      state.skinPaletteSourceIndices.delete(index);
+    } else {
+      state.skinPaletteSourceIndices.add(index);
+    }
+    updateSkinPaletteEditor();
+  }
+
+  function applySkinPaletteRemap() {
+    if (!state.model || state.skinPaletteTargetIndex < 0) {
+      return;
+    }
+
+    const sourceIndices = getSortedSkinPaletteSources().filter((index) => index !== state.skinPaletteTargetIndex);
+    if (!sourceIndices.length) {
+      setSaveStatus("Select at least one source color and a different target color.");
+      return;
+    }
+
+    const sourceSet = new Set(sourceIndices);
+    const skin = state.model.skins[state.selectedSkinIndex];
+    const frameIndices = state.skinPaletteScope === "skin"
+      ? skin.frames.map((_, index) => index)
+      : [clamp(getCurrentSkinFrameIndex(), 0, skin.frames.length - 1)];
+
+    let changedPixels = 0;
+    frameIndices.forEach((frameIndex) => {
+      const frame = skin.frames[frameIndex];
+      for (let i = 0; i < frame.length; i++) {
+        if (sourceSet.has(frame[i])) {
+          frame[i] = state.skinPaletteTargetIndex;
+          changedPixels += 1;
+        }
+      }
+    });
+
+    if (!changedPixels) {
+      setSaveStatus("No pixels in the selected scope matched the chosen source colors.");
+      return;
+    }
+
+    clearSkinPaletteSelection(false);
+    state.textureDirty = true;
+    updateSkinStatus();
+    updateSkinPaletteEditor();
+
+    const scopeLabel = state.skinPaletteScope === "skin"
+      ? `${frameIndices.length} skin frame${frameIndices.length === 1 ? "" : "s"}`
+      : `skin frame ${frameIndices[0] + 1}`;
+    setSaveStatus(`Remapped ${changedPixels} pixel${changedPixels === 1 ? "" : "s"} to palette index ${state.skinPaletteTargetIndex} in ${scopeLabel}.`);
   }
 
   function describeSyncType(value) {
@@ -2222,6 +2684,140 @@
     };
   }
 
+  function resetObjectToolsInputs() {
+    dom.objMoveX.value = 0;
+    dom.objMoveY.value = 0;
+    dom.objMoveZ.value = 0;
+    dom.objRotateX.value = 0;
+    dom.objRotateY.value = 0;
+    dom.objRotateZ.value = 0;
+    dom.objScaleX.value = 1;
+    dom.objScaleY.value = 1;
+    dom.objScaleZ.value = 1;
+  }
+
+  function applyObjectTransform() {
+    if (!state.model) {
+      return;
+    }
+
+    const tx = parseFloat(dom.objMoveX.value) || 0;
+    const ty = parseFloat(dom.objMoveY.value) || 0;
+    const tz = parseFloat(dom.objMoveZ.value) || 0;
+    const rx = (parseFloat(dom.objRotateX.value) || 0) * Math.PI / 180;
+    const ry = (parseFloat(dom.objRotateY.value) || 0) * Math.PI / 180;
+    const rz = (parseFloat(dom.objRotateZ.value) || 0) * Math.PI / 180;
+    const sx = parseFloat(dom.objScaleX.value) || 1;
+    const sy = parseFloat(dom.objScaleY.value) || 1;
+    const sz = parseFloat(dom.objScaleZ.value) || 1;
+
+    const isIdentity = tx === 0 && ty === 0 && tz === 0 &&
+      rx === 0 && ry === 0 && rz === 0 &&
+      sx === 1 && sy === 1 && sz === 1;
+    if (isIdentity) {
+      return;
+    }
+
+    const cosX = Math.cos(rx), sinX = Math.sin(rx);
+    const cosY = Math.cos(ry), sinY = Math.sin(ry);
+    const cosZ = Math.cos(rz), sinZ = Math.sin(rz);
+
+    const scope = dom.objToolsScope.value;
+    const render = state.model.render;
+    const bounds = render.bounds;
+    const cx = bounds.center[0];
+    const cy = bounds.center[1];
+    const cz = bounds.center[2];
+
+    const poseIndices = [];
+    if (scope === "all") {
+      for (let i = 0; i < render.positionsByPose.length; i++) {
+        poseIndices.push(i);
+      }
+    } else {
+      const sample = getCurrentPoseSample();
+      if (sample) {
+        poseIndices.push(sample.poseA);
+        if (sample.poseB !== sample.poseA) {
+          poseIndices.push(sample.poseB);
+        }
+      }
+    }
+
+    const seen = new Set();
+    for (const poseIndex of poseIndices) {
+      if (seen.has(poseIndex)) continue;
+      seen.add(poseIndex);
+
+      const positions = render.positionsByPose[poseIndex];
+      const normals = render.normalsByPose[poseIndex];
+
+      for (let i = 0; i < positions.length; i += 3) {
+        let px = (positions[i + 0] - cx) * sx;
+        let py = (positions[i + 1] - cy) * sy;
+        let pz = (positions[i + 2] - cz) * sz;
+
+        // Rotate X
+        let t = py;
+        py = t * cosX - pz * sinX;
+        pz = t * sinX + pz * cosX;
+        // Rotate Y
+        t = px;
+        px = t * cosY + pz * sinY;
+        pz = -t * sinY + pz * cosY;
+        // Rotate Z
+        t = px;
+        px = t * cosZ - py * sinZ;
+        py = t * sinZ + py * cosZ;
+
+        positions[i + 0] = px + cx + tx;
+        positions[i + 1] = py + cy + ty;
+        positions[i + 2] = pz + cz + tz;
+
+        // Rotate normals (no translate/scale)
+        let nx = normals[i + 0];
+        let ny = normals[i + 1];
+        let nz = normals[i + 2];
+
+        t = ny;
+        ny = t * cosX - nz * sinX;
+        nz = t * sinX + nz * cosX;
+        t = nx;
+        nx = t * cosY + nz * sinY;
+        nz = -t * sinY + nz * cosY;
+        t = nx;
+        nx = t * cosZ - ny * sinZ;
+        ny = t * sinZ + ny * cosZ;
+
+        const len = Math.hypot(nx, ny, nz) || 1;
+        normals[i + 0] = nx / len;
+        normals[i + 1] = ny / len;
+        normals[i + 2] = nz / len;
+      }
+    }
+
+    rebuildRenderBounds(render);
+    state.geometryDirty = true;
+    resetObjectToolsInputs();
+  }
+
+  function rebuildRenderBounds(render) {
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (const positions of render.positionsByPose) {
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i], y = positions[i + 1], z = positions[i + 2];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+      }
+    }
+    render.bounds.min = [minX, minY, minZ];
+    render.bounds.max = [maxX, maxY, maxZ];
+    render.bounds.center = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2];
+    render.bounds.radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
+  }
+
   function resetCamera() {
     if (!state.model) {
       return;
@@ -2307,6 +2903,32 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     uploadSolidTexture(gl, buffers.texture, [180, 180, 180, 255]);
 
+    const gridProgram = createProgram(gl, `
+      attribute vec3 a_position;
+      attribute vec4 a_color;
+      uniform mat4 u_mvp;
+      varying vec4 v_color;
+      void main(void) {
+        v_color = a_color;
+        gl_Position = u_mvp * vec4(a_position, 1.0);
+      }
+    `, `
+      precision mediump float;
+      varying vec4 v_color;
+      void main(void) {
+        if (v_color.a < 0.01) discard;
+        gl_FragColor = v_color;
+      }
+    `);
+
+    const gridData = buildGroundPlaneGeometry();
+    const gridPositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridPositionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, gridData.positions, gl.STATIC_DRAW);
+    const gridColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, gridData.colors, gl.STATIC_DRAW);
+
     state.gl = {
       gl,
       program,
@@ -2326,11 +2948,84 @@
         useTexture: gl.getUniformLocation(program, "u_use_texture"),
       },
       buffers,
+      grid: {
+        program: gridProgram,
+        attribs: {
+          position: gl.getAttribLocation(gridProgram, "a_position"),
+          color: gl.getAttribLocation(gridProgram, "a_color"),
+        },
+        uniforms: {
+          mvp: gl.getUniformLocation(gridProgram, "u_mvp"),
+        },
+        positionBuffer: gridPositionBuffer,
+        colorBuffer: gridColorBuffer,
+        vertexCount: gridData.vertexCount,
+        gridVertexCount: gridData.gridVertexCount,
+      },
       scratchPositions: null,
       scratchNormals: null,
       currentTextureKey: "",
       currentTextureFrame: -1,
     };
+  }
+
+  function buildGroundPlaneGeometry() {
+    const gridLines = 21;
+    const spacing = 10;
+    const half = ((gridLines - 1) / 2) * spacing;
+    const axisLen = 8;
+    const axisThick = 0.4;
+
+    // Grid: gridLines*2 lines, 2 verts each
+    // Axes: 3 axes, each a quad = 2 triangles = 6 verts
+    const gridVerts = gridLines * 2 * 2;
+    const axisVerts = 3 * 6;
+    const totalVerts = gridVerts + axisVerts;
+    const positions = new Float32Array(totalVerts * 3);
+    const colors = new Float32Array(totalVerts * 4);
+    let vi = 0;
+
+    function addVertex(x, y, z, r, g, b, a) {
+      positions[vi * 3] = x; positions[vi * 3 + 1] = y; positions[vi * 3 + 2] = z;
+      colors[vi * 4] = r; colors[vi * 4 + 1] = g; colors[vi * 4 + 2] = b; colors[vi * 4 + 3] = a;
+      vi++;
+    }
+
+    function addLine(x0, y0, z0, x1, y1, z1, r, g, b, a) {
+      addVertex(x0, y0, z0, r, g, b, a);
+      addVertex(x1, y1, z1, r, g, b, a);
+    }
+
+    // Grid on XY plane at Z=0
+    const gridAlpha = 0.25;
+    for (let i = 0; i < gridLines; i++) {
+      const offset = -half + i * spacing;
+      addLine(offset, -half, 0, offset, half, 0, 1, 1, 1, gridAlpha);
+      addLine(-half, offset, 0, half, offset, 0, 1, 1, 1, gridAlpha);
+    }
+
+    const gridVertexCount = vi;
+
+    // Axis quads (two triangles each for thickness)
+    function addAxisQuad(x0, y0, z0, x1, y1, z1, offX, offY, offZ, r, g, b) {
+      // Two triangles forming a quad offset perpendicular to the axis
+      addVertex(x0 - offX, y0 - offY, z0 - offZ, r, g, b, 1);
+      addVertex(x1 - offX, y1 - offY, z1 - offZ, r, g, b, 1);
+      addVertex(x1 + offX, y1 + offY, z1 + offZ, r, g, b, 1);
+      addVertex(x0 - offX, y0 - offY, z0 - offZ, r, g, b, 1);
+      addVertex(x1 + offX, y1 + offY, z1 + offZ, r, g, b, 1);
+      addVertex(x0 + offX, y0 + offY, z0 + offZ, r, g, b, 1);
+    }
+
+    const h = axisThick / 2;
+    // X axis: offset in Z
+    addAxisQuad(0, 0, 0, axisLen, 0, 0, 0, 0, h, 1, 0.3, 0.3);
+    // Y axis: offset in Z
+    addAxisQuad(0, 0, 0, 0, axisLen, 0, 0, 0, h, 0.3, 1, 0.3);
+    // Z axis: offset in X
+    addAxisQuad(0, 0, 0, 0, 0, axisLen, h, 0, 0, 0.3, 0.5, 1);
+
+    return { positions, colors, vertexCount: vi, gridVertexCount };
   }
 
   function uploadModelBuffers() {
@@ -2392,37 +3087,76 @@
     }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    if (!state.model) {
-      return;
+    const hasModel = !!state.model;
+
+    if (hasModel) {
+      const sample = getCurrentPoseSample();
+      uploadInterpolatedGeometry(sample);
+      updateTextureIfNeeded();
+      updatePlaybackLabels(sample);
     }
 
-    const sample = getCurrentPoseSample();
-    uploadInterpolatedGeometry(sample);
-    updateTextureIfNeeded();
-    updatePlaybackLabels(sample);
-
-    gl.useProgram(glState.program);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    gl.enableVertexAttribArray(attribs.position);
-    gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-    gl.enableVertexAttribArray(attribs.normal);
-    gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-    gl.enableVertexAttribArray(attribs.uv);
-    gl.vertexAttribPointer(attribs.uv, 2, gl.FLOAT, false, 0, 0);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
-
     const viewports = getViewportDescriptors(gl.canvas);
+
+    // Draw ground plane first
+    if (state.showGroundPlane) {
+      drawGroundPlane(glState, viewports);
+    }
+
+    if (hasModel) {
+      gl.useProgram(glState.program);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+      gl.enableVertexAttribArray(attribs.position);
+      gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+      gl.enableVertexAttribArray(attribs.normal);
+      gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+      gl.enableVertexAttribArray(attribs.uv);
+      gl.vertexAttribPointer(attribs.uv, 2, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+
+      viewports.forEach((viewport) => {
+        renderViewport(glState, uniforms, viewport);
+      });
+    }
+  }
+
+  function drawGroundPlane(glState, viewports) {
+    const { gl, grid } = glState;
+    gl.useProgram(grid.program);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, grid.positionBuffer);
+    gl.enableVertexAttribArray(grid.attribs.position);
+    gl.vertexAttribPointer(grid.attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, grid.colorBuffer);
+    gl.enableVertexAttribArray(grid.attribs.color);
+    gl.vertexAttribPointer(grid.attribs.color, 4, gl.FLOAT, false, 0, 0);
+
     viewports.forEach((viewport) => {
-      renderViewport(glState, uniforms, viewport);
+      if (!viewport || viewport.width < 2 || viewport.height < 2) return;
+      const aspect = viewport.width / Math.max(viewport.height, 1);
+      const projection = mat4Perspective(viewport.fovDegrees * Math.PI / 180, aspect, 0.1, Math.max(state.camera.distance * 8, 1000));
+      const eye = orbitEye(state.camera.target, state.camera.distance * viewport.distanceScale, viewport.yaw, viewport.pitch);
+      const view = mat4LookAt(eye, state.camera.target, [0, 0, 1]);
+      const mvp = mat4Multiply(projection, view);
+      gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+      gl.uniformMatrix4fv(grid.uniforms.mvp, false, mvp);
+      gl.drawArrays(gl.LINES, 0, grid.gridVertexCount);
+      gl.drawArrays(gl.TRIANGLES, grid.gridVertexCount, grid.vertexCount - grid.gridVertexCount);
     });
+
+    gl.disableVertexAttribArray(grid.attribs.color);
+    gl.disable(gl.BLEND);
   }
 
   function renderViewport(glState, uniforms, viewport) {
@@ -2767,16 +3501,80 @@
   }
 
   function drawSkinPreview(rgba, width, height) {
-    dom.skinPreview.width = width;
-    dom.skinPreview.height = height;
-    const imageData = new ImageData(new Uint8ClampedArray(rgba), width, height);
-    skinPreviewContext.putImageData(imageData, 0, 0);
+    const scale = state.showSkinPolys && state.model ? Math.max(1, Math.ceil(512 / Math.max(width, height))) : 1;
+    dom.skinPreview.width = width * scale;
+    dom.skinPreview.height = height * scale;
+    const skinImage = new ImageData(new Uint8ClampedArray(rgba), width, height);
+    if (scale === 1) {
+      skinPreviewContext.putImageData(skinImage, 0, 0);
+    } else {
+      const tmp = document.createElement("canvas");
+      tmp.width = width;
+      tmp.height = height;
+      tmp.getContext("2d").putImageData(skinImage, 0, 0);
+      skinPreviewContext.imageSmoothingEnabled = false;
+      skinPreviewContext.drawImage(tmp, 0, 0, width * scale, height * scale);
+    }
+    if (state.showSkinPolys && state.model) {
+      drawSkinPolyOverlay(state.model, scale);
+    }
+    updateSkinPaletteEditor();
+  }
+
+  function drawSkinPolyOverlay(model, scale) {
+    if (!model.triangles?.length || !model.stVerts?.length) {
+      return;
+    }
+
+    const shadowWidth = Math.max(1.5, scale * 1.2);
+    const lineWidth = Math.max(0.9, scale * 0.7);
+
+    skinPreviewContext.save();
+    skinPreviewContext.scale(scale, scale);
+    skinPreviewContext.lineJoin = "round";
+    skinPreviewContext.lineCap = "round";
+
+    skinPreviewContext.strokeStyle = "rgba(7, 10, 14, 0.95)";
+    skinPreviewContext.lineWidth = shadowWidth / scale;
+    appendSkinPolyPath(skinPreviewContext, model);
+    skinPreviewContext.stroke();
+
+    skinPreviewContext.strokeStyle = "rgba(248, 250, 252, 0.92)";
+    skinPreviewContext.lineWidth = lineWidth / scale;
+    appendSkinPolyPath(skinPreviewContext, model);
+    skinPreviewContext.stroke();
+
+    skinPreviewContext.restore();
+  }
+
+  function appendSkinPolyPath(context, model) {
+    context.beginPath();
+    for (const triangle of model.triangles) {
+      const a = getSkinPolyVertex(model, triangle, 0);
+      const b = getSkinPolyVertex(model, triangle, 1);
+      const c = getSkinPolyVertex(model, triangle, 2);
+      context.moveTo(a[0], a[1]);
+      context.lineTo(b[0], b[1]);
+      context.lineTo(c[0], c[1]);
+      context.closePath();
+    }
+  }
+
+  function getSkinPolyVertex(model, triangle, vertexSlot) {
+    const vertexIndex = triangle.vertIndex[vertexSlot];
+    const st = model.stVerts[vertexIndex];
+    let s = st.s;
+    if (!triangle.facesfront && st.onseam) {
+      s += model.skinWidth / 2;
+    }
+    return [s + 0.5, st.t + 0.5];
   }
 
   function clearSkinPreview() {
     dom.skinPreview.width = 256;
     dom.skinPreview.height = 256;
     skinPreviewContext.clearRect(0, 0, dom.skinPreview.width, dom.skinPreview.height);
+    updateSkinPaletteEditor();
   }
 
   function createProgram(gl, vertexSource, fragmentSource) {

@@ -439,7 +439,7 @@ span {
   line-height: 1.5;
 }
 
-label:not(.file-input):not(.checkbox):not(.flag-row) {
+label:not(.file-input):not(.checkbox):not(.flag-row):not(.skin-palette-range) {
   display: block;
   margin-top: 10px;
   font-size: 12px;
@@ -448,7 +448,7 @@ label:not(.file-input):not(.checkbox):not(.flag-row) {
   letter-spacing: 0.02em;
 }
 
-label:not(.file-input):not(.checkbox):not(.flag-row) span {
+label:not(.file-input):not(.checkbox):not(.flag-row):not(.skin-palette-range) span {
   font-family: var(--font-mono);
   color: var(--accent-2);
 }
@@ -590,6 +590,12 @@ button {
 select {
   font-family: var(--font-mono);
   font-size: 12px;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa9bb' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 
 select:focus {
@@ -758,6 +764,245 @@ select:focus-visible {
 }
 
 .skin-actions button {
+  margin-top: 0;
+}
+
+.skin-option {
+  margin-top: 0;
+}
+
+.skin-palette-tools {
+  margin-top: 14px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.skin-palette-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 12px;
+  transition: background var(--transition);
+}
+
+.skin-palette-summary:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.skin-palette-summary::-webkit-details-marker {
+  display: none;
+}
+
+.skin-palette-summary::before {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--accent);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform var(--transition);
+}
+
+.skin-palette-summary h3 {
+  margin: 0 !important;
+}
+
+.skin-palette-tools[open] > .skin-palette-summary::before {
+  transform: rotate(90deg);
+}
+
+.skin-palette-content {
+  padding: 0 12px 12px;
+}
+
+.skin-palette-toolbar {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.skin-palette-scope-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.skin-palette-scope-row label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.skin-palette-scope-row select {
+  margin-top: 0;
+}
+
+.skin-palette-layout {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.skin-palette-ranges {
+  display: grid;
+  grid-template-rows: repeat(16, 16px);
+  gap: 0;
+  height: 256px;
+  align-items: stretch;
+}
+
+.skin-palette-range {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  height: 16px;
+  min-height: 0;
+  padding: 0 4px 0 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition);
+}
+
+.skin-palette-range:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.skin-palette-range.is-disabled {
+  opacity: 0.56;
+}
+
+.skin-palette-range.is-unused {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.skin-palette-range input {
+  width: auto;
+  margin: 0;
+  justify-self: center;
+  accent-color: var(--accent);
+}
+
+.skin-palette-range-text {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.skin-palette-range-title {
+  display: block;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.skin-palette-range-meta {
+  display: none;
+}
+
+.skin-palette-main {
+  min-width: 0;
+}
+
+.skin-palette-main canvas {
+  display: block;
+}
+
+.skin-palette-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.skin-palette-actions button {
+  margin-top: 0;
+}
+
+.skin-palette-actions button:disabled {
+  opacity: 0.55;
+}
+
+.obj-tools-section {
+  margin-bottom: 12px;
+}
+
+.obj-tools-section h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.obj-tools-grid {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.obj-tools-axis {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  margin: 0 !important;
+}
+
+.obj-tools-axis.axis-x { color: #ff6b6b; }
+.obj-tools-axis.axis-y { color: #ffe066; }
+.obj-tools-axis.axis-z { color: #69b4ff; }
+
+.obj-tools-grid input[type="number"] {
+  width: 100%;
+  margin-top: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(18, 24, 33, 0.8);
+  color: var(--text);
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.obj-tools-grid input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(95, 214, 224, 0.15);
+}
+
+.obj-tools-scope-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.obj-tools-scope-row label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.obj-tools-scope-row select {
   margin-top: 0;
 }
 
@@ -1048,6 +1293,15 @@ select:focus-visible {
   object-fit: contain;
 }
 
+#skin-palette-canvas {
+  width: 100%;
+  max-width: 256px;
+  height: auto;
+  outline: 1px solid var(--line);
+  background: #0c1016;
+  image-rendering: pixelated;
+}
+
 .info-list {
   margin: 0;
 }
@@ -1148,5 +1402,16 @@ select:focus-visible {
 
   .file-drop-copy {
     align-items: flex-start;
+  }
+
+  .skin-palette-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .skin-palette-ranges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+    height: auto;
+    gap: 4px;
   }
 }

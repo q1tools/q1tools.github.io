@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quake MDL Tool</title>
+  <link rel="icon" type="image/png" href="./mdl.png">
   <link rel="stylesheet" href="./app.css">
 </head>
 <body>
@@ -32,38 +33,17 @@
         </div>
       </section>
 
-      <section id="details-panel" class="panel is-hidden" aria-hidden="true">
-        <h2>Details</h2>
-        <div class="tablist" role="tablist" aria-label="Model details">
-          <button
-            id="skin-tab"
-            class="tab-button is-active"
-            type="button"
-            role="tab"
-            aria-selected="true"
-            aria-controls="skin-panel"
-            data-tab-target="skin"
-          >Skins</button>
-          <button
-            id="properties-tab"
-            class="tab-button"
-            type="button"
-            role="tab"
-            aria-selected="false"
-            aria-controls="properties-panel"
-            data-tab-target="properties"
-            tabindex="-1"
-          >Properties</button>
-        </div>
-
-        <div
-          id="skin-panel"
-          class="tab-panel is-active"
-          role="tabpanel"
-          aria-labelledby="skin-tab"
-        >
+      <details id="skins-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Skins</h2>
+        </summary>
+        <div class="panel-collapsible-content">
           <div class="skin-actions">
             <button id="import-skin-button" type="button">Import Skin</button>
+            <label class="checkbox skin-option">
+              <input id="skin-poly-toggle" type="checkbox">
+              <span>Show skin polys</span>
+            </label>
             <input id="import-skin-input" type="file" accept=".bmp,image/bmp,.png,.gif,.jpg,.jpeg,image/*" hidden>
           </div>
           <label for="skin-select">Skin</label>
@@ -84,18 +64,123 @@
 
           <canvas id="skin-preview" width="256" height="256"></canvas>
           <div id="skin-status" class="hint">No skin loaded</div>
-        </div>
 
-        <div
-          id="properties-panel"
-          class="tab-panel"
-          role="tabpanel"
-          aria-labelledby="properties-tab"
-          hidden
-        >
+          <details class="property-card skin-palette-tools" aria-label="Skin palette mapping">
+            <summary class="skin-palette-summary">
+              <h3>Palette Mapping</h3>
+            </summary>
+
+            <div class="skin-palette-content">
+              <div class="skin-palette-toolbar">
+                <label class="checkbox skin-option">
+                  <input id="skin-palette-unused-toggle" type="checkbox" checked>
+                  <span>Show unused colors</span>
+                </label>
+
+                <div class="skin-palette-scope-row">
+                  <label for="skin-palette-scope">Apply To</label>
+                  <select id="skin-palette-scope">
+                    <option value="frame">Current frame</option>
+                    <option value="skin">All frames in skin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="skin-palette-layout">
+                <div id="skin-palette-ranges" class="skin-palette-ranges" aria-label="Palette ranges"></div>
+
+                <div class="skin-palette-main">
+                  <canvas id="skin-palette-canvas" width="256" height="256" aria-label="Palette mapping grid"></canvas>
+
+                  <div class="skin-palette-actions">
+                    <button id="skin-palette-target-button" type="button">Pick Target</button>
+                    <button id="skin-palette-apply-button" type="button">Apply Remap</button>
+                    <button id="skin-palette-clear-button" type="button">Clear</button>
+                  </div>
+
+                </div>
+              </div>
+
+              <div id="skin-palette-selection" class="hint">Source: none</div>
+              <div id="skin-palette-target" class="hint">Target: none</div>
+              <div id="skin-palette-help" class="hint">Click source colors, pick a target, then apply. Double-click a target swatch to remap immediately.</div>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <details id="details-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Properties</h2>
+        </summary>
+        <div class="panel-collapsible-content">
           <div id="properties-grid" class="properties-grid"></div>
         </div>
-      </section>
+      </details>
+
+      <details id="object-tools-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Object Tools</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <div class="obj-tools-section">
+            <h3>Move</h3>
+            <div class="obj-tools-grid">
+              <label class="obj-tools-axis axis-x">X</label>
+              <input id="obj-move-x" type="number" value="0" step="1">
+              <label class="obj-tools-axis axis-y">Y</label>
+              <input id="obj-move-y" type="number" value="0" step="1">
+              <label class="obj-tools-axis axis-z">Z</label>
+              <input id="obj-move-z" type="number" value="0" step="1">
+            </div>
+          </div>
+
+          <div class="obj-tools-section">
+            <h3>Rotate</h3>
+            <div class="obj-tools-grid">
+              <label class="obj-tools-axis axis-x">X</label>
+              <input id="obj-rotate-x" type="number" value="0" step="1" min="-180" max="180">
+              <label class="obj-tools-axis axis-y">Y</label>
+              <input id="obj-rotate-y" type="number" value="0" step="1" min="-180" max="180">
+              <label class="obj-tools-axis axis-z">Z</label>
+              <input id="obj-rotate-z" type="number" value="0" step="1" min="-180" max="180">
+            </div>
+          </div>
+
+          <div class="obj-tools-section">
+            <h3>Scale</h3>
+            <div class="obj-tools-grid">
+              <label class="obj-tools-axis axis-x">X</label>
+              <input id="obj-scale-x" type="number" value="1" step="0.1">
+              <label class="obj-tools-axis axis-y">Y</label>
+              <input id="obj-scale-y" type="number" value="1" step="0.1">
+              <label class="obj-tools-axis axis-z">Z</label>
+              <input id="obj-scale-z" type="number" value="1" step="0.1">
+            </div>
+          </div>
+
+          <div class="obj-tools-scope-row">
+            <label for="obj-tools-scope">Scope</label>
+            <select id="obj-tools-scope">
+              <option value="frame">Frame</option>
+              <option value="all">All frames</option>
+            </select>
+          </div>
+
+          <div class="obj-tools-scope-row">
+            <label for="obj-tools-mode">Mode</label>
+            <select id="obj-tools-mode">
+              <option value="relative">Relative</option>
+              <option value="absolute">Absolute</option>
+            </select>
+          </div>
+
+          <div class="control-row">
+            <button id="obj-tools-apply" type="button">Apply</button>
+            <button id="obj-tools-reset" type="button">Reset</button>
+          </div>
+        </div>
+      </details>
 
       <details id="lighting-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
         <summary class="panel-summary">
@@ -114,8 +199,8 @@
           <label for="light-direct-range">Direct <span id="light-direct-value">0.45</span></label>
           <input id="light-direct-range" type="range" min="0" max="1" step="0.01" value="0.45">
 
-          <label for="light-hemi-range">Hemisphere <span id="light-hemi-value">0.25</span></label>
-          <input id="light-hemi-range" type="range" min="0" max="1" step="0.01" value="0.25">
+          <label for="light-hemi-range">Hemisphere <span id="light-hemi-value">1.00</span></label>
+          <input id="light-hemi-range" type="range" min="0" max="1" step="0.01" value="1">
         </div>
       </details>
 
@@ -187,6 +272,7 @@
             aria-pressed="false"
           >Orbit / Front / Left</button>
         </div>
+        <button id="ground-plane-toggle" class="view-mode-pill is-active" type="button" aria-pressed="true" title="Show ground plane">Ground</button>
         <div class="bg-mode-toolbar" aria-label="Background mode">
           <button id="bg-dark" class="bg-mode-pill is-active" type="button" aria-pressed="true" title="Dark background">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" fill="#17191e"/></svg>
