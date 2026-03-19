@@ -873,16 +873,11 @@ select:focus-visible {
   transition: background var(--transition), opacity var(--transition);
 }
 
-.skin-palette-range:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
 .skin-palette-range.is-disabled {
   opacity: 0.56;
 }
 
 .skin-palette-range.is-unused {
-  background: rgba(255, 255, 255, 0.01);
 }
 
 .skin-palette-range input {
@@ -923,7 +918,7 @@ select:focus-visible {
 
 .skin-palette-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
