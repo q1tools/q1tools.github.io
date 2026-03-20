@@ -60,6 +60,7 @@
 
   const dom = {
     assetInput: document.getElementById("asset-input"),
+    modelPicker: document.getElementById("model-picker"),
     modelSelect: document.getElementById("model-select"),
     paletteStatus: document.getElementById("palette-status"),
     modelStatus: document.getElementById("model-status"),
@@ -75,6 +76,7 @@
     speedValue: document.getElementById("speed-value"),
     frameGroupSelect: document.getElementById("frame-group-select"),
     frameRange: document.getElementById("frame-range"),
+    frameInput: document.getElementById("frame-input"),
     frameValue: document.getElementById("frame-value"),
     frameName: document.getElementById("frame-name"),
     interpolateToggle: document.getElementById("interpolate-toggle"),
@@ -140,6 +142,7 @@
     lightHemiRange: document.getElementById("light-hemi-range"),
     lightHemiValue: document.getElementById("light-hemi-value"),
     groundPlaneToggle: document.getElementById("ground-plane-toggle"),
+    axisToggle: document.getElementById("axis-toggle"),
     bgDark: document.getElementById("bg-dark"),
     bgWhite: document.getElementById("bg-white"),
     bgGrid: document.getElementById("bg-grid"),
@@ -163,6 +166,7 @@
     viewportMode: "orbit",
     bgMode: "dark",
     showGroundPlane: true,
+    showWorldAxes: true,
     lightAzimuth: 45,
     lightElevation: 60,
     lightAmbient: 0.45,
@@ -293,6 +297,12 @@
       state.showGroundPlane = !state.showGroundPlane;
       dom.groundPlaneToggle.classList.toggle("is-active", state.showGroundPlane);
       dom.groundPlaneToggle.setAttribute("aria-pressed", state.showGroundPlane ? "true" : "false");
+    });
+
+    dom.axisToggle.addEventListener("click", () => {
+      state.showWorldAxes = !state.showWorldAxes;
+      dom.axisToggle.classList.toggle("is-active", state.showWorldAxes);
+      dom.axisToggle.setAttribute("aria-pressed", state.showWorldAxes ? "true" : "false");
     });
 
     dom.bgDark.addEventListener("click", () => setBgMode("dark"));
@@ -471,13 +481,19 @@
     });
 
     dom.frameRange.addEventListener("input", () => {
-      state.manualFrameIndex = parseInt(dom.frameRange.value, 10) || 0;
-      const activeGroup = getActiveFrameGroup();
-      state.playhead = computePoseStartTime(activeGroup, state.manualFrameIndex);
-      state.playing = false;
-      updatePlaybackControls();
-      syncFrameTreeSelection(state.manualFrameIndex);
-      state.geometryDirty = true;
+      setManualFrameIndex(parseInt(dom.frameRange.value, 10) || 0);
+    });
+
+    dom.frameInput.addEventListener("input", () => {
+      const requestedFrame = parseInt(dom.frameInput.value, 10);
+      if (!Number.isFinite(requestedFrame)) {
+        return;
+      }
+      setManualFrameIndex(requestedFrame - 1, true);
+    });
+
+    dom.frameInput.addEventListener("blur", () => {
+      updateTimelineRange();
     });
 
     dom.interpolateToggle.addEventListener("change", () => {
@@ -676,6 +692,10 @@
     const modelAssets = Array.from(state.assets.values())
       .filter((asset) => asset.kind === "mdl")
       .sort((a, b) => a.path.localeCompare(b.path));
+
+    const hasModels = modelAssets.length > 0;
+    dom.modelPicker.classList.toggle("is-hidden", !hasModels);
+    dom.modelPicker.setAttribute("aria-hidden", hasModels ? "false" : "true");
 
     dom.modelSelect.innerHTML = "";
     for (const asset of modelAssets) {
@@ -977,14 +997,14 @@
 
     const rows = bounds
       ? [
-          ["Box (x,y,z)", formatVec3(boundsSize(bounds))],
-          ["Upper (x,y,z)", formatVec3(bounds.max)],
-          ["Lower (x,y,z)", formatVec3(bounds.min)],
+          [buildAxisTupleLabel("Box"), formatVec3(boundsSize(bounds))],
+          [buildAxisTupleLabel("Upper"), formatVec3(bounds.max)],
+          [buildAxisTupleLabel("Lower"), formatVec3(bounds.min)],
         ]
       : [
-          ["Box (x,y,z)", "-"],
-          ["Upper (x,y,z)", "-"],
-          ["Lower (x,y,z)", "-"],
+          [buildAxisTupleLabel("Box"), "-"],
+          [buildAxisTupleLabel("Upper"), "-"],
+          [buildAxisTupleLabel("Lower"), "-"],
         ];
 
     wrapper.appendChild(buildPropertyList(rows));
@@ -1083,13 +1103,39 @@
       const row = document.createElement("div");
       const dt = document.createElement("dt");
       const dd = document.createElement("dd");
-      dt.textContent = label;
+      if (typeof label === "string") {
+        dt.textContent = label;
+      } else {
+        dt.appendChild(label);
+      }
       dd.textContent = value;
       row.appendChild(dt);
       row.appendChild(dd);
       list.appendChild(row);
     });
     return list;
+  }
+
+  function buildAxisTupleLabel(prefix) {
+    const label = document.createElement("span");
+    label.className = "property-axis-label";
+
+    label.appendChild(document.createTextNode(`${prefix} (`));
+    label.appendChild(buildAxisToken("x"));
+    label.appendChild(document.createTextNode(","));
+    label.appendChild(buildAxisToken("y"));
+    label.appendChild(document.createTextNode(","));
+    label.appendChild(buildAxisToken("z"));
+    label.appendChild(document.createTextNode(")"));
+
+    return label;
+  }
+
+  function buildAxisToken(axis) {
+    const token = document.createElement("span");
+    token.className = `property-axis-token axis-${axis}`;
+    token.textContent = axis;
+    return token;
   }
 
   function buildFlagsCard(flags) {
@@ -1157,11 +1203,17 @@
     return wrapper;
   }
 
-  function updateTimelineRange() {
+  function updateTimelineRange(preserveFocusedFrameInput = false) {
     const activeGroup = getActiveFrameGroup();
     const poseCount = activeGroup ? Math.max(activeGroup.poseIndices.length, 1) : 1;
+    const frameIndex = clamp(state.manualFrameIndex, 0, poseCount - 1);
     dom.frameRange.max = String(poseCount - 1);
-    dom.frameRange.value = String(clamp(state.manualFrameIndex, 0, poseCount - 1));
+    dom.frameRange.value = String(frameIndex);
+    dom.frameInput.min = "1";
+    dom.frameInput.max = String(poseCount);
+    if (!preserveFocusedFrameInput || document.activeElement !== dom.frameInput) {
+      dom.frameInput.value = String(frameIndex + 1);
+    }
   }
 
   function updatePlaybackControls() {
@@ -1171,6 +1223,7 @@
     dom.playToggle.textContent = state.playing ? "Pause" : "Play";
     dom.frameGroupSelect.disabled = !state.model;
     dom.frameRange.disabled = !state.model;
+    dom.frameInput.disabled = !state.model;
     dom.skinSelect.disabled = !state.model;
     dom.skinPolyToggle.disabled = !state.model;
     dom.skinPaletteUnusedToggle.disabled = !state.model;
@@ -1184,6 +1237,18 @@
     dom.playToggle.disabled = !state.model || !hasPlayableGroup;
     dom.frameRange.disabled = !state.model || poseCount <= 1;
     dom.resetCamera.disabled = !state.model;
+  }
+
+  function setManualFrameIndex(frameIndex, preserveFocusedFrameInput = false) {
+    const activeGroup = getActiveFrameGroup();
+    const poseCount = activeGroup ? Math.max(activeGroup.poseIndices.length, 1) : 1;
+    state.manualFrameIndex = clamp(frameIndex, 0, poseCount - 1);
+    state.playhead = computePoseStartTime(activeGroup, state.manualFrameIndex);
+    state.playing = false;
+    updateTimelineRange(preserveFocusedFrameInput);
+    updatePlaybackControls();
+    syncFrameTreeSelection(state.manualFrameIndex);
+    state.geometryDirty = true;
   }
 
   function syncModelDependentPanels() {
@@ -2477,16 +2542,17 @@
       return [];
     }
 
-    const groups = [
-      finalizeFrameGroup({
+    const groups = [];
+    if (poseEntries.length > 1) {
+      groups.push(finalizeFrameGroup({
         type: "all",
         name: "all",
         treeLabel: "All",
         poseIndices: poseEntries.map((entry) => entry.poseIndex),
         durations: poseEntries.map((entry) => entry.duration),
         poseNames: poseEntries.map((entry) => entry.name),
-      }),
-    ];
+      }));
+    }
 
     let currentGroup = null;
     poseEntries.forEach((entry, entryIndex) => {
@@ -2977,9 +3043,9 @@
     const axisThick = 0.4;
 
     // Grid: gridLines*2 lines, 2 verts each
-    // Axes: 3 axes, each a quad = 2 triangles = 6 verts
+    // Axes: 3 axes, each rendered as two crossed quads = 12 verts
     const gridVerts = gridLines * 2 * 2;
-    const axisVerts = 3 * 6;
+    const axisVerts = 3 * 12;
     const totalVerts = gridVerts + axisVerts;
     const positions = new Float32Array(totalVerts * 3);
     const colors = new Float32Array(totalVerts * 4);
@@ -3017,13 +3083,18 @@
       addVertex(x0 + offX, y0 + offY, z0 + offZ, r, g, b, 1);
     }
 
+    function addAxisBeam(x0, y0, z0, x1, y1, z1, offAX, offAY, offAZ, offBX, offBY, offBZ, r, g, b) {
+      addAxisQuad(x0, y0, z0, x1, y1, z1, offAX, offAY, offAZ, r, g, b);
+      addAxisQuad(x0, y0, z0, x1, y1, z1, offBX, offBY, offBZ, r, g, b);
+    }
+
     const h = axisThick / 2;
-    // X axis: offset in Z
-    addAxisQuad(0, 0, 0, axisLen, 0, 0, 0, 0, h, 1, 0.3, 0.3);
-    // Y axis: offset in Z
-    addAxisQuad(0, 0, 0, 0, axisLen, 0, 0, 0, h, 0.3, 1, 0.3);
-    // Z axis: offset in X
-    addAxisQuad(0, 0, 0, 0, 0, axisLen, h, 0, 0, 0.3, 0.5, 1);
+    // X axis: give it thickness in both Y and Z so it stays visible edge-on.
+    addAxisBeam(0, 0, 0, axisLen, 0, 0, 0, h, 0, 0, 0, h, 1, 0.3, 0.3);
+    // Y axis: give it thickness in both X and Z.
+    addAxisBeam(0, 0, 0, 0, axisLen, 0, h, 0, 0, 0, 0, h, 0.3, 1, 0.3);
+    // Z axis: give it thickness in both X and Y.
+    addAxisBeam(0, 0, 0, 0, 0, axisLen, h, 0, 0, 0, h, 0, 0.3, 0.5, 1);
 
     return { positions, colors, vertexCount: vi, gridVertexCount };
   }
@@ -3098,8 +3169,8 @@
 
     const viewports = getViewportDescriptors(gl.canvas);
 
-    // Draw ground plane first
-    if (state.showGroundPlane) {
+    // Draw ground plane and/or world axes first.
+    if (state.showGroundPlane || state.showWorldAxes) {
       drawGroundPlane(glState, viewports);
     }
 
@@ -3151,8 +3222,12 @@
       const mvp = mat4Multiply(projection, view);
       gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
       gl.uniformMatrix4fv(grid.uniforms.mvp, false, mvp);
-      gl.drawArrays(gl.LINES, 0, grid.gridVertexCount);
-      gl.drawArrays(gl.TRIANGLES, grid.gridVertexCount, grid.vertexCount - grid.gridVertexCount);
+      if (state.showGroundPlane) {
+        gl.drawArrays(gl.LINES, 0, grid.gridVertexCount);
+      }
+      if (state.showWorldAxes) {
+        gl.drawArrays(gl.TRIANGLES, grid.gridVertexCount, grid.vertexCount - grid.gridVertexCount);
+      }
     });
 
     gl.disableVertexAttribArray(grid.attribs.color);
@@ -3449,6 +3524,10 @@
 
   function updatePlaybackLabels(sample) {
     dom.frameRange.value = String(sample.frameIndex);
+    dom.frameInput.max = String(sample.poseCount);
+    if (document.activeElement !== dom.frameInput) {
+      dom.frameInput.value = String(sample.frameIndex + 1);
+    }
     dom.frameValue.textContent = `${sample.frameIndex + 1} / ${sample.poseCount}`;
     dom.frameName.textContent = `${sample.groupLabel}: ${sample.frameName}`;
     if (!state.playing) {

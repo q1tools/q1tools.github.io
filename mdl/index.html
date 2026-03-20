@@ -22,8 +22,10 @@
           <input id="asset-input" type="file" multiple accept=".mdl,.pak,.lmp,application/octet-stream">
         </label>
 
-        <label for="model-select">Models</label>
-        <select id="model-select" size="8"></select>
+        <div id="model-picker" class="assets-model-picker is-hidden" aria-hidden="true">
+          <label for="model-select">Models</label>
+          <select id="model-select" size="8"></select>
+        </div>
 
         <div class="status-grid">
           <div>Palette</div>
@@ -104,6 +106,16 @@
               <div id="skin-palette-selection" class="hint" style="margin-top:10px">Source: none</div>
               <div id="skin-palette-target" class="hint">Target: none</div>
               <div id="skin-palette-help" class="hint">Click source colors, pick a target, then apply. Double-click a target swatch to remap immediately.</div>
+
+              <details class="skin-palette-notes">
+                <summary class="skin-palette-note-summary">Reserved Palette Indices</summary>
+                <div class="skin-palette-note-content hint">
+                  In Quake's 256-color palette, the main reserved entries are the fullbright range 224-255, which stay bright regardless of lighting, the transparency index 255, which is commonly used as the masked "hole" color for sprites, fence textures, and some model rendering, and the two player colormap translation bands 16-31 for shirt/top colors and 96-111 for pants/bottom colors.
+                </div>
+                <div class="skin-palette-note-content hint">
+                  There is also one special case for console characters, where both palette index 0 and 255 are treated as transparent. In practice, that means the usable visible fullbright colors are really 224-254, because 255 is usually consumed by transparency rather than shown as a normal glowing color.
+                </div>
+              </details>
             </div>
           </details>
         </div>
@@ -228,7 +240,10 @@
           <input id="speed-range" type="range" min="0.1" max="3" step="0.05" value="1">
 
           <label for="frame-range">Pose <span id="frame-value">0</span></label>
-          <input id="frame-range" type="range" min="0" max="0" step="1" value="0">
+          <div class="playback-pose-row">
+            <input id="frame-range" type="range" min="0" max="0" step="1" value="0">
+            <input id="frame-input" type="number" min="1" max="1" step="1" value="1" aria-label="Pose number">
+          </div>
           <div id="frame-name" class="hint">No frame selected</div>
 
           <label class="checkbox">
@@ -273,6 +288,7 @@
           >Orbit / Front / Left</button>
         </div>
         <button id="ground-plane-toggle" class="view-mode-pill is-active" type="button" aria-pressed="true" title="Show ground plane">Ground</button>
+        <button id="axis-toggle" class="view-mode-pill is-active" type="button" aria-pressed="true" title="Show world axes">Axes</button>
         <div class="bg-mode-toolbar" aria-label="Background mode">
           <button id="bg-dark" class="bg-mode-pill is-active" type="button" aria-pressed="true" title="Dark background">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" fill="#17191e"/></svg>
