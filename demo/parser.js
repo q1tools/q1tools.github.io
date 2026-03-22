@@ -1278,9 +1278,6 @@
         if (!trimProtocolSupported(protocol)) {
             return 'Demsmooth export currently supports protocol 15, 666, and 999 demos only.';
         }
-        if (pext1) {
-            return 'Demsmooth export does not currently support FTE PEXT1 or CSQC demo extensions.';
-        }
         if (pext2 & PEXT2_SETANGLEDELTA) {
             return 'Demsmooth export does not currently support FTE setangle-delta demos.';
         }
@@ -2839,6 +2836,7 @@
                 throw new Error('DP7 entity batches are not supported by this parser yet.');
 
             case SVC.DP_CSQCENTITIES:
+                markSmoothingUnsupported(parser, 'Demsmooth export does not currently support CSQC entity payloads.');
                 throw new Error('CSQC entity payloads are not supported in browser parsing.');
 
             case SVC.DP_SPAWNSTATICSOUND2:
@@ -2872,6 +2870,7 @@
                 break;
 
             case SVC.FTE_CGAMEPACKET:
+                markSmoothingUnsupported(parser, 'Demsmooth export does not currently support CSQC game packets.');
                 if (parser.runtime.protocolPext1 & PEXT1_CSQC) {
                     throw new Error('CSQC game packets are not supported by this browser parser.');
                 }
