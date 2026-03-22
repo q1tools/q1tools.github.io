@@ -46,13 +46,15 @@
     const PEXT2_MAXPLAYERS = 0x00000010;
     const PEXT2_PREDINFO = 0x00000020;
     const PEXT2_NEWSIZEENCODING = 0x00000040;
+    const PEXT2_INFOBLOBS = 0x00000080;
     const SMOOTH_SUPPORTED_PEXT2 = (
         PEXT2_PRYDONCURSOR |
         PEXT2_VOICECHAT |
         PEXT2_REPLACEMENTDELTAS |
         PEXT2_MAXPLAYERS |
         PEXT2_PREDINFO |
-        PEXT2_NEWSIZEENCODING
+        PEXT2_NEWSIZEENCODING |
+        PEXT2_INFOBLOBS
     ) >>> 0;
 
     const U_MOREBITS = 1 << 0;
@@ -164,6 +166,13 @@
     const SND_FTE_TIMEOFS = 1n << 6n;
     const SND_FTE_PITCHADJ = 1n << 7n;
     const SND_FTE_VELOCITY = 1n << 8n;
+    const SND_FTE_FORCELOOP = 1n << 9n;
+    const SND_FTE_NOSPACIALISE = 1n << 10n;
+    const SND_FTE_NOREVERB = 1n << 13n;
+    const SND_FTE_FOLLOW = 1n << 14n;
+    const SND_FTE_NOREPLACE = 1n << 15n;
+
+    const EF_FULLBRIGHT = 1 << 9;
 
     const DEFAULT_SOUND_PACKET_VOLUME = 255;
     const DEFAULT_SOUND_PACKET_ATTENUATION = 1.0;
@@ -204,6 +213,8 @@
         CDTRACK: 32,
         SELLSCREEN: 33,
         CUTSCENE: 34,
+        DP_SHOWPIC: 35,
+        DP_HIDEPIC: 36,
         SKYBOX: 37,
         BF: 40,
         FOG: 41,
@@ -517,6 +528,153 @@
         return leaf.replace(/\.[^/.]+$/, '');
     }
 
+    function encodeEntityAlpha(value) {
+        const alpha = Number(value);
+        if (!Number.isFinite(alpha) || alpha === 0) {
+            return 0;
+        }
+        return Math.round(clamp(alpha * 254 + 1, 1, 255));
+    }
+
+    function cloneStringMap(source) {
+        return Object.assign({}, source || {});
+    }
+
+    function parseInfoString(value) {
+        const info = Object.create(null);
+        const parts = String(value || '').split('\\');
+        for (let index = 1; index + 1 < parts.length; index += 2) {
+            info[parts[index]] = parts[index + 1];
+        }
+        return info;
+    }
+
+    function tokenizeStuffTextCommand(value) {
+        const text = String(value || '');
+        const tokens = [];
+        let index = 0;
+        while (index < text.length) {
+            while (index < text.length && /\s/.test(text.charAt(index))) {
+                index += 1;
+            }
+            if (index >= text.length) {
+                break;
+            }
+            if (text.charAt(index) === '"') {
+                index += 1;
+                const start = index;
+                while (index < text.length && text.charAt(index) !== '"') {
+                    index += 1;
+                }
+                tokens.push(text.slice(start, index));
+                if (index < text.length && text.charAt(index) === '"') {
+                    index += 1;
+                }
+                continue;
+            }
+            const start = index;
+            while (index < text.length && !/\s/.test(text.charAt(index))) {
+                index += 1;
+            }
+            tokens.push(text.slice(start, index));
+        }
+        return tokens;
+    }
+
+    function ensureRuntimePlayer(parser, slot) {
+        if (!Number.isInteger(slot) || slot < 0) {
+            return null;
+        }
+        while (parser.runtime.players.length <= slot) {
+            parser.runtime.players.push(null);
+        }
+        if (!parser.runtime.players[slot]) {
+            parser.runtime.players[slot] = {
+                name: '',
+                shirt: null,
+                pants: null,
+                frags: 0
+            };
+        }
+        return parser.runtime.players[slot];
+    }
+
+    function parseLegacyColorValue(value) {
+        const text = String(value || '').trim();
+        if (!/^-?\d+$/.test(text)) {
+            return null;
+        }
+        return (Number(text) | 0) & 15;
+    }
+
+    function syncPlayerUserInfo(parser, slot) {
+        const info = parser.runtime.playerUserInfo[slot];
+        if (!info) {
+            return;
+        }
+        const runtimePlayer = ensureRuntimePlayer(parser, slot);
+        if (!runtimePlayer) {
+            return;
+        }
+        const record = ensurePlayerRecord(parser, slot);
+        if (Object.prototype.hasOwnProperty.call(info, 'name')) {
+            runtimePlayer.name = info.name;
+            addAlias(record, info.name);
+        }
+        const shirt = parseLegacyColorValue(info.topcolor);
+        if (shirt !== null) {
+            runtimePlayer.shirt = shirt;
+            record.shirt = shirt;
+        }
+        const pants = parseLegacyColorValue(info.bottomcolor);
+        if (pants !== null) {
+            runtimePlayer.pants = pants;
+            record.pants = pants;
+        }
+    }
+
+    function applyStuffTextCommand(parser, rawText) {
+        String(rawText || '').split(/[\r\n]+/).forEach(function (line) {
+            const text = line.trim();
+            if (!text.startsWith('//')) {
+                return;
+            }
+            const tokens = tokenizeStuffTextCommand(text);
+            if (!tokens.length) {
+                return;
+            }
+            const command = tokens[0].slice(2).toLowerCase();
+            if (command === 'fullserverinfo') {
+                parser.runtime.serverInfo = parseInfoString(tokens[1] || '');
+                return;
+            }
+            if (command === 'svi') {
+                if (tokens.length >= 3) {
+                    parser.runtime.serverInfo[tokens[1]] = tokens[2];
+                }
+                return;
+            }
+            if (command === 'fui') {
+                const slot = Number.parseInt(tokens[1], 10);
+                if (Number.isInteger(slot) && slot >= 0) {
+                    parser.runtime.playerUserInfo[slot] = parseInfoString(tokens[2] || '');
+                    syncPlayerUserInfo(parser, slot);
+                }
+                return;
+            }
+            if (command === 'ui') {
+                const slot = Number.parseInt(tokens[1], 10);
+                if (Number.isInteger(slot) && slot >= 0 && tokens.length >= 3) {
+                    if (!parser.runtime.playerUserInfo[slot]) {
+                        parser.runtime.playerUserInfo[slot] = Object.create(null);
+                    }
+                    parser.runtime.playerUserInfo[slot][tokens[2]] = tokens.length >= 4 ? tokens[3] : '';
+                    syncPlayerUserInfo(parser, slot);
+                }
+            }
+        });
+    }
+
     function normalizeAngle(angle) {
         if (!Number.isFinite(angle)) {
             return 0;
@@ -675,6 +833,23 @@
         }
         this.offset += 8;
         return value;
+    };
+
+    ByteReader.prototype.readVarUint64 = function () {
+        let value = this.readUint8();
+        let mask = 0x80;
+        let extraBytes = 0;
+        while ((value & mask) !== 0 && mask !== 0) {
+            value -= mask;
+            extraBytes += 1;
+            mask >>= 1;
+        }
+        let result = BigInt(value) << BigInt(extraBytes * 8);
+        while (extraBytes > 0) {
+            extraBytes -= 1;
+            result |= BigInt(this.readUint8()) << BigInt(extraBytes * 8);
+        }
+        return result;
     };
 
     ByteReader.prototype.readBytes = function (count) {
@@ -1601,6 +1776,8 @@
         parser.runtime.protocolPext1 = 0;
         parser.runtime.protocolPext2 = 0;
         parser.runtime.protocolFlags = 0;
+        parser.runtime.serverInfo = Object.create(null);
+        parser.runtime.playerUserInfo = [];
         parser.runtime.entities = [];
         parser.runtime.players = [];
         parser.runtime.maxClients = 0;
@@ -1840,8 +2017,11 @@
             }
         } else if (parser.runtime.protocol === PROTOCOL_NETQUAKE || parser.runtime.protocol === PROTOCOL_VERSION_BJP3) {
             if (bits & U_TRANS) {
-                reader.readFloat32();
-                reader.readFloat32();
+                const transparencyMode = reader.readFloat32();
+                state.alpha = encodeEntityAlpha(reader.readFloat32());
+                if (transparencyMode === 2 && reader.readFloat32() >= 0.5) {
+                    state.effects |= EF_FULLBRIGHT;
+                }
                 if (parser.runtime.protocol === PROTOCOL_NETQUAKE) {
                     appendWarning(parser, 'Encountered Nehahra-style transparency bits in a protocol 15 stream.');
                 }
@@ -2306,7 +2486,7 @@
             fieldMask |= SND_LARGESOUND;
         }
         if (hasBigFlag(fieldMask, SND_FTE_MOREFLAGS)) {
-            fieldMask |= reader.readBigUint64() << 8n;
+            fieldMask |= reader.readVarUint64() << 8n;
         }
         if (hasBigFlag(fieldMask, SND_VOLUME)) {
             reader.readUint8();
@@ -2379,6 +2559,14 @@
         parser.runtime.staticEntities.push({
             baseline: cloneEntityState(target.baseline)
         });
+    }
+
+    function parseFteVoiceChat(parser, reader) {
+        reader.readUint8();
+        reader.readUint8();
+        reader.readUint8();
+        reader.readBytes(reader.readUint16());
+        appendWarning(parser, 'Encountered FTE voice chat packets; ignored their payloads.');
     }
 
     function parseTempEntity(parser, reader) {
@@ -2648,6 +2836,7 @@
                     frame: parser.frameCount + 1,
                     text: stripQuakeFormatting(rawText).trim()
                     });
+                    applyStuffTextCommand(parser, rawText);
                     if (isFogStuffText(rawText)) {
                         parser.runtime.fogCommand = rawText;
                     }
@@ -2768,6 +2957,17 @@
                 reader.readUint8();
                 break;
 
+            case SVC.DP_SHOWPIC:
+                reader.readString();
+                reader.readString();
+                reader.readUint8();
+                reader.readUint8();
+                break;
+
+            case SVC.DP_HIDEPIC:
+                reader.readString();
+                break;
+
             case SVC.SKYBOX:
                 parser.runtime.skybox = reader.readString();
                 break;
@@ -2877,10 +3077,8 @@
                 throw new Error('Encountered unsupported FTE cgame packet.');
 
             case SVC.FTE_VOICECHAT:
-                if (parser.runtime.protocolPext2 & PEXT2_VOICECHAT) {
-                    throw new Error('Voice chat packets are not supported by this browser parser.');
-                }
-                throw new Error('Encountered unsupported FTE voice chat packet.');
+                parseFteVoiceChat(parser, reader);
+                break;
 
             case SVC.FTE_SETANGLEDELTA:
                 markSmoothingUnsupported(parser, 'Demsmooth export does not currently support FTE setangle-delta packets.');
@@ -3182,6 +3380,8 @@
                 gameType: 0,
                 levelName: '',
                 serverGameDir: '',
+                serverInfo: Object.create(null),
+                playerUserInfo: [],
                 skybox: '',
                 fogCommand: '',
                 modelPrecache: [null],
@@ -4672,6 +4872,10 @@
                 };
             }),
             players: finalisePlayers(parser),
+            serverInfo: cloneStringMap(parser.runtime.serverInfo),
+            playerUserInfo: parser.runtime.playerUserInfo.map(function (info) {
+                return info ? cloneStringMap(info) : null;
+            }),
             chatLog: parser.chatLog.slice(),
             prints: parser.printLog.slice(),
             stuffText: parser.stuffTextLog.slice(),
