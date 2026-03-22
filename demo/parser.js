@@ -39,11 +39,21 @@
 
     const PEXT1_CSQC = 0x40000000;
 
+    const PEXT2_PRYDONCURSOR = 0x00000001;
     const PEXT2_VOICECHAT = 0x00000002;
+    const PEXT2_SETANGLEDELTA = 0x00000004;
     const PEXT2_REPLACEMENTDELTAS = 0x00000008;
     const PEXT2_MAXPLAYERS = 0x00000010;
     const PEXT2_PREDINFO = 0x00000020;
     const PEXT2_NEWSIZEENCODING = 0x00000040;
+    const SMOOTH_SUPPORTED_PEXT2 = (
+        PEXT2_PRYDONCURSOR |
+        PEXT2_VOICECHAT |
+        PEXT2_REPLACEMENTDELTAS |
+        PEXT2_MAXPLAYERS |
+        PEXT2_PREDINFO |
+        PEXT2_NEWSIZEENCODING
+    ) >>> 0;
 
     const U_MOREBITS = 1 << 0;
     const U_ORIGIN1 = 1 << 1;
@@ -1240,10 +1250,15 @@
     }
 
     function markSmoothingUnsupported(parser, reason) {
-        if (!parser || !parser.smoothing || parser.smoothing.unsupportedReason) {
+        if (!parser || !reason) {
             return;
         }
-        parser.smoothing.unsupportedReason = reason;
+        if (parser.smoothingSupport && !parser.smoothingSupport.unsupportedReason) {
+            parser.smoothingSupport.unsupportedReason = reason;
+        }
+        if (parser.smoothing && !parser.smoothing.unsupportedReason) {
+            parser.smoothing.unsupportedReason = reason;
+        }
     }
 
     function superimposeUnsupportedReason(protocol, protocolFlags, pext1, pext2) {
@@ -1255,6 +1270,22 @@
         }
         if ((protocolFlags & (PRFL_FLOATCOORD | PRFL_INT32COORD | PRFL_24BITCOORD)) !== 0) {
             return 'Demsuperimpose export currently supports classic short-coordinate demos only.';
+        }
+        return '';
+    }
+
+    function smoothingUnsupportedReason(protocol, protocolFlags, pext1, pext2) {
+        if (!trimProtocolSupported(protocol)) {
+            return 'Demsmooth export currently supports protocol 15, 666, and 999 demos only.';
+        }
+        if (pext1) {
+            return 'Demsmooth export does not currently support FTE PEXT1 or CSQC demo extensions.';
+        }
+        if (pext2 & PEXT2_SETANGLEDELTA) {
+            return 'Demsmooth export does not currently support FTE setangle-delta demos.';
+        }
+        if ((pext2 & ~SMOOTH_SUPPORTED_PEXT2) !== 0) {
+            return 'Demsmooth export does not currently support one or more FTE PEXT2 extensions used by this demo.';
         }
         return '';
     }
@@ -1372,6 +1403,9 @@
     function registerTimestamp(parser, time) {
         parser.runtime.time = time;
         parser.lastTimestamp = time;
+        if (parser.smoothing && parser.smoothing.currentFrame) {
+            parser.smoothing.currentFrame.timed = true;
+        }
         if (parser.firstTimestamp === null) {
             parser.firstTimestamp = time;
         }
@@ -1618,13 +1652,15 @@
             parser.runtime.serverGameDir = '';
         }
 
-        if (parser.smoothing) {
-            if (parser.runtime.protocolPext1 || parser.runtime.protocolPext2) {
-                markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic protocol 15, 666, and 999 demos without FTE extensions.');
-            } else if (protocol !== PROTOCOL_NETQUAKE && protocol !== PROTOCOL_FITZQUAKE && protocol !== PROTOCOL_RMQ) {
-                markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic protocol 15, 666, and 999 demos only.');
-            } else if ((parser.runtime.protocolFlags & (PRFL_FLOATCOORD | PRFL_INT32COORD | PRFL_24BITCOORD)) !== 0) {
-                markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic short-coordinate demos only.');
+        {
+            const reason = smoothingUnsupportedReason(
+                protocol,
+                parser.runtime.protocolFlags,
+                parser.runtime.protocolPext1,
+                parser.runtime.protocolPext2
+            );
+            if (reason) {
+                markSmoothingUnsupported(parser, reason);
             }
         }
 
@@ -1740,10 +1776,6 @@
             zOffset: null
         } : null;
 
-        if (smoothingTrackEntity && (parser.runtime.protocolFlags & (PRFL_FLOATCOORD | PRFL_INT32COORD | PRFL_24BITCOORD)) !== 0) {
-            markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic short-coordinate demos only.');
-        }
-
         let modelindex;
         if (bits & U_MODEL) {
             modelindex = (parser.runtime.protocol === PROTOCOL_VERSION_BJP3) ? reader.readUint16() : reader.readUint8();
@@ -1828,23 +1860,24 @@
 
         if (smoothingLocation && !parser.smoothing.unsupportedReason) {
             parser.smoothing.locations.push({
-                x: Math.round(state.origin[0] * 8),
-                y: Math.round(state.origin[1] * 8),
-                z: Math.round(state.origin[2] * 8),
+                x: state.origin[0],
+                y: state.origin[1],
+                z: state.origin[2],
                 xOffset: smoothingLocation.xOffset,
                 yOffset: smoothingLocation.yOffset,
-                zOffset: smoothingLocation.zOffset
+                zOffset: smoothingLocation.zOffset,
+                protocolFlags: parser.runtime.protocolFlags >>> 0
             });
         }
     }
 
     function readFteBaseline(parser, reader) {
         const baseline = entityState();
-        readFteDelta(parser, reader, 0, baseline, baseline, entityState());
+        readFteDelta(parser, reader, 0, baseline, baseline, entityState(), null);
         return baseline;
     }
 
-    function readFteDelta(parser, reader, entityNumber, targetState, oldState, baselineState) {
+    function readFteDelta(parser, reader, entityNumber, targetState, oldState, baselineState, smoothingLocation) {
         let bits = reader.readUint8();
         if (bits & UF_EXTEND1) {
             bits |= reader.readUint8() << 8;
@@ -1868,10 +1901,19 @@
             targetState.frame = (bits & UF_16BIT) ? reader.readUint16() : reader.readUint8();
         }
         if (bits & UF_ORIGINXY) {
+            if (smoothingLocation) {
+                smoothingLocation.xOffset = (parser.frameContext ? parser.frameContext.payloadOffset : 0) + reader.offset;
+            }
             targetState.origin[0] = readCoord(reader, parser.runtime.protocolFlags);
+            if (smoothingLocation) {
+                smoothingLocation.yOffset = (parser.frameContext ? parser.frameContext.payloadOffset : 0) + reader.offset;
+            }
             targetState.origin[1] = readCoord(reader, parser.runtime.protocolFlags);
         }
         if (bits & UF_ORIGINZ) {
+            if (smoothingLocation) {
+                smoothingLocation.zOffset = (parser.frameContext ? parser.frameContext.payloadOffset : 0) + reader.offset;
+            }
             targetState.origin[2] = readCoord(reader, parser.runtime.protocolFlags);
         }
         if ((bits & UF_PREDINFO) && !(parser.runtime.protocolPext2 & PEXT2_PREDINFO)) {
@@ -2063,9 +2105,6 @@
     }
 
     function parseFteUpdateEntities(parser, reader) {
-        if (parser.smoothing) {
-            markSmoothingUnsupported(parser, 'Demsmooth export currently supports classic protocol 15, 666, and 999 demos without FTE extensions.');
-        }
         if (parser.runtime.protocolPext2 & PEXT2_PREDINFO) {
             reader.readUint16();
         }
@@ -2094,11 +2133,27 @@
             const target = ensureEntity(parser, entityValue);
             const wasActive = target.active;
             const nextState = entityState();
-            readFteDelta(parser, reader, entityValue, nextState, target.active ? target.state : null, target.baseline || entityState());
+            const smoothingLocation = (parser.smoothing && !parser.smoothing.unsupportedReason && entityValue === parser.runtime.viewEntity) ? {
+                xOffset: null,
+                yOffset: null,
+                zOffset: null
+            } : null;
+            readFteDelta(parser, reader, entityValue, nextState, target.active ? target.state : null, target.baseline || entityState(), smoothingLocation);
             target.state = nextState;
             target.active = true;
             target.lastTime = parser.runtime.time;
             updatePlayerMovement(parser, entityValue, nextState, !wasActive);
+            if (smoothingLocation && !parser.smoothing.unsupportedReason) {
+                parser.smoothing.locations.push({
+                    x: nextState.origin[0],
+                    y: nextState.origin[1],
+                    z: nextState.origin[2],
+                    xOffset: smoothingLocation.xOffset,
+                    yOffset: smoothingLocation.yOffset,
+                    zOffset: smoothingLocation.zOffset,
+                    protocolFlags: parser.runtime.protocolFlags >>> 0
+                });
+            }
         }
 
         if ((parser.runtime.protocolPext2 & PEXT2_PREDINFO) && parser.runtime.viewEntity > 0) {
@@ -2829,6 +2884,7 @@
                 throw new Error('Encountered unsupported FTE voice chat packet.');
 
             case SVC.FTE_SETANGLEDELTA:
+                markSmoothingUnsupported(parser, 'Demsmooth export does not currently support FTE setangle-delta packets.');
                 readAngle16(reader, parser.runtime.protocolFlags);
                 readAngle16(reader, parser.runtime.protocolFlags);
                 readAngle16(reader, parser.runtime.protocolFlags);
@@ -3111,6 +3167,9 @@
             currentSegment: null,
             firstTimestamp: null,
             lastTimestamp: null,
+            smoothingSupport: {
+                unsupportedReason: ''
+            },
             runtime: {
                 protocol: null,
                 protocolFlags: 0,
@@ -3155,7 +3214,8 @@
             smoothing: config.enableSmoothing ? {
                 frames: [],
                 locations: [],
-                unsupportedReason: ''
+                unsupportedReason: '',
+                currentFrame: null
             } : null,
             superimpose: config.enableSuperimpose ? {
                 segments: [],
@@ -3171,9 +3231,9 @@
         for (let index = 0; index < frames.length && index < maxFrame; index += 1) {
             const frame = frames[index];
             if (parser.smoothing) {
-                parser.smoothing.frames.push({
+                const smoothingFrame = {
                     frameIndex: frame.index,
-                    timed: !!(frame.payload.length && frame.payload[0] === SVC.TIME),
+                    timed: false,
                     angles: frame.viewAngles.slice(),
                     sourceAngles: frame.viewAngles.slice(),
                     angleOffsets: [
@@ -3183,13 +3243,18 @@
                     ],
                     smoothedXY: false,
                     smoothedZ: false
-                });
+                };
+                parser.smoothing.frames.push(smoothingFrame);
+                parser.smoothing.currentFrame = smoothingFrame;
             }
             parser.frameContext = frame;
             try {
                 parseFrame(parser, frame.payload, frame.viewAngles);
             } finally {
                 parser.frameContext = null;
+                if (parser.smoothing) {
+                    parser.smoothing.currentFrame = null;
+                }
             }
             if (frameTimes) {
                 frameTimes.push(round(parser.runtime.time, 3) || 0);
@@ -3401,18 +3466,18 @@
                 }
 
                 const target = locations[center];
-                const smoothX = truncateTowardZero(sumX / count);
-                const smoothY = truncateTowardZero(sumY / count);
-                const smoothZ = truncateTowardZero(sumZ / count);
+                const smoothX = sumX / count;
+                const smoothY = sumY / count;
+                const smoothZ = sumZ / count;
 
                 if (target.xOffset !== null) {
-                    outputView.setInt16(target.xOffset, smoothX, true);
+                    writeSmoothedCoordAtOffset(outputView, target.xOffset, smoothX, target.protocolFlags);
                 }
                 if (target.yOffset !== null) {
-                    outputView.setInt16(target.yOffset, smoothY, true);
+                    writeSmoothedCoordAtOffset(outputView, target.yOffset, smoothY, target.protocolFlags);
                 }
                 if (target.zOffset !== null) {
-                    outputView.setInt16(target.zOffset, smoothZ, true);
+                    writeSmoothedCoordAtOffset(outputView, target.zOffset, smoothZ, target.protocolFlags);
                 }
             }
         };
@@ -3432,6 +3497,23 @@
                 outputView.setFloat32(offset, frame.angles[axis], true);
             });
         });
+    }
+
+    function writeSmoothedCoordAtOffset(outputView, offset, value, protocolFlags) {
+        if (hasFlag(protocolFlags, PRFL_FLOATCOORD)) {
+            outputView.setFloat32(offset, value, true);
+            return;
+        }
+        if (hasFlag(protocolFlags, PRFL_INT32COORD)) {
+            outputView.setInt32(offset, truncateTowardZero(value * 16), true);
+            return;
+        }
+        if (hasFlag(protocolFlags, PRFL_24BITCOORD)) {
+            outputView.setInt16(offset, Math.trunc(value), true);
+            outputView.setUint8(offset + 2, ((((Math.trunc(value * 255) % 255) + 255) % 255) & 0xff));
+            return;
+        }
+        outputView.setInt16(offset, truncateTowardZero(value * 8), true);
     }
 
     function isDefaultEntityState(state) {
@@ -4599,6 +4681,8 @@
                 endTime: parser.lastTimestamp === null ? (frameTimes.length ? frameTimes[frameTimes.length - 1] : 0) : round(parser.lastTimestamp, 3),
                 frameTimes: frameTimes
             },
+            smoothSupported: protocols.length > 0 && !parser.smoothingSupport.unsupportedReason,
+            smoothUnsupportedReason: parser.smoothingSupport.unsupportedReason || (protocols.length ? '' : 'Demsmooth export requires a demo with a decodable serverinfo message.'),
             local: finaliseLocalState(parser),
             warnings: parser.warnings.slice()
         };

@@ -271,7 +271,7 @@
     // Quake byte → Unicode (using Windows-1252 for 128-159 to avoid invisible C1 control chars)
     var QUAKE_CHR_OVERRIDES = {
         0:'\u001C', 4:'\u201E', 6:'\u2020', 7:'\u2021', 8:'\u02C6', 9:'\u2030',
-        10:' ', 13:'>',
+        10:' ', 13:'>', 16:'[', 17:']',
         128:'\u20AC', 130:'\u201A', 131:'\u0192', 132:'\u201E', 133:'\u2026',
         134:'\u2020', 135:'\u2021', 136:'\u02C6', 137:'\u2030', 138:'\u0160',
         139:'\u2039', 140:'\u0152', 142:'\u017D',
@@ -363,6 +363,9 @@
     }
 
     function smoothExportSupported(data) {
+        if (data && typeof data.smoothSupported === 'boolean') {
+            return data.smoothSupported;
+        }
         return data.protocols.length > 0 && data.protocols.every(function (protocol) {
             return /^(15|666|999)$/i.test(protocol);
         });
@@ -656,7 +659,7 @@
                 '<div class="trim-header-row">',
                 '<div>',
                 '<h4 class="trim-title">Smooth Demo</h4>',
-                '<p class="trim-copy">Demsmooth-style export is currently limited to protocol 15, 666, and 999 demos without FTE extensions.</p>',
+                '<p class="trim-copy">' + escapeHtml(data.smoothUnsupportedReason || 'Demsmooth export is not available for this demo.') + '</p>',
                 '</div>',
                 renderPill('Unsupported export', 'bad'),
                 '</div>',
@@ -680,7 +683,7 @@
             '<div class="mini-metric"><div class="mini-label">Protocol</div><div class="mini-value">' + escapeHtml(data.protocols.join(', ')) + '</div></div>',
             '</div>',
             '<div class="trim-actions">',
-            '<div class="trim-hint">This writes a separate smoothed copy and leaves the original demo untouched. Classic non-FTE streams only.</div>',
+            '<div class="trim-hint">This writes a separate smoothed copy and leaves the original demo untouched.</div>',
             '<button class="trim-download-button smooth-download-button" type="button">Export smoothed .dem</button>',
             dzipSupported ? '<button class="trim-download-button smooth-download-dzip-button" type="button">Export smoothed .dz</button>' : '',
             '</div>',
@@ -3728,7 +3731,7 @@
         var codesStr = strip.getAttribute('data-quake-codes');
         if (!codesStr) { return; }
         var codes = JSON.parse(codesStr);
-        var text = encodeQuakeName(codes);
+        var text = codes.map(function (c) { return String.fromCharCode(c & 255); }).join('');
         navigator.clipboard.writeText(text).then(function () {
             strip.classList.add('copied');
             setTimeout(function () { strip.classList.remove('copied'); }, 800);
