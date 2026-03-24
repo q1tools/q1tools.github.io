@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIT Reverse Engineer — ericw-tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #09090b;
+  color: #e4e4e8;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  content: '';
+  display: block;
+  height: 2px;
+  background: linear-gradient(90deg, #7c6aff 0%, #06b6d4 40%, #34d399 70%, #7c6aff 100%);
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+}
+
+.app-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+.app-header { margin-bottom: 32px; }
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #fafafa;
+  margin-bottom: 6px;
+}
+h1 .brand {
+  background: linear-gradient(135deg, #7c6aff 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: #52525b;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+h2 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #71717a;
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+h3 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin: 20px 0 10px;
+}
+
+/* ── Sections ── */
+.section {
+  background: #111113;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 16px 0;
+}
+
+/* ── Drop zone ── */
+.drop-zone {
+  border: 2px dashed rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #111113;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: #7c6aff;
+  background: rgba(124,106,255,0.03);
+  box-shadow: 0 0 0 4px rgba(124,106,255,0.06), 0 8px 32px rgba(124,106,255,0.08);
+}
+.drop-zone.loaded {
+  border-color: #34d399;
+  border-style: solid;
+  background: rgba(52,211,153,0.03);
+  box-shadow: 0 0 0 4px rgba(52,211,153,0.06);
+}
+.drop-zone label { display: block; cursor: pointer; }
+.drop-zone input[type=file] { display: none; }
+.drop-zone .drop-icon {
+  display: block;
+  margin: 0 auto 16px;
+  color: #3f3f46;
+  transition: all 0.3s;
+}
+.drop-zone:hover .drop-icon, .drop-zone.dragover .drop-icon { color: #7c6aff; transform: translateY(-2px); }
+.drop-zone.loaded .drop-icon { color: #34d399; }
+.drop-zone strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e4e4e8;
+  margin-bottom: 4px;
+}
+.drop-hint { display: block; font-size: 0.8125rem; color: #52525b; margin-top: 2px; }
+.file-info {
+  color: #34d399;
+  font-size: 0.8125rem;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-weight: 500;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ── Buttons ── */
+button {
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #7c6aff;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+button:hover {
+  background: #8b7bff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124,106,255,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+button:active { transform: translateY(0); }
+button:disabled {
+  background: #1c1c20 !important;
+  color: #3f3f46 !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+button.secondary {
+  background: rgba(255,255,255,0.05);
+  color: #a1a1aa;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: none;
+}
+button.secondary:hover {
+  background: rgba(255,255,255,0.08);
+  color: #e4e4e8;
+  border-color: rgba(255,255,255,0.14);
+  transform: translateY(-1px);
+}
+#analyzeBtn { margin-top: 16px; }
+
+#controls { display: flex; gap: 12px; flex-wrap: wrap; }
+.zone-wrap { flex: 1; min-width: 250px; }
+#output { margin-top: 24px; }
+
+/* ── Stat grid ── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.stat-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 14px;
+  transition: border-color 0.15s;
+}
+.stat-card:hover { border-color: rgba(255,255,255,0.1); }
+.stat-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #52525b;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #e4e4e8;
+  font-variant-numeric: tabular-nums;
+}
+.stat-note {
+  font-size: 0.6875rem;
+  color: #3f3f46;
+  margin-top: 3px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Command box ── */
+.cmd-box {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 16px 50px 16px 16px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  position: relative;
+  color: #a1a1aa;
+}
+.cmd-box .copy-btn {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #52525b;
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  box-shadow: none;
+}
+.cmd-box .copy-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #a1a1aa;
+  transform: none;
+}
+
+/* ── Entity preview ── */
+.ent-preview {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  color: #71717a;
+}
+
+/* ── Tags / badges ── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin: 2px;
+}
+.tag-yes  { background: rgba(52,211,153,0.10); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+.tag-no   { background: rgba(251,113,133,0.08); color: #fb7185; border: 1px solid rgba(251,113,133,0.15); }
+.tag-maybe { background: rgba(251,191,36,0.08); color: #fbbf24; border: 1px solid rgba(251,191,36,0.15); }
+.tag-info  { background: rgba(96,165,250,0.08); color: #60a5fa; border: 1px solid rgba(96,165,250,0.15); }
+
+.inference-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.inference-row:last-child { border-bottom: none; }
+.inference-label {
+  min-width: 180px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+.warning {
+  color: #fbbf24;
+  font-size: 0.8125rem;
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: rgba(251,191,36,0.05);
+  border-radius: 8px;
+  border-left: 3px solid rgba(251,191,36,0.4);
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 16px;
+}
+.tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: #52525b;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+  border-radius: 0;
+  box-shadow: none;
+}
+.tab:hover { color: #a1a1aa; transform: none; }
+.tab.active {
+  color: #7c6aff;
+  border-bottom-color: #7c6aff;
+  background: none;
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Sliders ── */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.slider-row label {
+  min-width: 170px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #71717a;
+}
+.slider-row .val {
+  min-width: 52px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #7c6aff;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  outline: none;
+  transition: background 0.15s;
+}
+input[type=range]:hover { background: rgba(255,255,255,0.1); }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #7c6aff;
+  cursor: pointer;
+  border: 2px solid #09090b;
+  box-shadow: 0 0 0 2px rgba(124,106,255,0.25);
+  transition: box-shadow 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 4px rgba(124,106,255,0.2);
+}
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #7c6aff;
+  cursor: pointer;
+  border: 2px solid #09090b;
+}
+
+/* ── Inputs ── */
+select, input[type=number], .text-input {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #e4e4e8;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+select:focus, input[type=number]:focus, .text-input:focus {
+  border-color: rgba(124,106,255,0.5);
+  box-shadow: 0 0 0 3px rgba(124,106,255,0.08);
+}
+.text-input { flex: 1; }
+
+/* ── Checkboxes ── */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.checkbox-row label {
+  font-size: 0.8125rem;
+  color: #a1a1aa;
+  cursor: pointer;
+  user-select: none;
+}
+input[type=checkbox] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 5px;
+  background: rgba(0,0,0,0.3);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+input[type=checkbox]:checked {
+  background: #7c6aff;
+  border-color: #7c6aff;
+}
+input[type=checkbox]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px; top: 1px;
+  width: 6px; height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ── Color swatch ── */
+.color-swatch {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.12);
+  vertical-align: middle;
+  margin-right: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+}
+
+/* ── Tables ── */
+.mini-table, .style-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin: 8px 0;
+}
+.mini-table th, .style-table th {
+  color: #52525b;
+  text-align: left;
+  padding: 8px 12px;
+  font-weight: 500;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.mini-table td, .style-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}
+.mini-table tr:hover td, .style-table tr:hover td {
+  background: rgba(124,106,255,0.03);
+}
+.style-bar { display: inline-block; height: 12px; border-radius: 2px; vertical-align: middle; }
+
+/* ── Validation ── */
+.validation-ok { color: #34d399 !important; }
+.validation-warn { color: #fbbf24 !important; }
+.validation-err { color: #fb7185 !important; }
+
+/* ── Collapsible ── */
+.collapsible { cursor: pointer; user-select: none; font-weight: 500; }
+.collapsible::before { content: '+ '; color: #7c6aff; }
+.collapsible.open::before { content: '- '; }
+.collapsible-body { display: none; margin-left: 16px; }
+.collapsible-body.open { display: block; }
+
+/* ── Tip box ── */
+.tip-box {
+  background: rgba(96,165,250,0.03);
+  border: 1px solid rgba(96,165,250,0.1);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 10px 0;
+  font-size: 0.8125rem;
+  color: #71717a;
+  line-height: 1.7;
+}
+.tip-box code {
+  background: rgba(255,255,255,0.06);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #e4e4e8;
+}
+.tip-box strong { color: #60a5fa; font-weight: 600; }
+
+.overbright-toggle { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+
+/* ── Canvas / lightmap ── */
+.lightmap-canvas-wrap {
+  overflow-x: auto;
+  margin: 10px 0;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+  padding: 8px;
+}
+canvas {
+  image-rendering: pixelated;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+  display: block;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* ── Animations ── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+#output > .section { animation: fadeSlideIn 0.35s ease-out both; }
+#output > .section:nth-child(1) { animation-delay: 0s; }
+#output > .section:nth-child(2) { animation-delay: 0.04s; }
+#output > .section:nth-child(3) { animation-delay: 0.08s; }
+#output > .section:nth-child(4) { animation-delay: 0.12s; }
+#output > .section:nth-child(5) { animation-delay: 0.16s; }
+#output > .section:nth-child(6) { animation-delay: 0.20s; }
+#output > .section:nth-child(7) { animation-delay: 0.24s; }
+#output > .section:nth-child(8) { animation-delay: 0.28s; }
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+<div class="app-header">
+  <h1><span class="brand">LIT</span> Reverse Engineer</h1>
+  <p class="subtitle">Analyze .bsp + .lit files &rarr; reconstruct ericw-tools light settings</p>
+</div>
+
+<div class="drop-zone" id="dropZone">
+  <label>
+    <svg class="drop-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <strong>Drop .BSP &amp; .LIT files here</strong>
+    <span class="drop-hint">or click to browse</span>
+    <input type="file" id="fileInput" accept=".bsp,.lit" multiple>
+  </label>
+  <div class="file-info" id="dropInfo"></div>
+</div>
+
+<button id="analyzeBtn" disabled>Analyze</button>
+
+<div id="output"></div>
+
+</div><!-- .app-wrap -->
+
+<script>
+'use strict';
+
+// ── BSP format constants ──
+const BSP29_VERSION = 29;
+const BSPHL_VERSION = 30;
+const BSP2_MAGIC  = 0x32505342; // "BSP2" as int32 LE
+const BSP2RMQ_MAGIC = 0x42535032; // "2PSB" as int32 LE
+const LUMP = {
+  ENTITIES: 0, PLANES: 1, TEXTURES: 2, VERTEXES: 3, VISIBILITY: 4,
+  NODES: 5, TEXINFO: 6, FACES: 7, LIGHTING: 8, CLIPNODES: 9,
+  LEAFS: 10, MARKSURFACES: 11, EDGES: 12, SURFEDGES: 13, MODELS: 14
+};
+const NUM_LUMPS = 15;
+const TEX_SPECIAL = 1;
+const INVALID_STYLE = 255;
+
+// ── File state ──
+let bspBuffer = null, litBuffer = null;
+let bspName = '', litName = '';
+
+// ── Unified drop zone ──
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const dropInfo = document.getElementById('dropInfo');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+  for (const file of files) {
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (ext === 'bsp') {
+      readFile(file, (buf) => { bspBuffer = buf; bspName = file.name; updateDropInfo(); });
+    } else if (ext === 'lit') {
+      readFile(file, (buf) => { litBuffer = buf; litName = file.name; updateDropInfo(); });
+    }
+  }
+}
+
+function readFile(file, cb) {
+  const reader = new FileReader();
+  reader.onload = () => cb(reader.result);
+  reader.readAsArrayBuffer(file);
+}
+
+function updateDropInfo() {
+  const parts = [];
+  if (bspBuffer) parts.push(`${bspName} (${(bspBuffer.byteLength / 1024).toFixed(1)} KB)`);
+  if (litBuffer) parts.push(`${litName} (${(litBuffer.byteLength / 1024).toFixed(1)} KB)`);
+  dropInfo.textContent = parts.join('  +  ') || '';
+  if (bspBuffer && litBuffer) dropZone.classList.add('loaded');
+  else dropZone.classList.remove('loaded');
+  document.getElementById('analyzeBtn').disabled = !(bspBuffer && litBuffer);
+}
+
+document.getElementById('analyzeBtn').addEventListener('click', analyze);
+
+// ── BSP Parser ──
+function parseBSP(buf) {
+  const dv = new DataView(buf);
+  const ident = dv.getInt32(0, true);
+
+  let formatName, isBSP2 = false, isHL = false;
+  if (ident === BSP29_VERSION) { formatName = 'BSP29 (Quake)'; }
+  else if (ident === BSPHL_VERSION) { formatName = 'BSP30 (Half-Life)'; isHL = true; }
+  else if (ident === BSP2_MAGIC) { formatName = 'BSP2'; isBSP2 = true; }
+  else if (ident === BSP2RMQ_MAGIC) { formatName = 'BSP2RMQ (2PSB)'; isBSP2 = true; }
+  else { throw new Error(`Unsupported BSP version/magic: 0x${(ident >>> 0).toString(16)} (expected 29, 30, BSP2, or 2PSB)`); }
+
+  // Read lump directory
+  const lumps = [];
+  for (let i = 0; i < NUM_LUMPS; i++) {
+    const off = 4 + i * 8;
+    lumps.push({ fileofs: dv.getInt32(off, true), filelen: dv.getInt32(off + 4, true) });
+  }
+
+  // ── Entities ──
+  const entBytes = new Uint8Array(buf, lumps[LUMP.ENTITIES].fileofs, lumps[LUMP.ENTITIES].filelen);
+  let entString = new TextDecoder('ascii').decode(entBytes).replace(/\0+$/, '');
+
+  // ── Vertices ──
+  const vOff = lumps[LUMP.VERTEXES].fileofs;
+  const numVerts = lumps[LUMP.VERTEXES].filelen / 12;
+  const vertices = new Float32Array(numVerts * 3);
+  for (let i = 0; i < numVerts; i++) {
+    const o = vOff + i * 12;
+    vertices[i*3]   = dv.getFloat32(o, true);
+    vertices[i*3+1] = dv.getFloat32(o+4, true);
+    vertices[i*3+2] = dv.getFloat32(o+8, true);
+  }
+
+  // ── Edges ──
+  const eOff = lumps[LUMP.EDGES].fileofs;
+  const edgeSize = isBSP2 ? 8 : 4;
+  const numEdges = lumps[LUMP.EDGES].filelen / edgeSize;
+  const edges = new Int32Array(numEdges * 2);
+  for (let i = 0; i < numEdges; i++) {
+    const o = eOff + i * edgeSize;
+    if (isBSP2) {
+      edges[i*2]   = dv.getUint32(o, true);
+      edges[i*2+1] = dv.getUint32(o+4, true);
+    } else {
+      edges[i*2]   = dv.getUint16(o, true);
+      edges[i*2+1] = dv.getUint16(o+2, true);
+    }
+  }
+
+  // ── Surfedges ──
+  const seOff = lumps[LUMP.SURFEDGES].fileofs;
+  const numSurfedges = lumps[LUMP.SURFEDGES].filelen / 4;
+  const surfedges = new Int32Array(numSurfedges);
+  for (let i = 0; i < numSurfedges; i++) {
+    surfedges[i] = dv.getInt32(seOff + i * 4, true);
+  }
+
+  // ── Texinfo ──
+  const tiOff = lumps[LUMP.TEXINFO].fileofs;
+  const numTexinfo = lumps[LUMP.TEXINFO].filelen / 40;
+  const texinfos = [];
+  for (let i = 0; i < numTexinfo; i++) {
+    const o = tiOff + i * 40;
+    texinfos.push({
+      vecs: [
+        [dv.getFloat32(o, true), dv.getFloat32(o+4, true), dv.getFloat32(o+8, true), dv.getFloat32(o+12, true)],
+        [dv.getFloat32(o+16, true), dv.getFloat32(o+20, true), dv.getFloat32(o+24, true), dv.getFloat32(o+28, true)]
+      ],
+      miptex: dv.getInt32(o+32, true),
+      flags: dv.getInt32(o+36, true)
+    });
+  }
+
+  // ── Texture names ──
+  const texOff = lumps[LUMP.TEXTURES].fileofs;
+  const texNames = [];
+  if (lumps[LUMP.TEXTURES].filelen > 4) {
+    const numMiptex = dv.getInt32(texOff, true);
+    for (let i = 0; i < numMiptex; i++) {
+      const mipofs = dv.getInt32(texOff + 4 + i * 4, true);
+      if (mipofs < 0) { texNames.push('(external)'); continue; }
+      const nameOff = texOff + mipofs;
+      let name = '';
+      for (let c = 0; c < 16; c++) {
+        const ch = dv.getUint8(nameOff + c);
+        if (ch === 0) break;
+        name += String.fromCharCode(ch);
+      }
+      texNames.push(name);
+    }
+  }
+
+  // ── Faces ──
+  const fOff = lumps[LUMP.FACES].fileofs;
+  const faceSize = isBSP2 ? 28 : 20;
+  const numFaces = lumps[LUMP.FACES].filelen / faceSize;
+  const faces = [];
+  for (let i = 0; i < numFaces; i++) {
+    const o = fOff + i * faceSize;
+    if (isBSP2) {
+      faces.push({
+        planenum: dv.getInt32(o, true), side: dv.getInt32(o+4, true),
+        firstedge: dv.getInt32(o+8, true), numedges: dv.getInt32(o+12, true),
+        texinfo: dv.getInt32(o+16, true),
+        styles: [dv.getUint8(o+20), dv.getUint8(o+21), dv.getUint8(o+22), dv.getUint8(o+23)],
+        lightofs: dv.getInt32(o+24, true)
+      });
+    } else {
+      faces.push({
+        planenum: dv.getInt16(o, true), side: dv.getInt16(o+2, true),
+        firstedge: dv.getInt32(o+4, true), numedges: dv.getInt16(o+8, true),
+        texinfo: dv.getInt16(o+10, true),
+        styles: [dv.getUint8(o+12), dv.getUint8(o+13), dv.getUint8(o+14), dv.getUint8(o+15)],
+        lightofs: dv.getInt32(o+16, true)
+      });
+    }
+  }
+
+  // ── Planes ──
+  const plOff = lumps[LUMP.PLANES].fileofs;
+  const numPlanes = lumps[LUMP.PLANES].filelen / 20;
+  const planes = [];
+  for (let i = 0; i < numPlanes; i++) {
+    const o = plOff + i * 20;
+    planes.push({
+      normal: [dv.getFloat32(o, true), dv.getFloat32(o+4, true), dv.getFloat32(o+8, true)],
+      dist: dv.getFloat32(o+12, true)
+    });
+  }
+
+  // ── Lighting data ──
+  const lightData = new Uint8Array(buf, lumps[LUMP.LIGHTING].fileofs, lumps[LUMP.LIGHTING].filelen);
+
+  // ── BSPX detection ──
+  const bspx = detectBSPX(buf, dv, lumps);
+
+  // ── Parse BSPX lighting lumps ──
+  const bspxLighting = parseBSPXLighting(buf, bspx, faces.length);
+
+  // ── BSP CRC for .ent filename ──
+  const crc = computeBSPCRC(buf);
+
+  return {
+    ident, formatName, isBSP2, isHL, lumps, entString, vertices, edges, surfedges,
+    texinfos, texNames, faces, planes, lightData, bspx, bspxLighting, crc
+  };
+}
+
+// ── BSPX lump detection ──
+function detectBSPX(buf, dv, lumps) {
+  const result = { found: false, lumps: {} };
+  // BSPX header is at the end of all regular lumps, 4-byte aligned
+  let maxEnd = 0;
+  for (const l of lumps) {
+    const end = l.fileofs + l.filelen;
+    if (end > maxEnd) maxEnd = end;
+  }
+  // Align to 4
+  maxEnd = (maxEnd + 3) & ~3;
+  if (maxEnd + 4 > buf.byteLength) return result;
+
+  // Check for "BSPX" magic
+  const magic = dv.getInt32(maxEnd, true);
+  // "BSPX" = 0x58505342
+  if (magic !== 0x58505342) return result;
+  result.found = true;
+
+  const numLumps = dv.getInt32(maxEnd + 4, true);
+  let off = maxEnd + 8;
+  for (let i = 0; i < numLumps && off + 24 <= buf.byteLength; i++) {
+    let name = '';
+    for (let c = 0; c < 24; c++) {
+      const ch = dv.getUint8(off + c);
+      if (ch === 0) break;
+      name += String.fromCharCode(ch);
+    }
+    const lumpOfs = dv.getInt32(off + 24, true);
+    const lumpLen = dv.getInt32(off + 28, true);
+    result.lumps[name] = { offset: lumpOfs, length: lumpLen };
+    off += 32;
+  }
+  return result;
+}
+
+// ── Parse BSPX lighting lumps ──
+function parseBSPXLighting(buf, bspx, numFaces) {
+  const result = {
+    lmshifts: null,      // per-face lightmap shift (1 byte each)
+    lmoffsets: null,      // per-face lightmap offset override
+    decoupledLM: null,    // per-face decoupled lightmap info
+    lmstyles: null,       // extended styles (16-bit)
+    hasRGBLighting: false,
+    hasHDRLighting: false
+  };
+  if (!bspx.found) return result;
+
+  const dv = new DataView(buf);
+
+  // LMSHIFT: per-face lightmap scale (1 byte per face)
+  if (bspx.lumps['LMSHIFT'] && bspx.lumps['LMSHIFT'].length >= numFaces) {
+    const l = bspx.lumps['LMSHIFT'];
+    result.lmshifts = new Uint8Array(buf, l.offset, numFaces);
+  }
+
+  // LMOFFSET: per-face lighting data offset (4 bytes per face)
+  if (bspx.lumps['LMOFFSET'] && bspx.lumps['LMOFFSET'].length >= numFaces * 4) {
+    const l = bspx.lumps['LMOFFSET'];
+    result.lmoffsets = new Int32Array(numFaces);
+    for (let i = 0; i < numFaces; i++) {
+      result.lmoffsets[i] = dv.getInt32(l.offset + i * 4, true);
+    }
+  }
+
+  // DECOUPLED_LM: per-face explicit lightmap (40 bytes per face)
+  // struct: uint16 lmwidth, uint16 lmheight, int32 offset, float[2][4] world_to_lm
+  if (bspx.lumps['DECOUPLED_LM'] && bspx.lumps['DECOUPLED_LM'].length >= numFaces * 40) {
+    const l = bspx.lumps['DECOUPLED_LM'];
+    result.decoupledLM = [];
+    for (let i = 0; i < numFaces; i++) {
+      const o = l.offset + i * 40;
+      result.decoupledLM.push({
+        lmwidth: dv.getUint16(o, true),
+        lmheight: dv.getUint16(o + 2, true),
+        offset: dv.getInt32(o + 4, true),
+        vecs: [
+          [dv.getFloat32(o+8, true), dv.getFloat32(o+12, true), dv.getFloat32(o+16, true), dv.getFloat32(o+20, true)],
+          [dv.getFloat32(o+24, true), dv.getFloat32(o+28, true), dv.getFloat32(o+32, true), dv.getFloat32(o+36, true)]
+        ]
+      });
+    }
+  }
+
+  // LMSTYLE16: 16-bit lightstyle IDs (allows >4 styles, up to 16)
+  if (bspx.lumps['LMSTYLE16']) {
+    result.lmstyles = 'LMSTYLE16';
+  } else if (bspx.lumps['LMSTYLE']) {
+    result.lmstyles = 'LMSTYLE';
+  }
+
+  result.hasRGBLighting = !!bspx.lumps['RGBLIGHTING'];
+  result.hasHDRLighting = !!bspx.lumps['LIGHTING_E5BGR9'];
+
+  return result;
+}
+
+// ── BSP CRC (quick 4KB CRC for .ent filename matching, same as QSS-M) ──
+function computeBSPCRC(buf) {
+  // CRC-16/CCITT used by Quake engines
+  const data = new Uint8Array(buf);
+  let crc = 0xFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i] << 8;
+    for (let j = 0; j < 8; j++) {
+      if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
+      else crc = crc << 1;
+      crc &= 0xFFFF;
+    }
+  }
+  return crc;
+}
+
+// ── Default Quake lightstyle animation strings ──
+const QUAKE_LIGHTSTYLES = [
+  { id: 0,  pattern: 'm',                                        desc: 'Normal (static)' },
+  { id: 1,  pattern: 'mmnmmommommnonmmonqnmmo',                  desc: 'Flicker 1' },
+  { id: 2,  pattern: 'abcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba', desc: 'Slow strong pulse' },
+  { id: 3,  pattern: 'mmmmmaaaaammmmmaaaaaabcdefgabcdefg',        desc: 'Candle 1' },
+  { id: 4,  pattern: 'mamamamamama',                              desc: 'Fast strobe' },
+  { id: 5,  pattern: 'jklmnopqrstuvwxyzyxwvutsrqponmlkj',        desc: 'Gentle pulse' },
+  { id: 6,  pattern: 'nmonqnmomnmomomno',                        desc: 'Flicker 2' },
+  { id: 7,  pattern: 'mmmaaaabcdefgmmmmaaaammmaamm',              desc: 'Candle 2' },
+  { id: 8,  pattern: 'mmmaaammmaaammmabcdefaaaammmmabcdefmmmaaaa', desc: 'Candle 3' },
+  { id: 9,  pattern: 'aaaaaaaazzzzzzzz',                         desc: 'Slow strobe' },
+  { id: 10, pattern: 'mmamammmmammamamaaamammma',                 desc: 'Fluorescent flicker' },
+  { id: 11, pattern: 'abcdefghijklmnopqrrqponmlkjihgfedcba',     desc: 'Slow pulse, no black' }
+];
+
+// ── LIT Parser ──
+function parseLIT(buf) {
+  const dv = new DataView(buf);
+  const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+  if (magic !== 'QLIT') throw new Error('Not a valid .lit file (expected QLIT header)');
+  const version = dv.getInt32(4, true);
+
+  const isHDR = (version & 0xFFFF0000) !== 0; // E5BGR9 has high bits set
+  if (version !== 1 && !isHDR) {
+    throw new Error(`Unsupported .lit version: ${version} (expected 1 for RGB or HDR variant)`);
+  }
+
+  const data = new Uint8Array(buf, 8);
+  const numSamples = isHDR ? data.length / 4 : data.length / 3;
+  return { version, data, numSamples: Math.floor(numSamples), isHDR };
+}
+
+// ── Entity Parser ──
+function parseEntities(str) {
+  const ents = [];
+  let i = 0;
+  while (i < str.length) {
+    while (i < str.length && str[i] !== '{') i++;
+    if (i >= str.length) break;
+    i++;
+    const ent = {};
+    const keyOrder = [];
+    while (i < str.length && str[i] !== '}') {
+      while (i < str.length && str[i] !== '"' && str[i] !== '}') i++;
+      if (str[i] === '}') break;
+      i++;
+      let key = '';
+      while (i < str.length && str[i] !== '"') key += str[i++];
+      i++;
+      while (i < str.length && str[i] !== '"') i++;
+      i++;
+      let val = '';
+      while (i < str.length && str[i] !== '"') val += str[i++];
+      i++;
+      ent[key] = val;
+      keyOrder.push(key);
+    }
+    if (str[i] === '}') i++;
+    ent._keyOrder = keyOrder;
+    ents.push(ent);
+  }
+  return ents;
+}
+
+// ── Face vertex at edge index ──
+function faceVertexIndex(face, edgeIdx, bsp) {
+  const sei = bsp.surfedges[face.firstedge + edgeIdx];
+  if (sei >= 0) return bsp.edges[sei * 2];
+  return bsp.edges[(-sei) * 2 + 1];
+}
+
+function getVertex(vi, bsp) {
+  return [bsp.vertices[vi*3], bsp.vertices[vi*3+1], bsp.vertices[vi*3+2]];
+}
+
+// ── Compute face lightmap extents (matches ericw-tools/QSS-M exactly) ──
+function faceLightmapInfo(face, faceIdx, bsp) {
+  const lightofs = getLightOffset(face, faceIdx, bsp);
+  if (lightofs < 0) return null;
+  if (face.texinfo < 0 || face.texinfo >= bsp.texinfos.length) return null;
+
+  const ti = bsp.texinfos[face.texinfo];
+  if (ti.flags & TEX_SPECIAL) return null;
+
+  // Check for DECOUPLED_LM (explicit per-face dimensions)
+  if (bsp.bspxLighting.decoupledLM && bsp.bspxLighting.decoupledLM[faceIdx]) {
+    const dlm = bsp.bspxLighting.decoupledLM[faceIdx];
+    if (dlm.lmwidth > 0 && dlm.lmheight > 0) {
+      let numStyles = 0;
+      for (let s = 0; s < 4; s++) {
+        if (face.styles[s] === INVALID_STYLE) break;
+        numStyles++;
+      }
+      if (numStyles === 0) numStyles = 1;
+      const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
+      return {
+        width: dlm.lmwidth, height: dlm.lmheight, numStyles,
+        numSamples: dlm.lmwidth * dlm.lmheight * numStyles,
+        texName, lmMinS: 0, lmMinT: 0,
+        activeStyles: face.styles.slice(0, numStyles),
+        lightofs, decoupled: true
+      };
+    }
+  }
+
+  // Per-face LMSHIFT from BSPX, or default 4 (= 16 units per luxel)
+  let shiftBits = 4;
+  if (bsp.bspxLighting.lmshifts) {
+    shiftBits = bsp.bspxLighting.lmshifts[faceIdx];
+  }
+  const shift = 1 << shiftBits;
+
+  let minS = Infinity, maxS = -Infinity;
+  let minT = Infinity, maxT = -Infinity;
+
+  for (let e = 0; e < face.numedges; e++) {
+    const vi = faceVertexIndex(face, e, bsp);
+    const v = getVertex(vi, bsp);
+    const s = ti.vecs[0][0]*v[0] + ti.vecs[0][1]*v[1] + ti.vecs[0][2]*v[2] + ti.vecs[0][3];
+    const t = ti.vecs[1][0]*v[0] + ti.vecs[1][1]*v[1] + ti.vecs[1][2]*v[2] + ti.vecs[1][3];
+    if (s < minS) minS = s; if (s > maxS) maxS = s;
+    if (t < minT) minT = t; if (t > maxT) maxT = t;
+  }
+
+  // ericw-tools / QSS-M formula: floor(min/shift), ceil(max/shift), extent = ceil-floor, width = extent+1
+  const lmMinS = Math.floor(minS / shift);
+  const lmMaxS = Math.ceil(maxS / shift);
+  const lmMinT = Math.floor(minT / shift);
+  const lmMaxT = Math.ceil(maxT / shift);
+
+  const width = (lmMaxS - lmMinS) + 1;
+  const height = (lmMaxT - lmMinT) + 1;
+
+  let numStyles = 0;
+  for (let s = 0; s < 4; s++) {
+    if (face.styles[s] === INVALID_STYLE) break;
+    numStyles++;
+  }
+  if (numStyles === 0) numStyles = 1;
+
+  const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
+
+  return {
+    width, height, numStyles,
+    numSamples: width * height * numStyles,
+    texName, lmMinS, lmMinT,
+    activeStyles: face.styles.slice(0, numStyles),
+    lightofs, lmshift: shift, decoupled: false
+  };
+}
+
+// ── Get effective light offset for a face (BSPX LMOFFSET or DECOUPLED_LM override) ──
+function getLightOffset(face, faceIdx, bsp) {
+  if (bsp.bspxLighting.decoupledLM && bsp.bspxLighting.decoupledLM[faceIdx]) {
+    return bsp.bspxLighting.decoupledLM[faceIdx].offset;
+  }
+  if (bsp.bspxLighting.lmoffsets) {
+    return bsp.bspxLighting.lmoffsets[faceIdx];
+  }
+  return face.lightofs;
+}
+
+// ── Face normal (respects side) ──
+function faceNormal(face, bsp) {
+  const p = bsp.planes[face.planenum];
+  if (face.side) return [-p.normal[0], -p.normal[1], -p.normal[2]];
+  return [...p.normal];
+}
+
+// ── Face center ──
+function faceCenter(face, bsp) {
+  let cx = 0, cy = 0, cz = 0;
+  for (let e = 0; e < face.numedges; e++) {
+    const v = getVertex(faceVertexIndex(face, e, bsp), bsp);
+    cx += v[0]; cy += v[1]; cz += v[2];
+  }
+  const n = face.numedges;
+  return [cx/n, cy/n, cz/n];
+}
+
+// ── Light entity analysis ──
+function analyzeLightEntities(lightEnts) {
+  const result = {
+    point: [], spot: [], sun: [], surface: [],
+    intensityMin: Infinity, intensityMax: 0, intensityAvg: 0,
+    colors: [], styledCount: 0, switchableCount: 0
+  };
+
+  for (const e of lightEnts) {
+    const intensity = parseFloat(e.light || e._light || '300');
+    result.intensityMin = Math.min(result.intensityMin, intensity);
+    result.intensityMax = Math.max(result.intensityMax, intensity);
+    result.intensityAvg += intensity;
+
+    // Parse color
+    const colorStr = e._color || '255 255 255';
+    const parts = colorStr.trim().split(/\s+/).map(Number);
+    let r = parts[0] || 255, g = parts[1] || 255, b = parts[2] || 255;
+    // Normalize 0-1 range to 0-255 (ericw-tools behavior)
+    if (r >= 0 && r <= 1 && g >= 0 && g <= 1 && b >= 0 && b <= 1) {
+      r = Math.round(r * 255); g = Math.round(g * 255); b = Math.round(b * 255);
+    }
+    result.colors.push([r, g, b]);
+
+    // Classify
+    if (e._sun === '1') result.sun.push(e);
+    else if (e._surface) result.surface.push(e);
+    else if (e.target || e.mangle) result.spot.push(e);
+    else result.point.push(e);
+
+    if (e.style && e.style !== '0') result.styledCount++;
+    if (e.targetname) result.switchableCount++;
+  }
+
+  if (lightEnts.length > 0) {
+    result.intensityAvg /= lightEnts.length;
+  } else {
+    result.intensityMin = 0;
+  }
+
+  // Find dominant colors (simple binning)
+  result.dominantColors = findDominantColors(result.colors);
+
+  return result;
+}
+
+// ── Simple dominant color finder ──
+function findDominantColors(colors) {
+  if (colors.length === 0) return [];
+  const bins = new Map();
+  for (const [r, g, b] of colors) {
+    // Quantize to 32-unit bins
+    const qr = Math.round(r / 32) * 32;
+    const qg = Math.round(g / 32) * 32;
+    const qb = Math.round(b / 32) * 32;
+    const key = `${qr},${qg},${qb}`;
+    if (!bins.has(key)) bins.set(key, { r: 0, g: 0, b: 0, count: 0 });
+    const bin = bins.get(key);
+    bin.r += r; bin.g += g; bin.b += b; bin.count++;
+  }
+  return [...bins.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+    .map(b => ({
+      r: Math.round(b.r / b.count),
+      g: Math.round(b.g / b.count),
+      b: Math.round(b.b / b.count),
+      count: b.count,
+      pct: (b.count / colors.length * 100).toFixed(1)
+    }));
+}
+
+// ── Main analysis ──
+function analyze() {
+  try {
+    const bsp = parseBSP(bspBuffer);
+    const lit = parseLIT(litBuffer);
+
+    // Validate match
+    if (lit.numSamples !== bsp.lightData.length) {
+      throw new Error(
+        `LIT has ${lit.numSamples.toLocaleString()} samples but BSP lighting lump is ${bsp.lightData.length.toLocaleString()} bytes. ` +
+        `Files may not match, or BSP uses per-sample RGB (HL/Q2).`
+      );
+    }
+
+    const entities = parseEntities(bsp.entString);
+    const worldspawn = entities.find(e => e.classname === 'worldspawn') || {};
+    const lightEnts = entities.filter(e => e.classname && e.classname.startsWith('light'));
+    const lightStats = analyzeLightEntities(lightEnts);
+
+    // Per-face lightmap info + validation
+    const faceAnalysis = analyzeFaces(bsp, lit);
+
+    // Global lightmap statistics
+    const stats = analyzeLighting(bsp, lit, faceAnalysis);
+
+    // Sun direction inference
+    const sunInference = inferSunDirection(bsp, faceAnalysis);
+
+    // Infer settings
+    const inferred = inferSettings(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, sunInference);
+
+    // Render
+    renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInference, inferred);
+
+  } catch (err) {
+    document.getElementById('output').innerHTML =
+      `<div class="section" style="color:#fb7185"><strong>Error:</strong> ${escHTML(err.message)}</div>`;
+    console.error(err);
+  }
+}
+
+// ── Per-face analysis ──
+function analyzeFaces(bsp, lit) {
+  const infos = [];
+  let totalExpected = 0;
+  let litFaces = 0, unlitFaces = 0, specialFaces = 0;
+  let multiStyleFaces = 0;
+  let maxWidth = 0, maxHeight = 0;
+
+  for (let fi = 0; fi < bsp.faces.length; fi++) {
+    const face = bsp.faces[fi];
+    const lm = faceLightmapInfo(face, fi, bsp);
+    infos.push(lm);
+
+    if (!lm) {
+      if (face.lightofs < 0) unlitFaces++;
+      else specialFaces++;
+      continue;
+    }
+
+    litFaces++;
+    totalExpected += lm.numSamples;
+    if (lm.numStyles > 1) multiStyleFaces++;
+    if (lm.width > maxWidth) maxWidth = lm.width;
+    if (lm.height > maxHeight) maxHeight = lm.height;
+  }
+
+  const sampleMatch = totalExpected === bsp.lightData.length;
+
+  return {
+    infos, totalExpected, litFaces, unlitFaces, specialFaces,
+    multiStyleFaces, maxWidth, maxHeight, sampleMatch
+  };
+}
+
+// ── Global lightmap statistics ──
+function analyzeLighting(bsp, lit, faceAnalysis) {
+  const n = lit.numSamples;
+  let totalR = 0, totalG = 0, totalB = 0, totalGray = 0;
+  let maxR = 0, maxG = 0, maxB = 0, maxGray = 0;
+  let minNonZeroGray = 256;
+  let numLit = 0, numSaturated = 0, numFullDark = 0;
+  let totalSaturation = 0, satCount = 0;
+  const brightHist = new Uint32Array(256);
+  const rHist = new Uint32Array(256);
+  const gHist = new Uint32Array(256);
+  const bHist = new Uint32Array(256);
+
+  for (let i = 0; i < n; i++) {
+    const r = lit.data[i*3], g = lit.data[i*3+1], b = lit.data[i*3+2];
+    const gray = bsp.lightData[i];
+
+    totalR += r; totalG += g; totalB += b; totalGray += gray;
+    if (r > maxR) maxR = r; if (g > maxG) maxG = g; if (b > maxB) maxB = b;
+    if (gray > maxGray) maxGray = gray;
+    brightHist[gray]++;
+    rHist[r]++; gHist[g]++; bHist[b]++;
+
+    if (gray > 0) {
+      numLit++;
+      if (gray < minNonZeroGray) minNonZeroGray = gray;
+    } else {
+      numFullDark++;
+    }
+
+    if (r === 255 || g === 255 || b === 255) numSaturated++;
+
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx > 10) {
+      totalSaturation += (mx - mn) / mx;
+      satCount++;
+    }
+  }
+
+  const avgR = totalR / n, avgG = totalG / n, avgB = totalB / n;
+  const avgGray = totalGray / n;
+  const avgSaturation = satCount > 0 ? totalSaturation / satCount : 0;
+
+  // Color drift: check if LIT is truly colored or just grayscale-replicated
+  let colorDriftSum = 0, colorDriftCount = 0;
+  for (let i = 0; i < n; i += 3) {
+    const r = lit.data[i*3], g = lit.data[i*3+1], b = lit.data[i*3+2];
+    if (r > 5 || g > 5 || b > 5) {
+      const avg3 = (r + g + b) / 3;
+      if (avg3 > 2) {
+        colorDriftSum += (Math.abs(r - avg3) + Math.abs(g - avg3) + Math.abs(b - avg3)) / avg3;
+        colorDriftCount++;
+      }
+    }
+  }
+  const colorDrift = colorDriftCount > 0 ? colorDriftSum / colorDriftCount : 0;
+  const hasColor = colorDrift > 0.05;
+
+  // Estimate minlight from histogram — look for a floor value
+  let possibleMinlight = 0;
+  if (minNonZeroGray < 256) {
+    // If many lit samples cluster at the same low value, that's likely minlight
+    let bestVal = 0, bestCount = 0;
+    for (let v = 1; v < 40; v++) {
+      if (brightHist[v] > bestCount) { bestCount = brightHist[v]; bestVal = v; }
+    }
+    if (bestCount > numLit * 0.04 && bestVal > 0 && bestVal < 40) {
+      possibleMinlight = bestVal;
+    }
+  }
+
+  // Minlight color: average color of samples near the minlight level
+  let mlR = 0, mlG = 0, mlB = 0, mlCount = 0;
+  if (possibleMinlight > 0) {
+    const lo = Math.max(1, possibleMinlight - 2), hi = possibleMinlight + 2;
+    for (let i = 0; i < n; i += 3) {
+      const gray = bsp.lightData[i];
+      if (gray >= lo && gray <= hi) {
+        mlR += lit.data[i*3]; mlG += lit.data[i*3+1]; mlB += lit.data[i*3+2];
+        mlCount++;
+      }
+    }
+  }
+  const minlightColor = mlCount > 10 ? [
+    Math.round(mlR / mlCount), Math.round(mlG / mlCount), Math.round(mlB / mlCount)
+  ] : null;
+
+  return {
+    numSamples: n, avgR, avgG, avgB, avgGray,
+    maxR, maxG, maxB, maxGray, minNonZeroGray,
+    numLit, numSaturated, numFullDark,
+    avgSaturation, hasColor, colorDrift,
+    possibleMinlight, minlightColor,
+    brightHist, rHist, gHist, bHist
+  };
+}
+
+// ── Sun direction inference by analyzing per-normal brightness ──
+function inferSunDirection(bsp, faceAnalysis) {
+  // Bin faces by normal direction, compute average brightness per bin
+  // Use 26 directions (6 axes + 12 edges + 8 corners of a cube)
+  const dirs = [];
+  // 6 axial
+  for (let a = 0; a < 3; a++) {
+    for (const s of [-1, 1]) {
+      const d = [0, 0, 0]; d[a] = s;
+      dirs.push(d);
+    }
+  }
+  // 8 corners
+  for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
+    const len = Math.sqrt(3);
+    dirs.push([x/len, y/len, z/len]);
+  }
+
+  const dirBrightness = dirs.map(() => ({ sum: 0, count: 0 }));
+
+  for (let fi = 0; fi < bsp.faces.length; fi++) {
+    const face = bsp.faces[fi];
+    const lm = faceAnalysis.infos[fi];
+    if (!lm || lm.lightofs < 0) continue;
+    if (lm.texName.toLowerCase().startsWith('sky')) continue;
+
+    const normal = faceNormal(face, bsp);
+
+    // Average brightness of this face (style 0 only)
+    const numPx = lm.width * lm.height;
+    let faceSum = 0;
+    for (let p = 0; p < numPx; p++) {
+      const idx = lm.lightofs + p;
+      if (idx < bsp.lightData.length) faceSum += bsp.lightData[idx];
+    }
+    const faceAvg = faceSum / numPx;
+
+    // Contribute to each direction bin weighted by dot product
+    for (let d = 0; d < dirs.length; d++) {
+      const dot = normal[0]*dirs[d][0] + normal[1]*dirs[d][1] + normal[2]*dirs[d][2];
+      if (dot > 0.3) {
+        dirBrightness[d].sum += faceAvg * dot;
+        dirBrightness[d].count += dot;
+      }
+    }
+  }
+
+  // Find brightest direction
+  let bestDir = -1, bestAvg = 0;
+  const dirAvgs = dirBrightness.map((db, i) => {
+    const avg = db.count > 0 ? db.sum / db.count : 0;
+    if (avg > bestAvg) { bestAvg = avg; bestDir = i; }
+    return avg;
+  });
+
+  // Compute overall average for comparison
+  const totalAvg = dirAvgs.reduce((a, b) => a + b, 0) / dirAvgs.length;
+  const sunRatio = totalAvg > 0 ? bestAvg / totalAvg : 0;
+
+  // Convert best direction to yaw/pitch mangle
+  let mangle = '0 -90 0';
+  let sunVec = [0, 0, -1];
+  if (bestDir >= 0 && sunRatio > 1.3) {
+    sunVec = dirs[bestDir];
+    // Mangle: yaw is rotation in XY plane, pitch is elevation
+    const yaw = Math.round(Math.atan2(sunVec[1], sunVec[0]) * 180 / Math.PI);
+    const pitch = Math.round(Math.asin(Math.max(-1, Math.min(1, sunVec[2]))) * 180 / Math.PI);
+    mangle = `${yaw} ${-pitch} 0`; // ericw-tools uses negative pitch convention
+  }
+
+  // Up-facing vs other for simple sunlight detection
+  let upSum = 0, upCount = 0, otherSum = 0, otherCount = 0;
+  for (let fi = 0; fi < bsp.faces.length; fi++) {
+    const face = bsp.faces[fi];
+    const lm = faceAnalysis.infos[fi];
+    if (!lm || face.lightofs < 0) continue;
+    if (lm.texName.toLowerCase().startsWith('sky')) continue;
+    const normal = faceNormal(face, bsp);
+    const numPx = lm.width * lm.height;
+    let faceSum = 0;
+    for (let p = 0; p < numPx; p++) {
+      const idx = face.lightofs + p;
+      if (idx < bsp.lightData.length) faceSum += bsp.lightData[idx];
+    }
+    const faceAvg = faceSum / numPx;
+    if (normal[2] > 0.7) { upSum += faceAvg; upCount++; }
+    else { otherSum += faceAvg; otherCount++; }
+  }
+  const avgUpFacing = upCount > 0 ? upSum / upCount : 0;
+  const avgOther = otherCount > 0 ? otherSum / otherCount : 0;
+  const upRatio = avgOther > 0 ? avgUpFacing / avgOther : 0;
+
+  return {
+    dirs, dirAvgs, bestDir, bestAvg, totalAvg, sunRatio,
+    mangle, sunVec,
+    avgUpFacing, avgOther, upRatio
+  };
+}
+
+// ── Infer settings ──
+function inferSettings(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, sunInf) {
+  const inf = { cmdFlags: [], worldspawnKeys: {}, confidence: {}, notes: [] };
+
+  // Copy existing worldspawn lighting keys
+  const lightingPrefixes = [
+    '_sun', '_min', '_max', '_dirt', '_bounce', '_dist', '_range',
+    '_gamma', '_angle', '_phong', '_surf', '_addmin', '_lightmap',
+    '_compilerstyle', '_sky'
+  ];
+  for (const [k, v] of Object.entries(worldspawn)) {
+    if (k === 'light' || lightingPrefixes.some(p => k.startsWith(p))) {
+      inf.worldspawnKeys[k] = v;
+    }
+  }
+
+  // ── -lit flag ──
+  inf.cmdFlags.push('-lit');
+  inf.confidence.lit = stats.hasColor ? 'high' : 'inferred';
+  if (stats.hasColor) {
+    inf.notes.push('Colored lighting detected in .lit — map uses colored lights or sunlight color.');
+  }
+
+  // ── Sunlight ──
+  const hasSunKey = inf.worldspawnKeys['_sunlight'] || inf.worldspawnKeys['_sun_light'];
+  const sunEnts = lightEnts.filter(e => e._sun === '1');
+
+  if (!hasSunKey && sunEnts.length === 0 && sunInf.upRatio > 1.5) {
+    const estSunlight = Math.round((sunInf.avgUpFacing - sunInf.avgOther) * 2);
+    if (estSunlight > 10) {
+      inf.worldspawnKeys['_sunlight'] = String(Math.min(estSunlight, 300));
+      inf.worldspawnKeys['_sunlight_mangle'] = sunInf.mangle;
+      inf.confidence.sunlight = 'medium';
+      inf.notes.push(`Up-facing surfaces are ${sunInf.upRatio.toFixed(1)}x brighter than others — suggests sunlight ~${inf.worldspawnKeys['_sunlight']}.`);
+    }
+  } else if (hasSunKey) {
+    inf.confidence.sunlight = 'high';
+    inf.notes.push(`Sunlight key found in worldspawn: _sunlight = ${hasSunKey}.`);
+  } else if (sunEnts.length > 0) {
+    inf.confidence.sunlight = 'high';
+    inf.notes.push(`${sunEnts.length} _sun entity/entities found — sunlight handled via entities.`);
+  }
+
+  // ── Minlight ──
+  if (!inf.worldspawnKeys['_minlight'] && !(inf.worldspawnKeys['light'] && parseFloat(inf.worldspawnKeys['light']) > 0)) {
+    if (stats.possibleMinlight > 0) {
+      inf.worldspawnKeys['_minlight'] = String(stats.possibleMinlight);
+      inf.confidence.minlight = 'medium';
+      if (stats.minlightColor) {
+        const [r, g, b] = stats.minlightColor;
+        if (Math.abs(r - g) > 8 || Math.abs(g - b) > 8 || Math.abs(r - b) > 8) {
+          inf.worldspawnKeys['_minlight_color'] = `${r} ${g} ${b}`;
+          inf.notes.push(`Minlight appears tinted: rgb(${r}, ${g}, ${b}).`);
+        }
+      }
+      inf.notes.push(`Histogram floor at brightness ${stats.possibleMinlight} suggests minlight.`);
+    }
+  }
+
+  // ── Bounce ──
+  if (!inf.worldspawnKeys['_bounce']) {
+    let shadowSat = 0, shadowCnt = 0;
+    const n = lit.numSamples;
+    for (let i = 0; i < n; i += 47) {
+      const gray = bsp.lightData[i];
+      if (gray > 2 && gray < 30) {
+        const r = lit.data[i*3], g = lit.data[i*3+1], b = lit.data[i*3+2];
+        const mx = Math.max(r, g, b);
+        if (mx > 3) {
+          shadowSat += (mx - Math.min(r, g, b)) / mx;
+          shadowCnt++;
+        }
+      }
+    }
+    if (shadowCnt > 100 && shadowSat / shadowCnt > 0.08) {
+      inf.worldspawnKeys['_bounce'] = '1';
+      inf.confidence.bounce = 'low';
+      inf.notes.push('Dim areas show color saturation — possible bounce lighting.');
+    }
+  }
+
+  // ── Dirt ──
+  if (inf.worldspawnKeys['_dirt'] === '1') {
+    inf.confidence.dirt = 'high';
+  } else {
+    inf.confidence.dirt = 'unknown';
+  }
+
+  // ── Extra sampling ──
+  inf.cmdFlags.push('-extra');
+  inf.confidence.extra = 'suggested';
+
+  return inf;
+}
+
+// ── Build .ent string preserving key order ──
+function buildEntString(entities, worldspawnOverrides) {
+  let out = '';
+  for (const ent of entities) {
+    const merged = { ...ent };
+    if (ent.classname === 'worldspawn') {
+      // Apply overrides (replaces existing AND adds new keys)
+      for (const [k, v] of Object.entries(worldspawnOverrides)) {
+        merged[k] = v;
+      }
+      // Remove keys set to empty/zero that should be omitted
+      for (const [k, v] of Object.entries(worldspawnOverrides)) {
+        if (v === '' || v === null) delete merged[k];
+      }
+    }
+    out += '{\n';
+    // Use original key order, then append any new keys
+    const written = new Set();
+    const order = ent._keyOrder || Object.keys(ent);
+    for (const k of order) {
+      if (k === '_keyOrder') continue;
+      if (merged[k] === undefined || merged[k] === null) continue;
+      out += `"${k}" "${merged[k]}"\n`;
+      written.add(k);
+    }
+    // New keys from overrides
+    if (ent.classname === 'worldspawn') {
+      for (const k of Object.keys(worldspawnOverrides)) {
+        if (!written.has(k) && merged[k] !== undefined && merged[k] !== null && merged[k] !== '') {
+          out += `"${k}" "${merged[k]}"\n`;
+        }
+      }
+    }
+    out += '}\n';
+  }
+  return out;
+}
+
+// ── Render everything ──
+function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInf, inferred) {
+  const out = document.getElementById('output');
+
+  const entString = buildEntString(entities, inferred.worldspawnKeys);
+
+  // Existing worldspawn lighting keys
+  const existingWsKeys = {};
+  const lightingPrefixes = ['_sun', '_min', '_max', '_dirt', '_bounce', '_dist', '_range',
+    '_gamma', '_angle', '_phong', '_surf', '_addmin', '_lightmap', '_compilerstyle', '_sky'];
+  for (const [k, v] of Object.entries(worldspawn)) {
+    if (k === 'light' || lightingPrefixes.some(p => k.startsWith(p))) {
+      existingWsKeys[k] = v;
+    }
+  }
+
+  const bspxNames = Object.keys(bsp.bspx.lumps);
+
+  out.innerHTML = `
+    <div class="section">
+      <h2>File Info</h2>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">BSP Format</div>
+          <div class="stat-value">${escHTML(bsp.formatName)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Faces (lit / unlit / special)</div>
+          <div class="stat-value">${faceAnalysis.litFaces} / ${faceAnalysis.unlitFaces} / ${faceAnalysis.specialFaces}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Light Samples</div>
+          <div class="stat-value">${stats.numSamples.toLocaleString()}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">LIT Format</div>
+          <div class="stat-value">${lit.isHDR ? 'HDR (E5BGR9)' : 'RGB v' + lit.version}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Colored Lighting</div>
+          <div class="stat-value">${stats.hasColor ? 'Yes' : 'No (grayscale)'}</div>
+          <div class="stat-note">drift: ${stats.colorDrift.toFixed(4)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">BSPX Lumps</div>
+          <div class="stat-value">${bsp.bspx.found ? bspxNames.length : 'None'}</div>
+          ${bsp.bspx.found ? `<div class="stat-note">${escHTML(bspxNames.join(', '))}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Lightmap Validation</h2>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Expected samples (from faces)</div>
+          <div class="stat-value ${faceAnalysis.sampleMatch ? 'validation-ok' : 'validation-warn'}">
+            ${faceAnalysis.totalExpected.toLocaleString()}
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Actual BSP lighting bytes</div>
+          <div class="stat-value">${bsp.lightData.length.toLocaleString()}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Match</div>
+          <div class="stat-value ${faceAnalysis.sampleMatch ? 'validation-ok' : 'validation-warn'}">
+            ${faceAnalysis.sampleMatch ? 'OK' : 'MISMATCH'}
+          </div>
+          ${!faceAnalysis.sampleMatch ? `<div class="stat-note">May indicate LMSHIFT/DECOUPLED_LM or custom lightmap scale</div>` : ''}
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Multi-style faces</div>
+          <div class="stat-value">${faceAnalysis.multiStyleFaces}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Max lightmap size</div>
+          <div class="stat-value">${faceAnalysis.maxWidth} x ${faceAnalysis.maxHeight}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Light Entities (${lightEnts.length})</h2>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Point lights</div>
+          <div class="stat-value">${lightStats.point.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Spotlights</div>
+          <div class="stat-value">${lightStats.spot.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Sun lights (_sun)</div>
+          <div class="stat-value">${lightStats.sun.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Surface lights</div>
+          <div class="stat-value">${lightStats.surface.length}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Intensity range</div>
+          <div class="stat-value">${lightStats.intensityMin} — ${lightStats.intensityMax}</div>
+          <div class="stat-note">avg: ${lightStats.intensityAvg.toFixed(0)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Styled / Switchable</div>
+          <div class="stat-value">${lightStats.styledCount} / ${lightStats.switchableCount}</div>
+        </div>
+      </div>
+      ${lightStats.dominantColors.length > 0 ? `
+      <h3>Dominant Light Colors</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        ${lightStats.dominantColors.map(c =>
+          `<div class="stat-card" style="min-width:auto;display:inline-flex;align-items:center;gap:8px;padding:10px 14px">
+            <span class="color-swatch" style="background:rgb(${c.r},${c.g},${c.b});width:20px;height:20px"></span>
+            <span style="font-size:0.8125rem;font-family:'JetBrains Mono',monospace;color:#a1a1aa">${c.r} ${c.g} ${c.b}</span>
+            <span class="stat-note" style="color:#52525b">${c.count} &middot; ${c.pct}%</span>
+          </div>`
+        ).join('')}
+      </div>` : ''}
+    </div>
+
+    <div class="section">
+      <h2>Lightmap Analysis</h2>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Avg Brightness (gray)</div>
+          <div class="stat-value">${stats.avgGray.toFixed(1)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Color (R G B)</div>
+          <div class="stat-value" style="font-size:0.875rem;font-family:'JetBrains Mono',monospace">${stats.avgR.toFixed(1)} ${stats.avgG.toFixed(1)} ${stats.avgB.toFixed(1)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Max Values</div>
+          <div class="stat-value" style="font-size:0.875rem;font-family:'JetBrains Mono',monospace">G${stats.maxGray} R${stats.maxR} G${stats.maxG} B${stats.maxB}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Min Non-Zero Gray</div>
+          <div class="stat-value">${stats.minNonZeroGray < 256 ? stats.minNonZeroGray : 'N/A'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Lit / Dark</div>
+          <div class="stat-value">${stats.numLit.toLocaleString()} / ${stats.numFullDark.toLocaleString()}</div>
+          <div class="stat-note">${(stats.numLit / stats.numSamples * 100).toFixed(1)}% lit</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Saturated (=255)</div>
+          <div class="stat-value">${stats.numSaturated.toLocaleString()}</div>
+          <div class="stat-note">${(stats.numSaturated / stats.numSamples * 100).toFixed(1)}%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Color Saturation</div>
+          <div class="stat-value">${(stats.avgSaturation * 100).toFixed(1)}%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Possible Minlight</div>
+          <div class="stat-value">${stats.possibleMinlight > 0 ? stats.possibleMinlight : 'None detected'}
+            ${stats.minlightColor ? `<span class="color-swatch" style="background:rgb(${stats.minlightColor.join(',')})"></span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <h3>Sun Direction Analysis</h3>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Up-facing Avg / Other Avg</div>
+          <div class="stat-value">${sunInf.avgUpFacing.toFixed(1)} / ${sunInf.avgOther.toFixed(1)}</div>
+          <div class="stat-note">ratio: ${sunInf.upRatio.toFixed(2)}${sunInf.upRatio > 1.5 ? ' (sunlight likely)' : ''}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Brightest direction</div>
+          <div class="stat-value" style="font-size:0.875rem;font-family:'JetBrains Mono',monospace">${sunInf.bestDir >= 0 ? `[${sunInf.sunVec.map(v => v.toFixed(2)).join(', ')}]` : 'N/A'}</div>
+          <div class="stat-note">ratio vs avg: ${sunInf.sunRatio.toFixed(2)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Inferred mangle</div>
+          <div class="stat-value">${sunInf.mangle}</div>
+        </div>
+      </div>
+
+      <h3>Brightness Histogram</h3>
+      <canvas id="histCanvas" width="512" height="130"></canvas>
+
+      <h3>Color Histogram (R/G/B)</h3>
+      <canvas id="colorHistCanvas" width="512" height="100"></canvas>
+    </div>
+
+    <div class="section">
+      <h2>Inferred Settings</h2>
+      <div class="warning">Educated guesses from baked lightmap analysis. Tweak with sliders below.</div>
+
+      <div class="inference-row">
+        <span class="inference-label">Colored lighting (-lit)</span>
+        <span class="tag ${stats.hasColor ? 'tag-yes' : 'tag-info'}">${stats.hasColor ? 'Detected' : 'Not detected (still outputting -lit)'}</span>
+      </div>
+      <div class="inference-row">
+        <span class="inference-label">Sunlight</span>
+        <span class="tag ${inferred.confidence.sunlight === 'high' ? 'tag-yes' : inferred.confidence.sunlight === 'medium' ? 'tag-maybe' : 'tag-no'}">
+          ${inferred.confidence.sunlight === 'high' ? 'Confirmed' : inferred.confidence.sunlight === 'medium' ? 'Est. ' + (inferred.worldspawnKeys['_sunlight'] || '?') : 'Not detected'}</span>
+      </div>
+      <div class="inference-row">
+        <span class="inference-label">Minlight</span>
+        <span class="tag ${inferred.confidence.minlight ? 'tag-maybe' : 'tag-no'}">
+          ${inferred.worldspawnKeys['_minlight'] ? 'Est. ' + inferred.worldspawnKeys['_minlight'] : (inferred.worldspawnKeys['light'] ? 'Existing: ' + inferred.worldspawnKeys['light'] : 'Not detected')}</span>
+      </div>
+      <div class="inference-row">
+        <span class="inference-label">Bounce</span>
+        <span class="tag ${inferred.confidence.bounce ? 'tag-maybe' : 'tag-no'}">
+          ${inferred.worldspawnKeys['_bounce'] ? 'Likely (passes: ' + inferred.worldspawnKeys['_bounce'] + ')' : 'Not detected'}</span>
+      </div>
+      <div class="inference-row">
+        <span class="inference-label">Dirt (AO)</span>
+        <span class="tag ${inferred.confidence.dirt === 'high' ? 'tag-yes' : 'tag-info'}">
+          ${inferred.confidence.dirt === 'high' ? 'Enabled in worldspawn' : 'Cannot reliably detect from output'}</span>
+      </div>
+
+      ${inferred.notes.length > 0 ? `
+      <h3>Analysis Notes</h3>
+      <ul style="margin:6px 0 0 20px;font-size:0.8125rem;color:#71717a">
+        ${inferred.notes.map(n => `<li>${escHTML(n)}</li>`).join('')}
+      </ul>` : ''}
+
+      ${Object.keys(existingWsKeys).length > 0 ? `
+      <h3>Existing Worldspawn Lighting Keys</h3>
+      <div class="cmd-box">${Object.entries(existingWsKeys).map(([k,v]) => `"${escHTML(k)}" "${escHTML(v)}"`).join('\n')}</div>
+      ` : '<p style="color:#52525b;margin-top:8px">No existing worldspawn lighting keys found.</p>'}
+    </div>
+
+    <div class="section">
+      <h2>Adjustments</h2>
+      <p style="color:#71717a;font-size:0.8125rem;margin-bottom:10px">Tweak values — command line and .ent update live.</p>
+
+      <h3>Sunlight</h3>
+      <div class="slider-row">
+        <label>_sunlight</label>
+        <input type="range" id="adj_sunlight" min="0" max="500" value="${inferred.worldspawnKeys['_sunlight'] || 0}">
+        <span class="val" id="adj_sunlight_val">${inferred.worldspawnKeys['_sunlight'] || 0}</span>
+      </div>
+      <div class="slider-row">
+        <label>_sunlight_mangle</label>
+        <input type="text" id="adj_sunmangle" class="text-input" value="${inferred.worldspawnKeys['_sunlight_mangle'] || worldspawn['_sunlight_mangle'] || sunInf.mangle}">
+      </div>
+      <div class="slider-row">
+        <label>_sunlight_color</label>
+        <input type="text" id="adj_suncolor" class="text-input" value="${inferred.worldspawnKeys['_sunlight_color'] || worldspawn['_sunlight_color'] || '255 255 255'}">
+      </div>
+      <div class="slider-row">
+        <label>_sunlight_penumbra</label>
+        <input type="range" id="adj_penumbra" min="0" max="30" value="${worldspawn['_sunlight_penumbra'] || 0}">
+        <span class="val" id="adj_penumbra_val">${worldspawn['_sunlight_penumbra'] || 0}</span>
+      </div>
+      <div class="slider-row">
+        <label>_sunlight2 (dome)</label>
+        <input type="range" id="adj_sunlight2" min="0" max="300" value="${inferred.worldspawnKeys['_sunlight2'] || 0}">
+        <span class="val" id="adj_sunlight2_val">${inferred.worldspawnKeys['_sunlight2'] || 0}</span>
+      </div>
+      <div class="slider-row">
+        <label>_sunlight3 (lower)</label>
+        <input type="range" id="adj_sunlight3" min="0" max="300" value="${inferred.worldspawnKeys['_sunlight3'] || 0}">
+        <span class="val" id="adj_sunlight3_val">${inferred.worldspawnKeys['_sunlight3'] || 0}</span>
+      </div>
+
+      <h3>Global Lighting</h3>
+      <div class="slider-row">
+        <label>_minlight</label>
+        <input type="range" id="adj_minlight" min="0" max="255" value="${inferred.worldspawnKeys['_minlight'] || stats.possibleMinlight || 0}">
+        <span class="val" id="adj_minlight_val">${inferred.worldspawnKeys['_minlight'] || stats.possibleMinlight || 0}</span>
+      </div>
+      <div class="slider-row">
+        <label>_minlight_color</label>
+        <input type="text" id="adj_mincolor" class="text-input" value="${inferred.worldspawnKeys['_minlight_color'] || worldspawn['_minlight_color'] || '255 255 255'}">
+      </div>
+      <div class="slider-row">
+        <label>_dist (fade scale)</label>
+        <input type="range" id="adj_dist" min="0" max="200" value="${Math.round(parseFloat(worldspawn['_dist'] || inferred.worldspawnKeys['_dist'] || 1) * 100)}">
+        <span class="val" id="adj_dist_val">${parseFloat(worldspawn['_dist'] || inferred.worldspawnKeys['_dist'] || 1).toFixed(2)}</span>
+      </div>
+      <div class="slider-row">
+        <label>_range (brightness)</label>
+        <input type="range" id="adj_range" min="0" max="200" value="${Math.round(parseFloat(worldspawn['_range'] || inferred.worldspawnKeys['_range'] || 0.5) * 100)}">
+        <span class="val" id="adj_range_val">${parseFloat(worldspawn['_range'] || inferred.worldspawnKeys['_range'] || 0.5).toFixed(2)}</span>
+      </div>
+      <div class="slider-row">
+        <label>_gamma</label>
+        <input type="range" id="adj_gamma" min="50" max="200" value="${Math.round(parseFloat(worldspawn['_gamma'] || inferred.worldspawnKeys['_gamma'] || 1) * 100)}">
+        <span class="val" id="adj_gamma_val">${parseFloat(worldspawn['_gamma'] || inferred.worldspawnKeys['_gamma'] || 1).toFixed(2)}</span>
+      </div>
+      <div class="slider-row">
+        <label>_anglescale</label>
+        <input type="range" id="adj_anglescale" min="0" max="100" value="${Math.round(parseFloat(worldspawn['_anglescale'] || inferred.worldspawnKeys['_anglescale'] || 0.5) * 100)}">
+        <span class="val" id="adj_anglescale_val">${parseFloat(worldspawn['_anglescale'] || inferred.worldspawnKeys['_anglescale'] || 0.5).toFixed(2)}</span>
+      </div>
+
+      <h3>Bounce</h3>
+      <div class="slider-row">
+        <label>_bounce (passes)</label>
+        <input type="range" id="adj_bounce" min="0" max="8" value="${inferred.worldspawnKeys['_bounce'] || 0}">
+        <span class="val" id="adj_bounce_val">${inferred.worldspawnKeys['_bounce'] || 0}</span>
+      </div>
+      <div class="slider-row">
+        <label>_bouncescale</label>
+        <input type="range" id="adj_bouncescale" min="0" max="300" value="${Math.round(parseFloat(worldspawn['_bouncescale'] || inferred.worldspawnKeys['_bouncescale'] || 1) * 100)}">
+        <span class="val" id="adj_bouncescale_val">${parseFloat(worldspawn['_bouncescale'] || inferred.worldspawnKeys['_bouncescale'] || 1).toFixed(2)}</span>
+      </div>
+      <div class="slider-row">
+        <label>_bouncecolorscale</label>
+        <input type="range" id="adj_bouncecolor" min="0" max="100" value="${Math.round(parseFloat(worldspawn['_bouncecolorscale'] || inferred.worldspawnKeys['_bouncecolorscale'] || 0) * 100)}">
+        <span class="val" id="adj_bouncecolor_val">${parseFloat(worldspawn['_bouncecolorscale'] || inferred.worldspawnKeys['_bouncecolorscale'] || 0).toFixed(2)}</span>
+      </div>
+
+      <h3>Dirt (AO)</h3>
+      <div class="checkbox-row">
+        <input type="checkbox" id="adj_dirt" ${inferred.worldspawnKeys['_dirt'] === '1' ? 'checked' : ''}>
+        <label for="adj_dirt">Enable _dirt</label>
+      </div>
+      <div id="dirt_opts" style="display:${inferred.worldspawnKeys['_dirt'] === '1' ? 'block' : 'none'}">
+        <div class="slider-row">
+          <label>_dirtdepth</label>
+          <input type="range" id="adj_dirtdepth" min="16" max="512" value="${worldspawn['_dirtdepth'] || inferred.worldspawnKeys['_dirtdepth'] || 128}">
+          <span class="val" id="adj_dirtdepth_val">${worldspawn['_dirtdepth'] || inferred.worldspawnKeys['_dirtdepth'] || 128}</span>
+        </div>
+        <div class="slider-row">
+          <label>_dirtscale</label>
+          <input type="range" id="adj_dirtscale" min="0" max="300" value="${Math.round(parseFloat(worldspawn['_dirtscale'] || inferred.worldspawnKeys['_dirtscale'] || 1) * 100)}">
+          <span class="val" id="adj_dirtscale_val">${parseFloat(worldspawn['_dirtscale'] || inferred.worldspawnKeys['_dirtscale'] || 1).toFixed(2)}</span>
+        </div>
+        <div class="slider-row">
+          <label>_dirtgain</label>
+          <input type="range" id="adj_dirtgain" min="0" max="300" value="${Math.round(parseFloat(worldspawn['_dirtgain'] || inferred.worldspawnKeys['_dirtgain'] || 1) * 100)}">
+          <span class="val" id="adj_dirtgain_val">${parseFloat(worldspawn['_dirtgain'] || inferred.worldspawnKeys['_dirtgain'] || 1).toFixed(2)}</span>
+        </div>
+      </div>
+
+      <h3>Quality</h3>
+      <div class="checkbox-row">
+        <input type="checkbox" id="adj_extra" checked>
+        <label for="adj_extra">-extra (2x2 supersampling)</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="adj_extra4">
+        <label for="adj_extra4">-extra4 (4x4 supersampling, slower)</label>
+      </div>
+      <div class="slider-row">
+        <label>-soft (blur radius)</label>
+        <input type="range" id="adj_soft" min="0" max="8" value="0">
+        <span class="val" id="adj_soft_val">0</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Command Line</h2>
+      <div class="cmd-box" id="cmdBox">
+        <button class="copy-btn" onclick="copyText('cmdText')">Copy</button>
+        <span id="cmdText"></span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Entity File (.ent)</h2>
+      <div class="tabs" id="entTabs">
+        <div class="tab active" data-tab="entPreview">Full .ent Preview</div>
+        <div class="tab" data-tab="entLights">Light Entities (${lightEnts.length})</div>
+        <div class="tab" data-tab="entWorldspawn">Worldspawn Keys</div>
+      </div>
+      <div class="tab-content active" id="entPreview">
+        <div class="ent-preview" id="entText"></div>
+      </div>
+      <div class="tab-content" id="entLights">
+        <div class="ent-preview">${escHTML(lightEnts.map(e => {
+          let s = '{\n';
+          for (const [k,v] of Object.entries(e)) { if (k !== '_keyOrder') s += `  "${k}" "${v}"\n`; }
+          return s + '}';
+        }).join('\n'))}</div>
+      </div>
+      <div class="tab-content" id="entWorldspawn">
+        <div class="ent-preview" id="entWsText"></div>
+      </div>
+      <div class="tip-box" style="margin-top:12px">
+        <strong>QSS-M .ent search order:</strong> <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.crc}.ent</code> (CRC-matched) then <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="secondary" id="downloadEnt">Download .ent</button>
+        <button class="secondary" id="downloadEntCRC">Download .ent (CRC-named)</button>
+        <button class="secondary" id="downloadCmd">Download command.sh</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Lightstyles Used</h2>
+      ${(() => {
+        // Collect all styles used across faces
+        const usedStyles = new Set();
+        for (const lm of faceAnalysis.infos) {
+          if (!lm) continue;
+          for (const s of lm.activeStyles) usedStyles.add(s);
+        }
+        const styleRows = [...usedStyles].sort((a,b) => a-b).map(s => {
+          const qs = QUAKE_LIGHTSTYLES.find(q => q.id === s);
+          const pattern = qs ? qs.pattern : (s >= 32 ? 'switchable (compiler-assigned)' : 'unknown');
+          const desc = qs ? qs.desc : (s >= 32 ? 'Switchable light' : '');
+          // Render pattern as mini brightness bar
+          const bars = qs ? qs.pattern.split('').map(ch => {
+            const v = (ch.charCodeAt(0) - 97) / 25;
+            const bright = Math.round(v * 255);
+            return '<span class="style-bar" style="width:3px;background:rgb(' + bright + ',' + bright + ',' + bright + ')"></span>';
+          }).join('') : '';
+          // Count faces using this style
+          let faceCount = 0;
+          for (const lm of faceAnalysis.infos) {
+            if (lm && lm.activeStyles.includes(s)) faceCount++;
+          }
+          return '<tr><td>' + s + '</td><td>' + escHTML(desc) + '</td><td>' + bars + '</td><td style="font-size:0.75em;color:#52525b">' + escHTML(pattern) + '</td><td>' + faceCount + '</td></tr>';
+        }).join('');
+        return '<table class="style-table"><tr><th>ID</th><th>Type</th><th>Pattern</th><th>String</th><th>Faces</th></tr>' + styleRows + '</table>';
+      })()}
+      <div class="tip-box">
+        <strong>Lightstyle encoding:</strong> Characters <code>a</code>-<code>z</code> map to brightness 0-25.
+        <code>m</code> (12) = normal brightness. Style 0 is always static (fully lit).
+        Styles 32+ are compiler-assigned for switchable lights.
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Engine Comparison Tips (QSS-M)</h2>
+      <div class="tip-box">
+        <strong>View raw lightmaps in-engine:</strong><br>
+        <code>r_lightmap 1</code> — renders lightmaps only (no textures), useful for comparing against this tool's preview<br>
+        <code>r_fullbright 1</code> — disables all lighting (flat brightness)<br>
+        <code>r_drawflat 1</code> — flat-shaded surfaces for checking light distribution
+      </div>
+      <div class="tip-box">
+        <strong>Overbright &amp; gamma:</strong><br>
+        <code>gl_overbright 1</code> — multiplies lightmaps by 2x (default in modern engines). Raw .lit values appear darker than in-game because of this.<br>
+        <code>gamma</code> — additional display gamma correction
+      </div>
+      <div class="tip-box">
+        <strong>External files:</strong><br>
+        <code>external_ents 1</code> — enable loading .ent files (default on)<br>
+        Place .ent file as: <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.crc}.ent</code> (CRC-matched, safest) or <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code><br>
+        <code>gl_loadlitfiles 1</code> — enable loading .lit files (default on)
+      </div>
+      <div class="tip-box">
+        <strong>Lightstyle debugging:</strong><br>
+        <code>r_flatlightstyles 1</code> — use average brightness (removes flickering)<br>
+        <code>r_flatlightstyles 2</code> — use peak brightness
+      </div>
+      <div class="stat-grid" style="margin-top:8px">
+        <div class="stat-card">
+          <div class="stat-label">BSP CRC</div>
+          <div class="stat-value">${bsp.crc}</div>
+          <div class="stat-note">for .ent filename matching</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">BSPX RGB Embedded</div>
+          <div class="stat-value">${bsp.bspxLighting.hasRGBLighting ? 'Yes (RGBLIGHTING)' : bsp.bspxLighting.hasHDRLighting ? 'Yes (HDR E5BGR9)' : 'No'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">BSPX LMSHIFT</div>
+          <div class="stat-value">${bsp.bspxLighting.lmshifts ? 'Yes (per-face)' : 'No (default 16)'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">BSPX DECOUPLED_LM</div>
+          <div class="stat-value">${bsp.bspxLighting.decoupledLM ? 'Yes' : 'No'}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Lightmap Preview</h2>
+      <div class="overbright-toggle">
+        <input type="checkbox" id="overbrightToggle">
+        <label for="overbrightToggle" style="color:#71717a;font-size:0.8125rem">Simulate 2x overbright (matches in-engine brightness)</label>
+      </div>
+      <div class="tabs" id="lmTabs">
+        <div class="tab active" data-tab="lmAtlas">Per-Face Atlas</div>
+        <div class="tab" data-tab="lmLinear">Linear Dump</div>
+      </div>
+      <div class="tab-content active" id="lmAtlas">
+        <p style="color:#71717a;font-size:0.8125rem;margin-bottom:6px">Each rectangle = one face's lightmap (style 0). Scaled 2x.</p>
+        <div class="lightmap-canvas-wrap">
+          <canvas id="atlasCanvas"></canvas>
+        </div>
+      </div>
+      <div class="tab-content" id="lmLinear">
+        <p style="color:#71717a;font-size:0.8125rem;margin-bottom:6px">Raw .lit data, linearized — first ${Math.min(lit.numSamples, 262144).toLocaleString()} samples</p>
+        <div class="lightmap-canvas-wrap">
+          <canvas id="lmCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // ── Draw brightness histogram ──
+  drawHistogram('histCanvas', 512, 130, [
+    { data: stats.brightHist, color: 'rgba(161,161,170,0.7)', label: 'Gray' }
+  ]);
+
+  // ── Draw color histogram ──
+  drawHistogram('colorHistCanvas', 512, 100, [
+    { data: stats.rHist, color: 'rgba(255,80,80,0.6)', label: 'R' },
+    { data: stats.gHist, color: 'rgba(80,255,80,0.6)', label: 'G' },
+    { data: stats.bHist, color: 'rgba(80,80,255,0.6)', label: 'B' }
+  ]);
+
+  // ── Draw per-face atlas ──
+  drawFaceAtlas(bsp, lit, faceAnalysis, false);
+
+  // ── Draw linear lightmap ──
+  drawLinearLightmap(lit, false);
+
+  // ── Tab switching ──
+  for (const tabGroup of ['entTabs', 'lmTabs']) {
+    const container = document.getElementById(tabGroup);
+    if (!container) continue;
+    container.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Only affect sibling tabs and their content
+        container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const parent = container.parentElement;
+        parent.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        const target = parent.querySelector('#' + tab.dataset.tab);
+        if (target) target.classList.add('active');
+      });
+    });
+  }
+
+  // ── Dirt checkbox ──
+  document.getElementById('adj_dirt').addEventListener('change', function() {
+    document.getElementById('dirt_opts').style.display = this.checked ? 'block' : 'none';
+    updateOutputs();
+  });
+
+  // ── Extra mutual exclusion ──
+  document.getElementById('adj_extra').addEventListener('change', function() {
+    if (this.checked) document.getElementById('adj_extra4').checked = false;
+    updateOutputs();
+  });
+  document.getElementById('adj_extra4').addEventListener('change', function() {
+    if (this.checked) document.getElementById('adj_extra').checked = false;
+    updateOutputs();
+  });
+
+  // ── Wire up all sliders/inputs ──
+  const sliders = {
+    adj_minlight: 'int', adj_sunlight: 'int', adj_penumbra: 'int',
+    adj_sunlight2: 'int', adj_sunlight3: 'int',
+    adj_bounce: 'int', adj_soft: 'int', adj_dirtdepth: 'int',
+    adj_dist: 'pct', adj_range: 'pct', adj_gamma: 'pct', adj_anglescale: 'pct',
+    adj_bouncescale: 'pct', adj_bouncecolor: 'pct',
+    adj_dirtscale: 'pct', adj_dirtgain: 'pct'
+  };
+  for (const [id, type] of Object.entries(sliders)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener('input', function() {
+      const valEl = document.getElementById(id + '_val');
+      if (valEl) valEl.textContent = type === 'pct' ? (this.value / 100).toFixed(2) : this.value;
+      updateOutputs();
+    });
+  }
+  for (const id of ['adj_sunmangle', 'adj_suncolor', 'adj_mincolor']) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateOutputs);
+  }
+
+  // ── Live update ──
+  function updateOutputs() {
+    const ws = {};
+
+    // Minlight
+    const ml = parseInt(document.getElementById('adj_minlight').value);
+    if (ml > 0) ws['_minlight'] = String(ml);
+    const mlc = document.getElementById('adj_mincolor').value.trim();
+    if (ml > 0 && mlc && mlc !== '255 255 255') ws['_minlight_color'] = mlc;
+
+    // Sunlight
+    const sl = parseInt(document.getElementById('adj_sunlight').value);
+    if (sl > 0) {
+      ws['_sunlight'] = String(sl);
+      ws['_sunlight_mangle'] = document.getElementById('adj_sunmangle').value.trim();
+      const sc = document.getElementById('adj_suncolor').value.trim();
+      if (sc && sc !== '255 255 255') ws['_sunlight_color'] = sc;
+      const pen = parseInt(document.getElementById('adj_penumbra').value);
+      if (pen > 0) ws['_sunlight_penumbra'] = String(pen);
+    }
+
+    const sl2 = parseInt(document.getElementById('adj_sunlight2').value);
+    if (sl2 > 0) ws['_sunlight2'] = String(sl2);
+    const sl3 = parseInt(document.getElementById('adj_sunlight3').value);
+    if (sl3 > 0) ws['_sunlight3'] = String(sl3);
+
+    // Bounce
+    const bounce = parseInt(document.getElementById('adj_bounce').value);
+    if (bounce > 0) {
+      ws['_bounce'] = String(bounce);
+      const bs = parseInt(document.getElementById('adj_bouncescale').value);
+      if (Math.abs(bs - 100) > 1) ws['_bouncescale'] = (bs / 100).toFixed(2);
+      const bc = parseInt(document.getElementById('adj_bouncecolor').value);
+      if (bc > 0) ws['_bouncecolorscale'] = (bc / 100).toFixed(2);
+    }
+
+    // Global
+    const dist = parseInt(document.getElementById('adj_dist').value) / 100;
+    if (Math.abs(dist - 1.0) > 0.01) ws['_dist'] = dist.toFixed(2);
+    const range = parseInt(document.getElementById('adj_range').value) / 100;
+    if (Math.abs(range - 0.5) > 0.01) ws['_range'] = range.toFixed(2);
+    const gamma = parseInt(document.getElementById('adj_gamma').value) / 100;
+    if (Math.abs(gamma - 1.0) > 0.01) ws['_gamma'] = gamma.toFixed(2);
+    const as = parseInt(document.getElementById('adj_anglescale').value) / 100;
+    if (Math.abs(as - 0.5) > 0.01) ws['_anglescale'] = as.toFixed(2);
+
+    // Dirt
+    if (document.getElementById('adj_dirt').checked) {
+      ws['_dirt'] = '1';
+      ws['_dirtdepth'] = document.getElementById('adj_dirtdepth').value;
+      const dscale = parseInt(document.getElementById('adj_dirtscale').value);
+      if (Math.abs(dscale - 100) > 1) ws['_dirtscale'] = (dscale / 100).toFixed(2);
+      const dgain = parseInt(document.getElementById('adj_dirtgain').value);
+      if (Math.abs(dgain - 100) > 1) ws['_dirtgain'] = (dgain / 100).toFixed(2);
+    }
+
+    // Command line flags
+    const flags = ['-lit'];
+    const useExtra4 = document.getElementById('adj_extra4').checked;
+    const useExtra = document.getElementById('adj_extra').checked;
+    if (useExtra4) flags.push('-extra4');
+    else if (useExtra) flags.push('-extra');
+    const soft = parseInt(document.getElementById('adj_soft').value);
+    if (soft > 0) flags.push(`-soft ${soft}`);
+
+    const cmdStr = ['light', ...flags, bspName].join(' \\\n  ');
+    document.getElementById('cmdText').textContent = cmdStr;
+
+    // Build .ent
+    const newEntStr = buildEntString(entities, ws);
+    document.getElementById('entText').textContent = newEntStr;
+
+    // Worldspawn-only view
+    const wsLines = [];
+    const mergedWs = { ...worldspawn, ...ws };
+    for (const [k, v] of Object.entries(mergedWs)) {
+      if (k === '_keyOrder' || k === 'classname') continue;
+      if (k === 'light' || lightingPrefixes.some(p => k.startsWith(p))) {
+        const isOverride = ws[k] !== undefined;
+        wsLines.push(`${isOverride ? '* ' : '  '}"${k}" "${v}"`);
+      }
+    }
+    document.getElementById('entWsText').textContent =
+      wsLines.length > 0 ? '// * = modified by adjustments\n' + wsLines.join('\n') : '// No lighting keys';
+
+    wireDownloads(newEntStr, cmdStr);
+  }
+
+  function wireDownloads(entStr, cmdStr) {
+    document.getElementById('downloadEnt').onclick = () =>
+      download(bspName.replace(/\.bsp$/i, '.ent'), entStr);
+    document.getElementById('downloadEntCRC').onclick = () =>
+      download(bspName.replace(/\.bsp$/i, '') + '@' + bsp.crc + '.ent', entStr);
+    document.getElementById('downloadCmd').onclick = () =>
+      download('light_command.sh', '#!/bin/sh\n' + cmdStr + '\n');
+  }
+
+  // ── Overbright toggle for lightmap preview ──
+  document.getElementById('overbrightToggle').addEventListener('change', function() {
+    drawFaceAtlas(bsp, lit, faceAnalysis, this.checked);
+    drawLinearLightmap(lit, this.checked);
+  });
+
+  // Initial render
+  updateOutputs();
+}
+
+// ── Histogram drawing ──
+function drawHistogram(canvasId, w, h, channels) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#09090b';
+  ctx.fillRect(0, 0, w, h);
+
+  // Find global max
+  let globalMax = 0;
+  for (const ch of channels) {
+    for (let i = 1; i < 256; i++) { // skip 0 to avoid dark-sample spike dominating
+      if (ch.data[i] > globalMax) globalMax = ch.data[i];
+    }
+  }
+  if (globalMax === 0) return;
+
+  const barW = w / 256;
+  for (const ch of channels) {
+    ctx.fillStyle = ch.color;
+    for (let i = 0; i < 256; i++) {
+      const barH = (ch.data[i] / globalMax) * (h - 16);
+      ctx.fillRect(i * barW, h - barH, barW, barH);
+    }
+  }
+
+  // Labels
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#52525b';
+  ctx.fillText('0', 2, h - 2);
+  ctx.fillText('255', w - 22, h - 2);
+  for (let i = 0; i < channels.length; i++) {
+    ctx.fillStyle = channels[i].color;
+    ctx.fillText(channels[i].label, w - 40 - i * 20, 12);
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.strokeRect(0, 0, w, h);
+}
+
+// ── Per-face lightmap atlas ──
+function drawFaceAtlas(bsp, lit, faceAnalysis, overbright) {
+  const canvas = document.getElementById('atlasCanvas');
+  if (!canvas) return;
+
+  const SCALE = 2;
+  const PAD = 1;
+  const ATLAS_W = 512;
+
+  // Pack face lightmaps into rows
+  let curX = 0, curY = 0, rowH = 0;
+  const placements = [];
+
+  for (let fi = 0; fi < bsp.faces.length; fi++) {
+    const lm = faceAnalysis.infos[fi];
+    if (!lm || lm.lightofs < 0) continue;
+
+    const pw = lm.width * SCALE, ph = lm.height * SCALE;
+    if (curX + pw + PAD > ATLAS_W) {
+      curX = 0;
+      curY += rowH + PAD;
+      rowH = 0;
+    }
+    placements.push({ fi, x: curX, y: curY, w: lm.width, h: lm.height, pw, ph });
+    curX += pw + PAD;
+    if (ph > rowH) rowH = ph;
+
+    // Limit total height
+    if (curY > 2048) break;
+  }
+
+  const totalH = curY + rowH + PAD;
+  canvas.width = ATLAS_W;
+  canvas.height = Math.min(totalH, 2048);
+  canvas.style.width = ATLAS_W + 'px';
+  canvas.style.height = canvas.height + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#09090b';
+  ctx.fillRect(0, 0, ATLAS_W, canvas.height);
+
+  const imgData = ctx.createImageData(ATLAS_W, canvas.height);
+
+  for (const p of placements) {
+    const lm = faceAnalysis.infos[p.fi];
+
+    for (let ly = 0; ly < p.h; ly++) {
+      for (let lx = 0; lx < p.w; lx++) {
+        const sampleIdx = lm.lightofs + ly * p.w + lx;
+        if (sampleIdx >= lit.numSamples) continue;
+
+        let r = lit.data[sampleIdx * 3];
+        let g = lit.data[sampleIdx * 3 + 1];
+        let b = lit.data[sampleIdx * 3 + 2];
+        if (overbright) { r = Math.min(255, r * 2); g = Math.min(255, g * 2); b = Math.min(255, b * 2); }
+
+        // Draw scaled pixel
+        for (let sy = 0; sy < SCALE; sy++) {
+          for (let sx = 0; sx < SCALE; sx++) {
+            const px = p.x + lx * SCALE + sx;
+            const py = p.y + ly * SCALE + sy;
+            if (py >= canvas.height) continue;
+            const off = (py * ATLAS_W + px) * 4;
+            imgData.data[off] = r;
+            imgData.data[off + 1] = g;
+            imgData.data[off + 2] = b;
+            imgData.data[off + 3] = 255;
+          }
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ── Linear lightmap dump ──
+function drawLinearLightmap(lit, overbright) {
+  const canvas = document.getElementById('lmCanvas');
+  if (!canvas) return;
+
+  const maxPx = Math.min(lit.numSamples, 262144);
+  const atlasW = 512;
+  const atlasH = Math.ceil(maxPx / atlasW);
+  canvas.width = atlasW;
+  canvas.height = atlasH;
+  canvas.style.width = atlasW + 'px';
+  canvas.style.height = atlasH + 'px';
+
+  const mul = overbright ? 2 : 1;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(atlasW, atlasH);
+  for (let i = 0; i < maxPx; i++) {
+    const off = i * 4;
+    imgData.data[off]     = Math.min(255, lit.data[i * 3] * mul);
+    imgData.data[off + 1] = Math.min(255, lit.data[i * 3 + 1] * mul);
+    imgData.data[off + 2] = Math.min(255, lit.data[i * 3 + 2] * mul);
+    imgData.data[off + 3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function escHTML(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function download(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function copyText(spanId) {
+  const el = document.getElementById(spanId);
+  if (el) navigator.clipboard.writeText(el.textContent.trim());
+}
+</script>
+</body>
+</html>

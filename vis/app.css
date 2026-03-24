@@ -1,0 +1,228 @@
+* { box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px;
+    background-color: #222;
+    color: #eee;
+}
+
+.back-arrow {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #8f8f8f;
+    font-size: 24px;
+    text-decoration: none;
+}
+.back-arrow:hover { color: #bababa; }
+
+.container {
+    background-color: #333;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+h1 {
+    color: #d2b48c;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    color: #999;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.drop-zones {
+    display: flex;
+    gap: 15px;
+}
+
+.file-drop-area {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 120px;
+    padding: 10px;
+    border: 2px dotted #674331;
+    border-radius: 8px;
+    background-color: #444;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.file-drop-area.optional {
+    border-color: #555;
+    background-color: #3a3a3a;
+}
+.file-drop-area:hover, .file-drop-area.drag-over {
+    border-color: #d2b48c;
+    background-color: #383838;
+}
+.file-drop-area.loaded {
+    border-color: #6a8a5a;
+    background-color: #3a4a3a;
+}
+
+.file-drop-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.file-drop-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+    color: #d2b48c;
+}
+
+.file-msg {
+    font-size: 14px;
+    color: #bbb;
+    text-align: center;
+}
+
+.file-drop-area input[type="file"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.file-info {
+    margin-top: 15px;
+    padding: 12px;
+    background: #2a2a2a;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #ccc;
+}
+
+.controls {
+    margin-top: 15px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.option-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.option-group > label {
+    font-weight: bold;
+    color: #aaa;
+    font-size: 14px;
+}
+
+.radio-group {
+    display: flex;
+    gap: 15px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #ccc;
+}
+
+.radio-label input[type="radio"] {
+    accent-color: #d2b48c;
+}
+
+.run-btn {
+    background-color: #674331;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.2s;
+    margin-left: auto;
+}
+.run-btn:hover { background-color: #7a5542; }
+.run-btn:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.progress-area {
+    margin-top: 15px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 22px;
+    background: #444;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #674331, #d2b48c);
+    width: 0%;
+    transition: width 0.2s;
+    border-radius: 4px;
+}
+
+.progress-text {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #aaa;
+}
+
+.log {
+    margin-top: 15px;
+    padding: 12px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #8a8;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.hidden { display: none !important; }
+
+footer {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    color: #8f8f8f;
+    font-size: 0.8em;
+}
+footer a { color: #989898; text-decoration: none; }
+
+@media screen and (max-width: 600px) {
+    body { padding: 15px; }
+    .drop-zones { flex-direction: column; }
+    .controls { flex-direction: column; align-items: flex-start; }
+    .run-btn { margin-left: 0; width: 100%; }
+}

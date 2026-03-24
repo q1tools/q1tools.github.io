@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisPatch Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-eye"></i> VisPatch Tool</h1>
+        <p class="subtitle">Compute visibility data for Quake BSP maps (transparent water support)</p>
+
+        <div class="drop-zones">
+            <div id="bspDropZone" class="file-drop-area">
+                <div class="file-drop-content">
+                    <i class="fas fa-file-import file-drop-icon"></i>
+                    <span class="file-msg">Drop BSP file here or click to select</span>
+                </div>
+                <input type="file" id="bspInput" accept=".bsp">
+            </div>
+
+            <div id="prtDropZone" class="file-drop-area optional">
+                <div class="file-drop-content">
+                    <i class="fas fa-project-diagram file-drop-icon"></i>
+                    <span class="file-msg">Drop PRT file (optional, for better quality)</span>
+                </div>
+                <input type="file" id="prtInput" accept=".prt">
+            </div>
+        </div>
+
+        <div id="fileInfo" class="file-info hidden"></div>
+
+        <div id="controls" class="controls hidden">
+            <div class="option-group">
+                <label>Output format:</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="outputMode" value="bsp" checked>
+                        <span>Patched .bsp</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="outputMode" value="vis">
+                        <span>Export .vis file</span>
+                    </label>
+                </div>
+            </div>
+            <button id="runBtn" class="run-btn">
+                <i class="fas fa-play"></i> Compute Vis
+            </button>
+        </div>
+
+        <div id="progress" class="progress-area hidden">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressText" class="progress-text">Starting...</div>
+        </div>
+
+        <div id="log" class="log hidden"></div>
+    </div>
+
+    <footer>
+        Created by woods &nbsp;&nbsp;|&nbsp;&nbsp;
+        <a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
