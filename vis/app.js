@@ -19,6 +19,12 @@ const CONTENTS_SLIME = -4;
 const CONTENTS_LAVA  = -5;
 const CONTENTS_SKY   = -6;
 
+const AMBIENT_WATER = 0;
+const AMBIENT_SKY   = 1;
+const AMBIENT_SLIME = 2;
+const AMBIENT_LAVA  = 3;
+const NUM_AMBIENTS  = 4;
+
 // BSP lump indices
 const LUMP_ENTITIES  = 0;
 const LUMP_PLANES    = 1;
@@ -164,6 +170,58 @@ function windingPlane(w) {
     return { normal, dist };
 }
 
+function readCString(view, offset, maxLen) {
+    let out = '';
+    for (let i = 0; i < maxLen; i++) {
+        const ch = view.getUint8(offset + i);
+        if (ch === 0) break;
+        out += String.fromCharCode(ch);
+    }
+    return out;
+}
+
+function computeBoundsCenter(mins, maxs) {
+    return [
+        (mins[0] + maxs[0]) / 2,
+        (mins[1] + maxs[1]) / 2,
+        (mins[2] + maxs[2]) / 2
+    ];
+}
+
+function classifyAmbientTexture(name) {
+    if (!name) return -1;
+    const lower = name.toLowerCase();
+    if (lower.startsWith('sky')) return AMBIENT_SKY;
+    if (lower.startsWith('*water') || lower.startsWith('!water') ||
+        lower.startsWith('*04water') || lower.startsWith('!04water')) {
+        return AMBIENT_WATER;
+    }
+    if (lower.startsWith('*slime') || lower.startsWith('!slime')) {
+        return AMBIENT_SLIME;
+    }
+    if (lower.startsWith('*lava') || lower.startsWith('!lava')) {
+        return AMBIENT_LAVA;
+    }
+    return -1;
+}
+
+function boundsDistance(minsA, maxsA, minsB, maxsB) {
+    let maxd = 0;
+    for (let i = 0; i < 3; i++) {
+        let d = 0;
+        if (minsB[i] > maxsA[i]) d = minsB[i] - maxsA[i];
+        else if (maxsB[i] < minsA[i]) d = minsA[i] - maxsB[i];
+        if (d > maxd) maxd = d;
+    }
+    return maxd;
+}
+
+function ambientDistanceToLevel(distance) {
+    if (!Number.isFinite(distance)) return 0;
+    const volume = distance < 100 ? 1 : Math.max(0, 1 - distance * 0.002);
+    return Math.max(0, Math.min(255, Math.round(volume * 255)));
+}
+
 // ============================================================
 // BSP PARSER
 // ============================================================
@@ -201,6 +259,18 @@ function parseBSP(buffer) {
         });
     }
 
+    // Parse vertices (12 bytes each: float[3])
+    const vertices = [];
+    const vl = lumps[LUMP_VERTICES];
+    for (let i = 0; i < vl.size; i += 12) {
+        const off = vl.offset + i;
+        vertices.push([
+            view.getFloat32(off, true),
+            view.getFloat32(off + 4, true),
+            view.getFloat32(off + 8, true)
+        ]);
+    }
+
     // Parse nodes (24 bytes each)
     const nodes = [];
     const nl = lumps[LUMP_NODES];
@@ -235,6 +305,86 @@ function parseBSP(buffer) {
         });
     }
 
+    // Parse mark surfaces / leaf faces (2 bytes each: uint16 face index)
+    const markSurfaces = [];
+    const msl = lumps[LUMP_LFACE];
+    for (let i = 0; i < msl.size; i += 2) {
+        markSurfaces.push(view.getUint16(msl.offset + i, true));
+    }
+
+    // Parse edges (4 bytes each: uint16[2])
+    const edges = [];
+    const el = lumps[LUMP_EDGES];
+    for (let i = 0; i < el.size; i += 4) {
+        const off = el.offset + i;
+        edges.push([
+            view.getUint16(off, true),
+            view.getUint16(off + 2, true)
+        ]);
+    }
+
+    // Parse surfedges / ledges (4 bytes each: int32 edge index, sign indicates direction)
+    const surfEdges = [];
+    const sel = lumps[LUMP_LEDGES];
+    for (let i = 0; i < sel.size; i += 4) {
+        surfEdges.push(view.getInt32(sel.offset + i, true));
+    }
+
+    // Parse texinfo (40 bytes each)
+    const texinfo = [];
+    const tl = lumps[LUMP_TEXINFO];
+    for (let i = 0; i < tl.size; i += 40) {
+        const off = tl.offset + i;
+        texinfo.push({
+            miptexIndex: view.getInt32(off + 32, true),
+            flags: view.getInt32(off + 36, true)
+        });
+    }
+
+    // Parse faces (20 bytes each)
+    const faces = [];
+    const fl = lumps[LUMP_FACES];
+    for (let i = 0; i < fl.size; i += 20) {
+        const off = fl.offset + i;
+        faces.push({
+            planenum: view.getUint16(off, true),
+            side: view.getUint16(off + 2, true),
+            firstEdge: view.getInt32(off + 4, true),
+            numEdges: view.getUint16(off + 8, true),
+            texinfo: view.getUint16(off + 10, true),
+            styles: [
+                view.getUint8(off + 12), view.getUint8(off + 13),
+                view.getUint8(off + 14), view.getUint8(off + 15)
+            ],
+            lightofs: view.getInt32(off + 16, true)
+        });
+    }
+
+    // Parse mip textures (we only need the names)
+    const miptex = [];
+    const mt = lumps[LUMP_MIPTEX];
+    if (mt.size >= 4) {
+        const numTextures = view.getInt32(mt.offset, true);
+        const tableEnd = mt.offset + 4 + numTextures * 4;
+        if (numTextures >= 0 && tableEnd <= mt.offset + mt.size) {
+            for (let i = 0; i < numTextures; i++) {
+                const rel = view.getInt32(mt.offset + 4 + i * 4, true);
+                if (rel <= 0) {
+                    miptex.push(null);
+                    continue;
+                }
+                const off = mt.offset + rel;
+                if (off + 40 > view.byteLength || off + 40 > mt.offset + mt.size) {
+                    miptex.push(null);
+                    continue;
+                }
+                miptex.push({
+                    name: readCString(view, off, 16)
+                });
+            }
+        }
+    }
+
     // Parse models (64 bytes each)
     const models = [];
     const ml = lumps[LUMP_MODELS];
@@ -254,7 +404,22 @@ function parseBSP(buffer) {
         });
     }
 
-    return { version, lumps, planes, nodes, leaves, models, buffer };
+    return {
+        version,
+        lumps,
+        planes,
+        vertices,
+        nodes,
+        leaves,
+        markSurfaces,
+        edges,
+        surfEdges,
+        texinfo,
+        faces,
+        miptex,
+        models,
+        buffer
+    };
 }
 
 // ============================================================
@@ -262,32 +427,60 @@ function parseBSP(buffer) {
 // ============================================================
 
 function parsePRT(text) {
-    const lines = text.trim().split('\n');
+    const lines = text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
     let idx = 0;
     const magic = lines[idx++].trim();
     if (magic !== 'PRT1' && magic !== 'PRT1-AM' && magic !== 'PRT2') {
         throw new Error(`Unsupported PRT format: ${magic}`);
     }
 
-    const numLeafs = parseInt(lines[idx++]);
-    const numPortals = parseInt(lines[idx++]);
-    let numLeafsReal = numLeafs;
-    if (magic === 'PRT1-AM') {
-        numLeafsReal = parseInt(lines[idx++]);
+    let numClusters;
+    let numPortals;
+    let numLeafsReal;
+
+    if (magic === 'PRT2') {
+        numLeafsReal = parseInt(lines[idx++], 10);
+        numClusters = parseInt(lines[idx++], 10);
+        numPortals = parseInt(lines[idx++], 10);
+    } else {
+        numClusters = parseInt(lines[idx++], 10);
+        numPortals = parseInt(lines[idx++], 10);
+        numLeafsReal = magic === 'PRT1-AM'
+            ? parseInt(lines[idx++], 10)
+            : numClusters;
+    }
+
+    if (!Number.isInteger(numClusters) || !Number.isInteger(numPortals) || !Number.isInteger(numLeafsReal)) {
+        throw new Error('Invalid PRT header');
     }
 
     const portals = [];
     for (let i = 0; i < numPortals; i++) {
+        if (idx >= lines.length) {
+            throw new Error(`PRT ended early while reading portal ${i}`);
+        }
         const parts = lines[idx++].trim().split(/\s+/);
-        const numPoints = parseInt(parts[0]);
-        const leaf0 = parseInt(parts[1]);
-        const leaf1 = parseInt(parts[2]);
+        const numPoints = parseInt(parts[0], 10);
+        const cluster0 = parseInt(parts[1], 10);
+        const cluster1 = parseInt(parts[2], 10);
+        if (!Number.isInteger(numPoints) || !Number.isInteger(cluster0) || !Number.isInteger(cluster1)) {
+            throw new Error(`Invalid portal header at index ${i}`);
+        }
+        if (cluster0 < 0 || cluster0 >= numClusters || cluster1 < 0 || cluster1 >= numClusters) {
+            throw new Error(`Portal ${i} references an out-of-range cluster`);
+        }
 
         const winding = [];
         let pi = 3;
         for (let j = 0; j < numPoints; j++) {
             // Points are in format (x y z)
             let x, y, z;
+            if (pi + 2 >= parts.length) {
+                throw new Error(`Portal ${i} is missing point data`);
+            }
             if (parts[pi].startsWith('(')) {
                 x = parseFloat(parts[pi].substring(1));
                 y = parseFloat(parts[pi + 1]);
@@ -298,16 +491,77 @@ function parsePRT(text) {
                 y = parseFloat(parts[pi++]);
                 z = parseFloat(parts[pi++]);
             }
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+                throw new Error(`Portal ${i} contains invalid coordinates`);
+            }
             winding.push([x, y, z]);
         }
 
         portals.push({
             winding,
-            leaves: [leaf0 + 1, leaf1 + 1] // PRT uses 0-based vis leaf numbering, BSP leaves are 1-based (leaf 0 = outside)
+            clusters: [cluster0, cluster1]
         });
     }
 
-    return { numLeafs, numPortals, portals };
+    const leafToCluster = new Array(numLeafsReal + 1).fill(-1);
+    if (numClusters === numLeafsReal) {
+        for (let i = 0; i < numLeafsReal; i++) {
+            leafToCluster[i + 1] = i;
+        }
+    } else {
+        const tokens = lines.slice(idx).join(' ').trim().split(/\s+/).filter(Boolean);
+        let ti = 0;
+
+        if (magic === 'PRT2') {
+            for (let cluster = 0; cluster < numClusters; cluster++) {
+                let terminated = false;
+                while (ti < tokens.length) {
+                    const leafNum = parseInt(tokens[ti++], 10);
+                    if (!Number.isInteger(leafNum)) {
+                        throw new Error(`Invalid cluster mapping value for cluster ${cluster}`);
+                    }
+                    if (leafNum < 0) {
+                        terminated = true;
+                        break;
+                    }
+                    if (leafNum >= numLeafsReal) {
+                        throw new Error(`Cluster map leaf ${leafNum} is out of bounds`);
+                    }
+                    leafToCluster[leafNum + 1] = cluster;
+                }
+                if (!terminated) {
+                    throw new Error(`PRT2 cluster ${cluster} is missing its -1 terminator`);
+                }
+            }
+        } else if (magic === 'PRT1-AM') {
+            for (let leaf = 0; leaf < numLeafsReal; leaf++) {
+                if (ti >= tokens.length) {
+                    throw new Error('PRT1-AM cluster mapping ended early');
+                }
+                const cluster = parseInt(tokens[ti++], 10);
+                if (!Number.isInteger(cluster) || cluster < 0 || cluster >= numClusters) {
+                    throw new Error(`Invalid PRT1-AM cluster ${cluster} for leaf ${leaf}`);
+                }
+                leafToCluster[leaf + 1] = cluster;
+            }
+        }
+    }
+
+    for (let leaf = 1; leaf <= numLeafsReal; leaf++) {
+        if (leafToCluster[leaf] < 0 || leafToCluster[leaf] >= numClusters) {
+            throw new Error(`Leaf ${leaf - 1} is missing a cluster assignment`);
+        }
+    }
+
+    return {
+        magic,
+        numClusters,
+        numLeafsReal,
+        numPortals,
+        portals,
+        leafToCluster,
+        usesClusters: numClusters !== numLeafsReal
+    };
 }
 
 // ============================================================
@@ -519,122 +773,77 @@ function extractPortals(bsp, logFn) {
 // FAST VIS COMPUTATION
 // ============================================================
 
-function computeFastVis(bsp, portals, logFn) {
-    const numLeaves = bsp.leaves.length;
-    const numVisLeaves = bsp.models[0].visleafs;
-    const rowBytes = Math.floor((numLeaves + 7) / 8);
+function computePortalPvs(nodeCenters, nodeIsSolid, portals, logFn, label) {
+    const totalNodes = nodeCenters.length;
+    const rowBytes = Math.floor((totalNodes + 7) / 8);
+    const activeNodes = totalNodes - 1;
 
-    logFn(`Computing fast vis for ${numVisLeaves} vis leaves (${numLeaves} total leaves)`);
+    logFn(`Computing fast vis for ${activeNodes} ${label}`);
 
-    // Build leaf adjacency from portals
-    // For each portal, store the plane oriented so the normal points FROM this leaf TOWARD otherLeaf
-    const leafAdj = new Map(); // leafIdx -> [{otherLeaf, plane, portalCenter}]
+    const nodeAdj = new Map();
     for (const p of portals) {
-        const [l0, l1] = p.leaves;
+        const { a: l0, b: l1 } = p;
+        if (l0 < 1 || l1 < 1 || l0 >= totalNodes || l1 >= totalNodes) continue;
+        if (!nodeCenters[l0] || !nodeCenters[l1]) continue;
+
         const pl = windingPlane(p.winding);
         const center = windingCenter(p.winding);
 
-        if (!leafAdj.has(l0)) leafAdj.set(l0, []);
-        if (!leafAdj.has(l1)) leafAdj.set(l1, []);
+        if (!nodeAdj.has(l0)) nodeAdj.set(l0, []);
+        if (!nodeAdj.has(l1)) nodeAdj.set(l1, []);
 
-        // Determine plane orientation: the plane should point from l0 toward l1
-        // Check which side l0's center is on
-        const l0center = [
-            (bsp.leaves[l0].mins[0] + bsp.leaves[l0].maxs[0]) / 2,
-            (bsp.leaves[l0].mins[1] + bsp.leaves[l0].maxs[1]) / 2,
-            (bsp.leaves[l0].mins[2] + bsp.leaves[l0].maxs[2]) / 2
-        ];
-        const d0 = v3dot(l0center, pl.normal) - pl.dist;
-
-        // Plane from l0 toward l1: l0 should be on negative side
+        const d0 = v3dot(nodeCenters[l0], pl.normal) - pl.dist;
         const fwd = d0 <= 0 ? pl : { normal: v3scale(pl.normal, -1), dist: -pl.dist };
         const rev = d0 <= 0
             ? { normal: v3scale(pl.normal, -1), dist: -pl.dist }
             : pl;
 
-        leafAdj.get(l0).push({ otherLeaf: l1, plane: fwd, portalCenter: center });
-        leafAdj.get(l1).push({ otherLeaf: l0, plane: rev, portalCenter: center });
+        nodeAdj.get(l0).push({ otherLeaf: l1, plane: fwd, portalCenter: center });
+        nodeAdj.get(l1).push({ otherLeaf: l0, plane: rev, portalCenter: center });
     }
 
-    // Compute leaf centers
-    const leafCenters = [];
-    for (let i = 0; i < numLeaves; i++) {
-        const l = bsp.leaves[i];
-        leafCenters.push([
-            (l.mins[0] + l.maxs[0]) / 2,
-            (l.mins[1] + l.maxs[1]) / 2,
-            (l.mins[2] + l.maxs[2]) / 2
-        ]);
-    }
-
-    // Build PVS using base portal vis + flood fill
-    const pvs = [];
-    for (let i = 0; i < numLeaves; i++) {
-        pvs.push(new Uint8Array(rowBytes));
-    }
-
-    // Mark each non-solid leaf as visible to itself
-    for (let i = 0; i < numLeaves; i++) {
-        if (bsp.leaves[i].contents !== CONTENTS_SOLID) {
+    const pvs = Array.from({ length: totalNodes }, () => new Uint8Array(rowBytes));
+    for (let i = 1; i < totalNodes; i++) {
+        if (!nodeIsSolid[i]) {
             pvs[i][i >> 3] |= (1 << (i & 7));
         }
     }
 
-    // Base portal vis: for each portal P connecting L_a to L_b,
-    // determine which other portals might be visible through P.
-    // Then flood fill through "might see" chains to build leaf PVS.
-    //
-    // A portal Q (connecting L_c to L_d, where L_c is the "near" leaf from P's perspective)
-    // is visible through P if:
-    //   1. L_d center is in front of P's plane (can be seen through P)
-    //   2. L_a center is in front of Q's plane (source leaf can "reach" Q)
-    //
-    // For fast vis, we use a BFS flood fill with these checks.
-
     let processedCount = 0;
-    for (let srcLeaf = 1; srcLeaf < numLeaves; srcLeaf++) {
-        if (bsp.leaves[srcLeaf].contents === CONTENTS_SOLID) continue;
+    for (let srcLeaf = 1; srcLeaf < totalNodes; srcLeaf++) {
+        if (nodeIsSolid[srcLeaf] || !nodeCenters[srcLeaf]) continue;
 
-        const srcCenter = leafCenters[srcLeaf];
+        const srcCenter = nodeCenters[srcLeaf];
         const visible = pvs[srcLeaf];
-
-        // BFS: each queue entry is { leaf, entryPlane }
-        // entryPlane is the plane of the portal we entered through (from srcLeaf's perspective)
         const visited = new Set();
         visited.add(srcLeaf);
 
-        // Start: expand from srcLeaf through its immediate portals
-        const srcNeighbors = leafAdj.get(srcLeaf) || [];
+        const srcNeighbors = nodeAdj.get(srcLeaf) || [];
         const queue = [];
 
         for (const { otherLeaf, plane } of srcNeighbors) {
-            if (otherLeaf < 1 || otherLeaf >= numLeaves) continue;
-            if (bsp.leaves[otherLeaf].contents === CONTENTS_SOLID) continue;
+            if (otherLeaf < 1 || otherLeaf >= totalNodes) continue;
+            if (nodeIsSolid[otherLeaf] || !nodeCenters[otherLeaf]) continue;
             visited.add(otherLeaf);
             visible[otherLeaf >> 3] |= (1 << (otherLeaf & 7));
             queue.push({ leaf: otherLeaf, entryPlane: plane });
         }
 
-        // Continue BFS
         while (queue.length > 0) {
             const { leaf: curLeaf, entryPlane } = queue.shift();
-            const neighbors = leafAdj.get(curLeaf) || [];
+            const neighbors = nodeAdj.get(curLeaf) || [];
 
             for (const { otherLeaf, plane: exitPlane } of neighbors) {
                 if (visited.has(otherLeaf)) continue;
-                if (otherLeaf < 1 || otherLeaf >= numLeaves) continue;
-                if (bsp.leaves[otherLeaf].contents === CONTENTS_SOLID) continue;
+                if (otherLeaf < 1 || otherLeaf >= totalNodes) continue;
+                if (nodeIsSolid[otherLeaf] || !nodeCenters[otherLeaf]) continue;
 
-                // Check 1: Is the destination leaf's center in front of the entry portal plane?
-                // (Can we see the destination through the portal we entered from?)
-                const destCenter = leafCenters[otherLeaf];
+                const destCenter = nodeCenters[otherLeaf];
                 const d1 = v3dot(destCenter, entryPlane.normal) - entryPlane.dist;
-                if (d1 < -EPSILON) continue; // Behind the entry portal
+                if (d1 < -EPSILON) continue;
 
-                // Check 2: Is the source leaf's center in front of the exit portal plane?
-                // (Can the source leaf "reach" this exit portal?)
                 const d2 = v3dot(srcCenter, exitPlane.normal) - exitPlane.dist;
-                if (d2 > EPSILON) continue; // Source is in front of exit (wrong side - exit plane points from curLeaf toward otherLeaf, source should be behind)
+                if (d2 > EPSILON) continue;
 
                 visited.add(otherLeaf);
                 visible[otherLeaf >> 3] |= (1 << (otherLeaf & 7));
@@ -642,8 +851,7 @@ function computeFastVis(bsp, portals, logFn) {
             }
         }
 
-        // Make visibility symmetric
-        for (let j = 1; j < numLeaves; j++) {
+        for (let j = 1; j < totalNodes; j++) {
             if (visible[j >> 3] & (1 << (j & 7))) {
                 pvs[j][srcLeaf >> 3] |= (1 << (srcLeaf & 7));
             }
@@ -651,12 +859,123 @@ function computeFastVis(bsp, portals, logFn) {
 
         processedCount++;
         if (processedCount % 200 === 0) {
-            logFn(`  Processed ${processedCount}/${numVisLeaves} leaves...`);
+            logFn(`  Processed ${processedCount}/${activeNodes} ${label}...`);
         }
     }
 
-    logFn(`Fast vis complete`);
+    logFn('Fast vis complete');
     return pvs;
+}
+
+function computeLeafFastVis(bsp, portals, logFn) {
+    const nodeCenters = new Array(bsp.leaves.length).fill(null);
+    const nodeIsSolid = new Array(bsp.leaves.length).fill(true);
+    for (let i = 1; i < bsp.leaves.length; i++) {
+        nodeCenters[i] = computeBoundsCenter(bsp.leaves[i].mins, bsp.leaves[i].maxs);
+        nodeIsSolid[i] = bsp.leaves[i].contents === CONTENTS_SOLID;
+    }
+
+    const normalizedPortals = portals.map(p => ({
+        winding: p.winding,
+        a: p.leaves[0],
+        b: p.leaves[1]
+    }));
+
+    return computePortalPvs(nodeCenters, nodeIsSolid, normalizedPortals, logFn, 'vis leaves');
+}
+
+function validatePRTAgainstBSP(bsp, prt) {
+    const bspVisLeafs = bsp.models[0].visleafs;
+    if (prt.numLeafsReal !== bspVisLeafs) {
+        throw new Error(`PRT leaf count mismatch: file has ${prt.numLeafsReal}, BSP expects ${bspVisLeafs}`);
+    }
+    if (prt.numLeafsReal > bsp.leaves.length - 1) {
+        throw new Error(`PRT leaf count ${prt.numLeafsReal} exceeds BSP leaf count ${bsp.leaves.length - 1}`);
+    }
+}
+
+function computeClusterNodeData(bsp, prt) {
+    const centers = new Array(prt.numClusters + 1).fill(null);
+    const nodeIsSolid = new Array(prt.numClusters + 1).fill(true);
+    const sums = new Array(prt.numClusters + 1).fill(null).map(() => [0, 0, 0]);
+    const counts = new Array(prt.numClusters + 1).fill(0);
+
+    for (let leafIdx = 1; leafIdx <= prt.numLeafsReal; leafIdx++) {
+        const cluster = prt.leafToCluster[leafIdx];
+        const nodeIdx = cluster + 1;
+        const center = computeBoundsCenter(bsp.leaves[leafIdx].mins, bsp.leaves[leafIdx].maxs);
+        sums[nodeIdx][0] += center[0];
+        sums[nodeIdx][1] += center[1];
+        sums[nodeIdx][2] += center[2];
+        counts[nodeIdx] += 1;
+        if (bsp.leaves[leafIdx].contents !== CONTENTS_SOLID) {
+            nodeIsSolid[nodeIdx] = false;
+        }
+    }
+
+    for (let nodeIdx = 1; nodeIdx < centers.length; nodeIdx++) {
+        if (counts[nodeIdx] <= 0) continue;
+        centers[nodeIdx] = [
+            sums[nodeIdx][0] / counts[nodeIdx],
+            sums[nodeIdx][1] / counts[nodeIdx],
+            sums[nodeIdx][2] / counts[nodeIdx]
+        ];
+    }
+
+    return { centers, nodeIsSolid };
+}
+
+function expandClusterPvsToLeaves(bsp, prt, clusterPvs) {
+    const numLeaves = bsp.leaves.length;
+    const rowBytes = Math.floor((numLeaves + 7) / 8);
+    const pvs = Array.from({ length: numLeaves }, () => new Uint8Array(rowBytes));
+
+    for (let srcLeaf = 1; srcLeaf <= prt.numLeafsReal; srcLeaf++) {
+        if (bsp.leaves[srcLeaf].contents === CONTENTS_SOLID) continue;
+
+        const srcCluster = prt.leafToCluster[srcLeaf];
+        const clusterVisible = clusterPvs[srcCluster + 1];
+        pvs[srcLeaf][srcLeaf >> 3] |= (1 << (srcLeaf & 7));
+
+        for (let dstLeaf = 1; dstLeaf <= prt.numLeafsReal; dstLeaf++) {
+            if (bsp.leaves[dstLeaf].contents === CONTENTS_SOLID) continue;
+            const dstCluster = prt.leafToCluster[dstLeaf];
+            const clusterNodeIdx = dstCluster + 1;
+            if (clusterVisible[clusterNodeIdx >> 3] & (1 << (clusterNodeIdx & 7))) {
+                pvs[srcLeaf][dstLeaf >> 3] |= (1 << (dstLeaf & 7));
+            }
+        }
+    }
+
+    return pvs;
+}
+
+function computeFastVisFromPRT(bsp, prt, logFn) {
+    validatePRTAgainstBSP(bsp, prt);
+
+    if (!prt.usesClusters) {
+        const portals = prt.portals.map(p => ({
+            winding: p.winding,
+            leaves: [p.clusters[0] + 1, p.clusters[1] + 1]
+        }));
+        return computeLeafFastVis(bsp, portals, logFn);
+    }
+
+    const { centers, nodeIsSolid } = computeClusterNodeData(bsp, prt);
+    const clusterPortals = prt.portals.map(p => ({
+        winding: p.winding,
+        a: p.clusters[0] + 1,
+        b: p.clusters[1] + 1
+    }));
+    const clusterPvs = computePortalPvs(centers, nodeIsSolid, clusterPortals, logFn, 'clusters');
+    return expandClusterPvsToLeaves(bsp, prt, clusterPvs);
+}
+
+function computeFastVis(bsp, portalInput, logFn) {
+    if (portalInput && portalInput.portals && portalInput.leafToCluster) {
+        return computeFastVisFromPRT(bsp, portalInput, logFn);
+    }
+    return computeLeafFastVis(bsp, portalInput, logFn);
 }
 
 // ============================================================
@@ -718,7 +1037,7 @@ function compressVis(pvs, numLeaves) {
 // BUILD NEW LEAF LUMP
 // ============================================================
 
-function buildLeafLump(bsp, visOffsets) {
+function buildLeafLump(bsp, visOffsets, ambientLevels) {
     const numLeaves = bsp.leaves.length;
     const leafSize = 28; // bytes per leaf
     const buf = new ArrayBuffer(numLeaves * leafSize);
@@ -726,6 +1045,9 @@ function buildLeafLump(bsp, visOffsets) {
 
     for (let i = 0; i < numLeaves; i++) {
         const leaf = bsp.leaves[i];
+        const ambient = ambientLevels && ambientLevels[i]
+            ? ambientLevels[i]
+            : leaf.ambientLevel;
         const off = i * leafSize;
 
         view.setInt32(off, leaf.contents, true);
@@ -738,10 +1060,10 @@ function buildLeafLump(bsp, visOffsets) {
         view.setInt16(off + 18, leaf.maxs[2], true);
         view.setUint16(off + 20, leaf.firstMarkSurface, true);
         view.setUint16(off + 22, leaf.numMarkSurfaces, true);
-        view.setUint8(off + 24, leaf.ambientLevel[0]);
-        view.setUint8(off + 25, leaf.ambientLevel[1]);
-        view.setUint8(off + 26, leaf.ambientLevel[2]);
-        view.setUint8(off + 27, leaf.ambientLevel[3]);
+        view.setUint8(off + 24, ambient[0]);
+        view.setUint8(off + 25, ambient[1]);
+        view.setUint8(off + 26, ambient[2]);
+        view.setUint8(off + 27, ambient[3]);
     }
 
     return new Uint8Array(buf);
@@ -857,15 +1179,103 @@ function createVisFile(mapName, visData, leafData) {
 // EXTRACT MAP NAME FROM FILENAME
 // ============================================================
 
-function extractMapName(filename) {
-    // Strip extension, keep "maps/name" format if present
-    let name = filename.replace(/\\/g, '/');
-    // Remove extension
-    const dotIdx = name.lastIndexOf('.');
-    if (dotIdx >= 0) name = name.substring(0, dotIdx);
-    // If no path prefix, add "maps/"
-    if (!name.includes('/')) name = 'maps/' + name;
+function extractVispatchMapName(filename) {
+    const normalized = filename.replace(/\\/g, '/');
+    let name = normalized.substring(normalized.lastIndexOf('/') + 1);
+    if (!/\.bsp$/i.test(name)) {
+        name += '.bsp';
+    }
     return name;
+}
+
+function buildAmbientFaceInfo(bsp) {
+    if (bsp._ambientFaceInfo) return bsp._ambientFaceInfo;
+
+    const info = new Array(bsp.faces.length).fill(null);
+    let emitterCount = 0;
+
+    for (let faceIdx = 0; faceIdx < bsp.faces.length; faceIdx++) {
+        const face = bsp.faces[faceIdx];
+        const tex = bsp.texinfo[face.texinfo];
+        if (!tex || tex.miptexIndex < 0 || tex.miptexIndex >= bsp.miptex.length) continue;
+        const mip = bsp.miptex[tex.miptexIndex];
+        const ambientType = classifyAmbientTexture(mip && mip.name);
+        if (ambientType < 0) continue;
+
+        const mins = [Infinity, Infinity, Infinity];
+        const maxs = [-Infinity, -Infinity, -Infinity];
+        let valid = false;
+
+        for (let edgeOfs = 0; edgeOfs < face.numEdges; edgeOfs++) {
+            const surfEdge = bsp.surfEdges[face.firstEdge + edgeOfs];
+            const edge = bsp.edges[Math.abs(surfEdge)];
+            if (!edge) continue;
+            const vertIdx = surfEdge >= 0 ? edge[0] : edge[1];
+            const vert = bsp.vertices[vertIdx];
+            if (!vert) continue;
+            valid = true;
+            for (let axis = 0; axis < 3; axis++) {
+                if (vert[axis] < mins[axis]) mins[axis] = vert[axis];
+                if (vert[axis] > maxs[axis]) maxs[axis] = vert[axis];
+            }
+        }
+
+        if (!valid) continue;
+
+        info[faceIdx] = {
+            ambientType,
+            mins,
+            maxs
+        };
+        emitterCount++;
+    }
+
+    bsp._ambientFaceInfo = info;
+    bsp._ambientEmitterCount = emitterCount;
+    return info;
+}
+
+function computeAmbientLevels(bsp, pvs, logFn) {
+    const ambientFaceInfo = buildAmbientFaceInfo(bsp);
+    if (!ambientFaceInfo.length) {
+        logFn('Ambient rebuild skipped: BSP has no readable face data');
+        return bsp.leaves.map(leaf => leaf.ambientLevel.slice());
+    }
+
+    const ambientLevels = bsp.leaves.map(() => new Array(NUM_AMBIENTS).fill(0));
+    logFn(`Rebuilding ambient leaf sounds from ${bsp._ambientEmitterCount || 0} emitter faces...`);
+
+    for (let leafIdx = 1; leafIdx < bsp.leaves.length; leafIdx++) {
+        const leaf = bsp.leaves[leafIdx];
+        if (leaf.contents === CONTENTS_SOLID) continue;
+
+        const distances = new Array(NUM_AMBIENTS).fill(Infinity);
+        const visible = pvs[leafIdx];
+        if (!visible) continue;
+
+        for (let otherLeaf = 1; otherLeaf < bsp.leaves.length; otherLeaf++) {
+            if (!(visible[otherLeaf >> 3] & (1 << (otherLeaf & 7)))) continue;
+
+            const hitLeaf = bsp.leaves[otherLeaf];
+            for (let k = 0; k < hitLeaf.numMarkSurfaces; k++) {
+                const faceIdx = bsp.markSurfaces[hitLeaf.firstMarkSurface + k];
+                const faceInfo = ambientFaceInfo[faceIdx];
+                if (!faceInfo) continue;
+
+                const dist = boundsDistance(
+                    leaf.mins, leaf.maxs,
+                    faceInfo.mins, faceInfo.maxs
+                );
+                if (dist < distances[faceInfo.ambientType]) {
+                    distances[faceInfo.ambientType] = dist;
+                }
+            }
+        }
+
+        ambientLevels[leafIdx] = distances.map(ambientDistanceToLevel);
+    }
+
+    return ambientLevels;
 }
 
 // ============================================================
@@ -876,6 +1286,7 @@ let loadedBSP = null;
 let loadedBSPBuffer = null;
 let loadedBSPName = '';
 let loadedPRT = null;
+const defaultPRTMessage = 'Drop PRT file (optional, for better quality)';
 
 const bspDropZone = document.getElementById('bspDropZone');
 const prtDropZone = document.getElementById('prtDropZone');
@@ -938,6 +1349,11 @@ function handleBSPFile(file) {
             loadedBSPBuffer = reader.result;
             loadedBSP = parseBSP(loadedBSPBuffer);
             loadedBSPName = file.name;
+            if (loadedPRT && loadedPRT.numLeafsReal !== loadedBSP.models[0].visleafs) {
+                loadedPRT = null;
+                prtDropZone.classList.remove('loaded');
+                prtDropZone.querySelector('.file-msg').textContent = defaultPRTMessage;
+            }
             showFileInfo(loadedBSP, file.name);
             controls.classList.remove('hidden');
             bspDropZone.classList.add('loaded');
@@ -957,9 +1373,18 @@ function handlePRTFile(file) {
     reader.onload = () => {
         try {
             loadedPRT = parsePRT(reader.result);
+            if (loadedBSP) {
+                validatePRTAgainstBSP(loadedBSP, loadedPRT);
+            }
             prtDropZone.classList.add('loaded');
-            prtDropZone.querySelector('.file-msg').textContent = `${file.name} (${loadedPRT.numPortals} portals)`;
+            const detail = loadedPRT.usesClusters
+                ? `${loadedPRT.numPortals} portals, ${loadedPRT.numClusters} clusters / ${loadedPRT.numLeafsReal} leaves`
+                : `${loadedPRT.numPortals} portals, ${loadedPRT.numLeafsReal} leaves`;
+            prtDropZone.querySelector('.file-msg').textContent = `${file.name} (${detail})`;
         } catch (e) {
+            loadedPRT = null;
+            prtDropZone.classList.remove('loaded');
+            prtDropZone.querySelector('.file-msg').textContent = defaultPRTMessage;
             alert('Error parsing PRT: ' + e.message);
         }
     };
@@ -992,8 +1417,10 @@ async function runVisComputation() {
 
         let portals;
         if (loadedPRT) {
-            log(`Using PRT file (${loadedPRT.numPortals} portals, ${loadedPRT.numLeafs} vis leaves)`);
-            portals = loadedPRT.portals;
+            log(loadedPRT.usesClusters
+                ? `Using PRT file (${loadedPRT.numPortals} portals, ${loadedPRT.numClusters} clusters / ${loadedPRT.numLeafsReal} leaves)`
+                : `Using PRT file (${loadedPRT.numPortals} portals, ${loadedPRT.numLeafsReal} leaves)`);
+            portals = loadedPRT;
         } else {
             log('Extracting portals from BSP tree...');
             portals = extractPortals(bsp, log);
@@ -1002,6 +1429,9 @@ async function runVisComputation() {
         setProgress(30, 'Computing visibility...');
         log('Computing fast vis...');
         const pvs = computeFastVis(bsp, portals, log);
+
+        setProgress(60, 'Rebuilding ambient sounds...');
+        const ambientLevels = computeAmbientLevels(bsp, pvs, log);
 
         setProgress(70, 'Compressing vis data...');
         log('Compressing vis data...');
@@ -1015,7 +1445,7 @@ async function runVisComputation() {
                 visOffsets[i] = -1;
             }
         }
-        const leafData = buildLeafLump(bsp, visOffsets);
+        const leafData = buildLeafLump(bsp, visOffsets, ambientLevels);
         log(`Leaf data: ${leafData.length} bytes`);
 
         setProgress(90, 'Building output...');
@@ -1030,7 +1460,7 @@ async function runVisComputation() {
             log(`Done! Download: ${loadedBSPName}`);
         } else {
             log('Creating .vis file...');
-            const mapName = extractMapName(loadedBSPName);
+            const mapName = extractVispatchMapName(loadedBSPName);
             const visFile = createVisFile(mapName, visData, leafData);
             log(`VIS file: ${visFile.length} bytes (map name: "${mapName}")`);
 

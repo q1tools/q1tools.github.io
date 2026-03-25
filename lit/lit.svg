@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Quake LIT Reverse Engineer</title>
+  <desc id="desc">Dark thumbnail with colorful lightmap bands and QLIT lettering.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="100%" stop-color="#18181b"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="beamWarm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#facc15"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="30" fill="url(#bg)"/>
+  <rect x="26" y="26" width="204" height="204" rx="22" fill="#111113" stroke="#ffffff" stroke-opacity="0.08"/>
+  <rect x="42" y="156" width="172" height="14" rx="7" fill="#1f1f23"/>
+  <rect x="42" y="136" width="132" height="12" rx="6" fill="url(#beam)"/>
+  <rect x="42" y="118" width="156" height="10" rx="5" fill="url(#beamWarm)"/>
+  <rect x="42" y="98" width="106" height="10" rx="5" fill="#3f3f46"/>
+  <path d="M44 74h50l12-14h32l10 14h64" fill="none" stroke="#27272a" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="42" y="208" fill="#f4f4f5" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="40" font-weight="700" letter-spacing="3">QLIT</text>
+  <circle cx="198" cy="70" r="16" fill="#18181b" stroke="#27272a" stroke-width="3"/>
+  <circle cx="198" cy="70" r="7" fill="#06b6d4"/>
+</svg>

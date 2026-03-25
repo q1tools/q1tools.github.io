@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LIT Reverse Engineer — ericw-tools</title>
+<title>Quake LIT Reverse Engineer</title>
+<meta name="description" content="Analyze Quake BSP and LIT files, reconstruct ericw-tools lighting settings, and compare QSS-M load behavior.">
+<link rel="icon" type="image/svg+xml" href="lit.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -33,6 +35,24 @@ body::before {
   max-width: 960px;
   margin: 0 auto;
   padding: 48px 24px 80px;
+}
+
+.app-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #71717a;
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.app-home-link:hover {
+  color: #e4e4e8;
+  transform: translateX(-1px);
 }
 
 .app-header { margin-bottom: 32px; }
@@ -563,9 +583,11 @@ canvas {
 <body>
 <div class="app-wrap">
 
+<a class="app-home-link" href="../">&#8592; Back To Tools</a>
+
 <div class="app-header">
   <h1><span class="brand">LIT</span> Reverse Engineer</h1>
-  <p class="subtitle">Analyze .bsp + .lit files &rarr; reconstruct ericw-tools light settings</p>
+  <p class="subtitle">Analyze BSP lighting sources, reconstruct ericw-tools light settings, and compare QSS-M loading rules</p>
 </div>
 
 <div class="drop-zone" id="dropZone">
@@ -575,8 +597,8 @@ canvas {
       <polyline points="17 8 12 3 7 8"/>
       <line x1="12" y1="3" x2="12" y2="15"/>
     </svg>
-    <strong>Drop .BSP &amp; .LIT files here</strong>
-    <span class="drop-hint">or click to browse</span>
+    <strong>Drop .BSP and optional .LIT files here</strong>
+    <span class="drop-hint">Use a matching .lit, or let the tool read embedded BSPX RGB/HDR lighting</span>
     <input type="file" id="fileInput" accept=".bsp,.lit" multiple>
   </label>
   <div class="file-info" id="dropInfo"></div>
@@ -596,6 +618,8 @@ const BSP29_VERSION = 29;
 const BSPHL_VERSION = 30;
 const BSP2_MAGIC  = 0x32505342; // "BSP2" as int32 LE
 const BSP2RMQ_MAGIC = 0x42535032; // "2PSB" as int32 LE
+const LIT_VERSION = 1;
+const LIT_VERSION_E5BGR9 = 0x00010001;
 const LUMP = {
   ENTITIES: 0, PLANES: 1, TEXTURES: 2, VERTEXES: 3, VISIBILITY: 4,
   NODES: 5, TEXINFO: 6, FACES: 7, LIGHTING: 8, CLIPNODES: 9,
@@ -604,6 +628,7 @@ const LUMP = {
 const NUM_LUMPS = 15;
 const TEX_SPECIAL = 1;
 const INVALID_STYLE = 255;
+const INVALID_STYLE16 = 0xffff;
 
 // ── File state ──
 let bspBuffer = null, litBuffer = null;
@@ -644,10 +669,11 @@ function updateDropInfo() {
   const parts = [];
   if (bspBuffer) parts.push(`${bspName} (${(bspBuffer.byteLength / 1024).toFixed(1)} KB)`);
   if (litBuffer) parts.push(`${litName} (${(litBuffer.byteLength / 1024).toFixed(1)} KB)`);
+  else if (bspBuffer) parts.push('No external .lit loaded — BSPX RGBLIGHTING/LIGHTING_E5BGR9 will be used if present');
   dropInfo.textContent = parts.join('  +  ') || '';
-  if (bspBuffer && litBuffer) dropZone.classList.add('loaded');
+  if (bspBuffer) dropZone.classList.add('loaded');
   else dropZone.classList.remove('loaded');
-  document.getElementById('analyzeBtn').disabled = !(bspBuffer && litBuffer);
+  document.getElementById('analyzeBtn').disabled = !bspBuffer;
 }
 
 document.getElementById('analyzeBtn').addEventListener('click', analyze);
@@ -843,11 +869,14 @@ function parseBSPXLighting(buf, bspx, numFaces) {
     lmshifts: null,      // per-face lightmap shift (1 byte each)
     lmoffsets: null,      // per-face lightmap offset override
     decoupledLM: null,    // per-face decoupled lightmap info
-    lmstyles: null,       // extended styles (16-bit)
+    lmstyleSource: null,
+    stylesPerFace: 0,
+    styleTable: null,
     hasRGBLighting: false,
     hasHDRLighting: false
   };
   if (!bspx.found) return result;
+  if (numFaces <= 0) return result;
 
   const dv = new DataView(buf);
 
@@ -885,11 +914,35 @@ function parseBSPXLighting(buf, bspx, numFaces) {
     }
   }
 
-  // LMSTYLE16: 16-bit lightstyle IDs (allows >4 styles, up to 16)
+  // LMSTYLE16 / LMSTYLE: per-face style tables, potentially >4 styles
   if (bspx.lumps['LMSTYLE16']) {
-    result.lmstyles = 'LMSTYLE16';
+    const l = bspx.lumps['LMSTYLE16'];
+    const stylesPerFace = Math.floor(l.length / (numFaces * 2));
+    if (stylesPerFace > 0 && l.length === numFaces * stylesPerFace * 2) {
+      result.lmstyleSource = 'LMSTYLE16';
+      result.stylesPerFace = stylesPerFace;
+      result.styleTable = Array.from({ length: numFaces }, (_, faceIdx) => {
+        const styles = [];
+        for (let s = 0; s < stylesPerFace; s++) {
+          styles.push(dv.getUint16(l.offset + ((faceIdx * stylesPerFace + s) * 2), true));
+        }
+        return styles;
+      });
+    }
   } else if (bspx.lumps['LMSTYLE']) {
-    result.lmstyles = 'LMSTYLE';
+    const l = bspx.lumps['LMSTYLE'];
+    const stylesPerFace = Math.floor(l.length / numFaces);
+    if (stylesPerFace > 0 && l.length === numFaces * stylesPerFace) {
+      result.lmstyleSource = 'LMSTYLE';
+      result.stylesPerFace = stylesPerFace;
+      result.styleTable = Array.from({ length: numFaces }, (_, faceIdx) => {
+        const styles = [];
+        for (let s = 0; s < stylesPerFace; s++) {
+          styles.push(dv.getUint8(l.offset + (faceIdx * stylesPerFace) + s));
+        }
+        return styles;
+      });
+    }
   }
 
   result.hasRGBLighting = !!bspx.lumps['RGBLIGHTING'];
@@ -932,19 +985,228 @@ const QUAKE_LIGHTSTYLES = [
 
 // ── LIT Parser ──
 function parseLIT(buf) {
+  if (buf.byteLength < 8) throw new Error('LIT file is too small to contain a valid header');
   const dv = new DataView(buf);
   const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
   if (magic !== 'QLIT') throw new Error('Not a valid .lit file (expected QLIT header)');
   const version = dv.getInt32(4, true);
 
-  const isHDR = (version & 0xFFFF0000) !== 0; // E5BGR9 has high bits set
-  if (version !== 1 && !isHDR) {
-    throw new Error(`Unsupported .lit version: ${version} (expected 1 for RGB or HDR variant)`);
+  const isHDR = version === LIT_VERSION_E5BGR9;
+  if (version !== LIT_VERSION && !isHDR) {
+    throw new Error(`Unsupported .lit version: ${version} (expected ${LIT_VERSION} or ${LIT_VERSION_E5BGR9} for HDR E5BGR9)`);
   }
 
-  const data = new Uint8Array(buf, 8);
-  const numSamples = isHDR ? data.length / 4 : data.length / 3;
-  return { version, data, numSamples: Math.floor(numSamples), isHDR };
+  const payloadBytes = buf.byteLength - 8;
+  const sampleStride = isHDR ? 4 : 3;
+  if (payloadBytes % sampleStride !== 0) {
+    throw new Error(`Corrupt ${isHDR ? 'HDR ' : ''}.lit payload: ${payloadBytes} bytes is not divisible by ${sampleStride}`);
+  }
+
+  if (!isHDR) {
+    return buildRGBLightingData(buf, 8, payloadBytes, {
+      version,
+      sourceKind: 'external-lit',
+      sourceLabel: litName || 'External .lit',
+      formatLabel: `RGB .lit v${version}`,
+      outputFlag: '-lit'
+    });
+  }
+
+  return buildHDRLightingData(buf, 8, payloadBytes, {
+    version,
+    sourceKind: 'external-lit',
+    sourceLabel: litName || 'External HDR .lit',
+    formatLabel: 'HDR .lit (E5BGR9)',
+    outputFlag: '-hdr'
+  });
+}
+
+function buildRGBLightingData(buf, offset, payloadBytes, meta = {}) {
+  if (payloadBytes % 3 !== 0) {
+    throw new Error(`${meta.sourceLabel || 'RGB lighting data'} payload is not divisible by 3`);
+  }
+  const data = new Uint8Array(buf, offset, payloadBytes);
+  return {
+    version: meta.version ?? LIT_VERSION,
+    data,
+    analysisData: data,
+    numSamples: data.length / 3,
+    isHDR: false,
+    sampleStride: 3,
+    payloadBytes,
+    hdrExposure: 1,
+    sourceKind: meta.sourceKind || 'external-lit',
+    sourceLabel: meta.sourceLabel || 'External .lit',
+    formatLabel: meta.formatLabel || `RGB .lit v${meta.version ?? LIT_VERSION}`,
+    outputFlag: meta.outputFlag || '-lit',
+    sourceWarnings: meta.sourceWarnings || []
+  };
+}
+
+function buildHDRLightingData(buf, offset, payloadBytes, meta = {}) {
+  if (payloadBytes % 4 !== 0) {
+    throw new Error(`${meta.sourceLabel || 'HDR lighting data'} payload is not divisible by 4`);
+  }
+
+  const version = meta.version ?? LIT_VERSION_E5BGR9;
+  const numSamples = payloadBytes / 4;
+  const linearData = new Float32Array(numSamples * 3);
+  const analysisData = new Float32Array(numSamples * 3);
+  const samplePeaks = [];
+  const dv = new DataView(buf);
+  let maxLinear = 0;
+  for (let i = 0; i < numSamples; i++) {
+    const packed = dv.getUint32(offset + i * 4, true);
+    const rgb = unpackE5BGR9(packed);
+    linearData[i * 3] = rgb[0];
+    linearData[i * 3 + 1] = rgb[1];
+    linearData[i * 3 + 2] = rgb[2];
+    const peak = Math.max(rgb[0], rgb[1], rgb[2]);
+    if (peak > maxLinear) maxLinear = peak;
+    if ((i % 97) === 0) samplePeaks.push(peak);
+  }
+
+  const hdrExposure = chooseHDRExposure(samplePeaks, maxLinear);
+  const data = new Uint8ClampedArray(numSamples * 3);
+  for (let i = 0; i < numSamples; i++) {
+    analysisData[i * 3] = linearData[i * 3] * hdrExposure;
+    analysisData[i * 3 + 1] = linearData[i * 3 + 1] * hdrExposure;
+    analysisData[i * 3 + 2] = linearData[i * 3 + 2] * hdrExposure;
+    data[i * 3] = clampByte(analysisData[i * 3]);
+    data[i * 3 + 1] = clampByte(analysisData[i * 3 + 1]);
+    data[i * 3 + 2] = clampByte(analysisData[i * 3 + 2]);
+  }
+
+  return {
+    version,
+    data,
+    analysisData,
+    linearData,
+    numSamples,
+    isHDR: true,
+    sampleStride: 4,
+    payloadBytes,
+    hdrExposure,
+    sourceKind: meta.sourceKind || 'external-lit',
+    sourceLabel: meta.sourceLabel || 'External HDR .lit',
+    formatLabel: meta.formatLabel || 'HDR .lit (E5BGR9)',
+    outputFlag: meta.outputFlag || '-hdr',
+    sourceWarnings: meta.sourceWarnings || []
+  };
+}
+
+function unpackE5BGR9(packed) {
+  const biasedExponent = packed >>> 27;
+  const exponent = biasedExponent - 24;
+  const multiplier = Math.pow(2, exponent);
+  return [
+    (packed & 0x1ff) * multiplier,
+    ((packed >>> 9) & 0x1ff) * multiplier,
+    ((packed >>> 18) & 0x1ff) * multiplier
+  ];
+}
+
+function chooseHDRExposure(samplePeaks, maxLinear) {
+  if (maxLinear <= 0) return 1;
+  if (samplePeaks.length === 0) return maxLinear > 255 ? 255 / maxLinear : 1;
+  samplePeaks.sort((a, b) => a - b);
+  const idx = Math.min(samplePeaks.length - 1, Math.floor(samplePeaks.length * 0.98));
+  const ref = samplePeaks[idx] > 0 ? samplePeaks[idx] : maxLinear;
+  return ref > 255 ? 255 / ref : 1;
+}
+
+function clampByte(value) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function validateLightingSourceForBSP(bsp, lighting, sourceLabel, allowWithoutBaseGray = false) {
+  const expectedPayloadBytes = bsp.lightData.length * lighting.sampleStride;
+  if (bsp.lightData.length === 0) {
+    if (!allowWithoutBaseGray && lighting.payloadBytes !== 0) {
+      throw new Error(`${sourceLabel} has ${lighting.payloadBytes.toLocaleString()} bytes, but ${bspName} has no grayscale LIGHTING samples`);
+    }
+    return;
+  }
+  if (lighting.payloadBytes !== expectedPayloadBytes) {
+    throw new Error(`${sourceLabel} has ${lighting.payloadBytes.toLocaleString()} bytes, but ${bspName} expects ${expectedPayloadBytes.toLocaleString()} bytes (${bsp.lightData.length.toLocaleString()} light samples)`);
+  }
+}
+
+function parseEmbeddedLighting(bsp, buf, sourceWarnings) {
+  if (bsp.bspx.lumps['LIGHTING_E5BGR9']) {
+    const lump = bsp.bspx.lumps['LIGHTING_E5BGR9'];
+    try {
+      const lighting = buildHDRLightingData(buf, lump.offset, lump.length, {
+        sourceKind: 'bspx-hdr',
+        sourceLabel: 'BSPX LIGHTING_E5BGR9',
+        formatLabel: 'BSPX HDR (E5BGR9)',
+        outputFlag: '-bspxhdr',
+        sourceWarnings
+      });
+      validateLightingSourceForBSP(bsp, lighting, 'Embedded BSPX LIGHTING_E5BGR9', true);
+      return lighting;
+    } catch (err) {
+      sourceWarnings.push(`Embedded LIGHTING_E5BGR9 ignored: ${err.message}`);
+    }
+  }
+
+  if (bsp.bspx.lumps['RGBLIGHTING']) {
+    const lump = bsp.bspx.lumps['RGBLIGHTING'];
+    try {
+      const lighting = buildRGBLightingData(buf, lump.offset, lump.length, {
+        sourceKind: 'bspx-rgb',
+        sourceLabel: 'BSPX RGBLIGHTING',
+        formatLabel: 'BSPX RGBLIGHTING',
+        outputFlag: '-bspxlit',
+        sourceWarnings
+      });
+      validateLightingSourceForBSP(bsp, lighting, 'Embedded BSPX RGBLIGHTING', true);
+      return lighting;
+    } catch (err) {
+      sourceWarnings.push(`Embedded RGBLIGHTING ignored: ${err.message}`);
+    }
+  }
+
+  return null;
+}
+
+function resolveLightingSource(bsp, buf) {
+  const sourceWarnings = [];
+
+  if (litBuffer) {
+    try {
+      const externalLighting = parseLIT(litBuffer);
+      validateLightingSourceForBSP(bsp, externalLighting, `External ${litName || '.lit'}`);
+      externalLighting.sourceWarnings = sourceWarnings;
+      return externalLighting;
+    } catch (err) {
+      sourceWarnings.push(`QSS-M would reject ${litName || 'the external .lit'}: ${err.message}`);
+    }
+  }
+
+  const embeddedLighting = parseEmbeddedLighting(bsp, buf, sourceWarnings);
+  if (embeddedLighting) return embeddedLighting;
+
+  if (sourceWarnings.length > 0) {
+    throw new Error(sourceWarnings.join(' '));
+  }
+  throw new Error('No usable lighting source found. Load a matching .lit file or use a BSP with BSPX RGBLIGHTING/LIGHTING_E5BGR9.');
+}
+
+function getGrayLightingData(bsp, lit) {
+  if (bsp.lightData.length === lit.numSamples) {
+    return { data: bsp.lightData, sourceLabel: 'BSP LIGHTING lump', derived: false };
+  }
+
+  const analysisData = lit.analysisData || lit.data;
+  const data = new Uint8Array(lit.numSamples);
+  for (let i = 0; i < lit.numSamples; i++) {
+    const r = analysisData[i * 3];
+    const g = analysisData[i * 3 + 1];
+    const b = analysisData[i * 3 + 2];
+    data[i] = clampByte((r + g + b) / 3);
+  }
+  return { data, sourceLabel: 'Derived from active RGB/HDR lighting', derived: true };
 }
 
 // ── Entity Parser ──
@@ -990,38 +1252,68 @@ function getVertex(vi, bsp) {
   return [bsp.vertices[vi*3], bsp.vertices[vi*3+1], bsp.vertices[vi*3+2]];
 }
 
+function getActiveStyles(face, faceIdx, bsp) {
+  const table = bsp.bspxLighting.styleTable;
+  if (table && table[faceIdx]) {
+    const invalid = bsp.bspxLighting.lmstyleSource === 'LMSTYLE16' ? INVALID_STYLE16 : INVALID_STYLE;
+    const styles = [];
+    for (const style of table[faceIdx]) {
+      if (style === invalid) break;
+      styles.push(style);
+    }
+    return styles;
+  }
+
+  const styles = [];
+  for (const style of face.styles) {
+    if (style === INVALID_STYLE) break;
+    styles.push(style);
+  }
+  return styles;
+}
+
+function getDefaultLightmapShift(worldspawn) {
+  const raw = worldspawn['_lightmap_scale'] ?? worldspawn['lightmap_scale'];
+  if (raw === undefined) return 4;
+  let scale = parseInt(raw, 10);
+  if (!Number.isFinite(scale) || scale <= 0) return 4;
+  let shiftBits = 0;
+  while (scale > 1) {
+    scale >>= 1;
+    shiftBits++;
+  }
+  return shiftBits;
+}
+
 // ── Compute face lightmap extents (matches ericw-tools/QSS-M exactly) ──
-function faceLightmapInfo(face, faceIdx, bsp) {
+function faceLightmapInfo(face, faceIdx, bsp, defaultShiftBits) {
   const lightofs = getLightOffset(face, faceIdx, bsp);
   if (lightofs < 0) return null;
   if (face.texinfo < 0 || face.texinfo >= bsp.texinfos.length) return null;
 
   const ti = bsp.texinfos[face.texinfo];
   if (ti.flags & TEX_SPECIAL) return null;
+  const activeStyles = getActiveStyles(face, faceIdx, bsp);
 
   // Check for DECOUPLED_LM (explicit per-face dimensions)
   if (bsp.bspxLighting.decoupledLM && bsp.bspxLighting.decoupledLM[faceIdx]) {
     const dlm = bsp.bspxLighting.decoupledLM[faceIdx];
     if (dlm.lmwidth > 0 && dlm.lmheight > 0) {
-      let numStyles = 0;
-      for (let s = 0; s < 4; s++) {
-        if (face.styles[s] === INVALID_STYLE) break;
-        numStyles++;
-      }
+      let numStyles = activeStyles.length;
       if (numStyles === 0) numStyles = 1;
       const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
       return {
         width: dlm.lmwidth, height: dlm.lmheight, numStyles,
         numSamples: dlm.lmwidth * dlm.lmheight * numStyles,
         texName, lmMinS: 0, lmMinT: 0,
-        activeStyles: face.styles.slice(0, numStyles),
+        activeStyles,
         lightofs, decoupled: true
       };
     }
   }
 
-  // Per-face LMSHIFT from BSPX, or default 4 (= 16 units per luxel)
-  let shiftBits = 4;
+  // Per-face LMSHIFT from BSPX, or worldspawn/default 16 units per luxel
+  let shiftBits = defaultShiftBits;
   if (bsp.bspxLighting.lmshifts) {
     shiftBits = bsp.bspxLighting.lmshifts[faceIdx];
   }
@@ -1048,11 +1340,7 @@ function faceLightmapInfo(face, faceIdx, bsp) {
   const width = (lmMaxS - lmMinS) + 1;
   const height = (lmMaxT - lmMinT) + 1;
 
-  let numStyles = 0;
-  for (let s = 0; s < 4; s++) {
-    if (face.styles[s] === INVALID_STYLE) break;
-    numStyles++;
-  }
+  let numStyles = activeStyles.length;
   if (numStyles === 0) numStyles = 1;
 
   const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
@@ -1061,7 +1349,7 @@ function faceLightmapInfo(face, faceIdx, bsp) {
     width, height, numStyles,
     numSamples: width * height * numStyles,
     texName, lmMinS, lmMinT,
-    activeStyles: face.styles.slice(0, numStyles),
+    activeStyles,
     lightofs, lmshift: shift, decoupled: false
   };
 }
@@ -1171,35 +1459,29 @@ function findDominantColors(colors) {
 function analyze() {
   try {
     const bsp = parseBSP(bspBuffer);
-    const lit = parseLIT(litBuffer);
-
-    // Validate match
-    if (lit.numSamples !== bsp.lightData.length) {
-      throw new Error(
-        `LIT has ${lit.numSamples.toLocaleString()} samples but BSP lighting lump is ${bsp.lightData.length.toLocaleString()} bytes. ` +
-        `Files may not match, or BSP uses per-sample RGB (HL/Q2).`
-      );
-    }
+    const lit = resolveLightingSource(bsp, bspBuffer);
+    const grayInfo = getGrayLightingData(bsp, lit);
 
     const entities = parseEntities(bsp.entString);
     const worldspawn = entities.find(e => e.classname === 'worldspawn') || {};
     const lightEnts = entities.filter(e => e.classname && e.classname.startsWith('light'));
     const lightStats = analyzeLightEntities(lightEnts);
+    const defaultShiftBits = getDefaultLightmapShift(worldspawn);
 
     // Per-face lightmap info + validation
-    const faceAnalysis = analyzeFaces(bsp, lit);
+    const faceAnalysis = analyzeFaces(bsp, grayInfo.data, defaultShiftBits);
 
     // Global lightmap statistics
-    const stats = analyzeLighting(bsp, lit, faceAnalysis);
+    const stats = analyzeLighting(grayInfo.data, lit, faceAnalysis);
 
     // Sun direction inference
-    const sunInference = inferSunDirection(bsp, faceAnalysis);
+    const sunInference = inferSunDirection(bsp, faceAnalysis, grayInfo.data);
 
     // Infer settings
-    const inferred = inferSettings(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, sunInference);
+    const inferred = inferSettings(bsp, lit, grayInfo.data, entities, worldspawn, lightEnts, lightStats, stats, sunInference);
 
     // Render
-    renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInference, inferred);
+    renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInference, inferred, defaultShiftBits);
 
   } catch (err) {
     document.getElementById('output').innerHTML =
@@ -1209,7 +1491,7 @@ function analyze() {
 }
 
 // ── Per-face analysis ──
-function analyzeFaces(bsp, lit) {
+function analyzeFaces(bsp, grayData, defaultShiftBits) {
   const infos = [];
   let totalExpected = 0;
   let litFaces = 0, unlitFaces = 0, specialFaces = 0;
@@ -1218,7 +1500,7 @@ function analyzeFaces(bsp, lit) {
 
   for (let fi = 0; fi < bsp.faces.length; fi++) {
     const face = bsp.faces[fi];
-    const lm = faceLightmapInfo(face, fi, bsp);
+    const lm = faceLightmapInfo(face, fi, bsp, defaultShiftBits);
     infos.push(lm);
 
     if (!lm) {
@@ -1234,7 +1516,7 @@ function analyzeFaces(bsp, lit) {
     if (lm.height > maxHeight) maxHeight = lm.height;
   }
 
-  const sampleMatch = totalExpected === bsp.lightData.length;
+  const sampleMatch = totalExpected === grayData.length;
 
   return {
     infos, totalExpected, litFaces, unlitFaces, specialFaces,
@@ -1243,12 +1525,14 @@ function analyzeFaces(bsp, lit) {
 }
 
 // ── Global lightmap statistics ──
-function analyzeLighting(bsp, lit, faceAnalysis) {
+function analyzeLighting(grayData, lit, faceAnalysis) {
   const n = lit.numSamples;
+  const analysisData = lit.analysisData || lit.data;
+  const displayData = lit.data;
   let totalR = 0, totalG = 0, totalB = 0, totalGray = 0;
   let maxR = 0, maxG = 0, maxB = 0, maxGray = 0;
   let minNonZeroGray = 256;
-  let numLit = 0, numSaturated = 0, numFullDark = 0;
+  let numLit = 0, numPreviewClipped = 0, numFullDark = 0;
   let totalSaturation = 0, satCount = 0;
   const brightHist = new Uint32Array(256);
   const rHist = new Uint32Array(256);
@@ -1256,14 +1540,15 @@ function analyzeLighting(bsp, lit, faceAnalysis) {
   const bHist = new Uint32Array(256);
 
   for (let i = 0; i < n; i++) {
-    const r = lit.data[i*3], g = lit.data[i*3+1], b = lit.data[i*3+2];
-    const gray = bsp.lightData[i];
+    const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
+    const gray = grayData[i];
+    const dr = displayData[i*3], dg = displayData[i*3+1], db = displayData[i*3+2];
 
     totalR += r; totalG += g; totalB += b; totalGray += gray;
     if (r > maxR) maxR = r; if (g > maxG) maxG = g; if (b > maxB) maxB = b;
     if (gray > maxGray) maxGray = gray;
     brightHist[gray]++;
-    rHist[r]++; gHist[g]++; bHist[b]++;
+    rHist[dr]++; gHist[dg]++; bHist[db]++;
 
     if (gray > 0) {
       numLit++;
@@ -1272,7 +1557,7 @@ function analyzeLighting(bsp, lit, faceAnalysis) {
       numFullDark++;
     }
 
-    if (r === 255 || g === 255 || b === 255) numSaturated++;
+    if (dr === 255 || dg === 255 || db === 255) numPreviewClipped++;
 
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
     if (mx > 10) {
@@ -1287,8 +1572,8 @@ function analyzeLighting(bsp, lit, faceAnalysis) {
 
   // Color drift: check if LIT is truly colored or just grayscale-replicated
   let colorDriftSum = 0, colorDriftCount = 0;
-  for (let i = 0; i < n; i += 3) {
-    const r = lit.data[i*3], g = lit.data[i*3+1], b = lit.data[i*3+2];
+  for (let i = 0; i < n; i++) {
+    const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
     if (r > 5 || g > 5 || b > 5) {
       const avg3 = (r + g + b) / 3;
       if (avg3 > 2) {
@@ -1317,22 +1602,22 @@ function analyzeLighting(bsp, lit, faceAnalysis) {
   let mlR = 0, mlG = 0, mlB = 0, mlCount = 0;
   if (possibleMinlight > 0) {
     const lo = Math.max(1, possibleMinlight - 2), hi = possibleMinlight + 2;
-    for (let i = 0; i < n; i += 3) {
-      const gray = bsp.lightData[i];
+    for (let i = 0; i < n; i++) {
+      const gray = grayData[i];
       if (gray >= lo && gray <= hi) {
-        mlR += lit.data[i*3]; mlG += lit.data[i*3+1]; mlB += lit.data[i*3+2];
+        mlR += analysisData[i*3]; mlG += analysisData[i*3+1]; mlB += analysisData[i*3+2];
         mlCount++;
       }
     }
   }
   const minlightColor = mlCount > 10 ? [
-    Math.round(mlR / mlCount), Math.round(mlG / mlCount), Math.round(mlB / mlCount)
+    clampByte(mlR / mlCount), clampByte(mlG / mlCount), clampByte(mlB / mlCount)
   ] : null;
 
   return {
     numSamples: n, avgR, avgG, avgB, avgGray,
     maxR, maxG, maxB, maxGray, minNonZeroGray,
-    numLit, numSaturated, numFullDark,
+    numLit, numPreviewClipped, numFullDark,
     avgSaturation, hasColor, colorDrift,
     possibleMinlight, minlightColor,
     brightHist, rHist, gHist, bHist
@@ -1340,7 +1625,7 @@ function analyzeLighting(bsp, lit, faceAnalysis) {
 }
 
 // ── Sun direction inference by analyzing per-normal brightness ──
-function inferSunDirection(bsp, faceAnalysis) {
+function inferSunDirection(bsp, faceAnalysis, grayData) {
   // Bin faces by normal direction, compute average brightness per bin
   // Use 26 directions (6 axes + 12 edges + 8 corners of a cube)
   const dirs = [];
@@ -1372,7 +1657,7 @@ function inferSunDirection(bsp, faceAnalysis) {
     let faceSum = 0;
     for (let p = 0; p < numPx; p++) {
       const idx = lm.lightofs + p;
-      if (idx < bsp.lightData.length) faceSum += bsp.lightData[idx];
+      if (idx < grayData.length) faceSum += grayData[idx];
     }
     const faceAvg = faceSum / numPx;
 
@@ -1414,14 +1699,14 @@ function inferSunDirection(bsp, faceAnalysis) {
   for (let fi = 0; fi < bsp.faces.length; fi++) {
     const face = bsp.faces[fi];
     const lm = faceAnalysis.infos[fi];
-    if (!lm || face.lightofs < 0) continue;
+    if (!lm || lm.lightofs < 0) continue;
     if (lm.texName.toLowerCase().startsWith('sky')) continue;
     const normal = faceNormal(face, bsp);
     const numPx = lm.width * lm.height;
     let faceSum = 0;
     for (let p = 0; p < numPx; p++) {
-      const idx = face.lightofs + p;
-      if (idx < bsp.lightData.length) faceSum += bsp.lightData[idx];
+      const idx = lm.lightofs + p;
+      if (idx < grayData.length) faceSum += grayData[idx];
     }
     const faceAvg = faceSum / numPx;
     if (normal[2] > 0.7) { upSum += faceAvg; upCount++; }
@@ -1439,7 +1724,7 @@ function inferSunDirection(bsp, faceAnalysis) {
 }
 
 // ── Infer settings ──
-function inferSettings(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, sunInf) {
+function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, lightStats, stats, sunInf) {
   const inf = { cmdFlags: [], worldspawnKeys: {}, confidence: {}, notes: [] };
 
   // Copy existing worldspawn lighting keys
@@ -1454,12 +1739,14 @@ function inferSettings(bsp, lit, entities, worldspawn, lightEnts, lightStats, st
     }
   }
 
-  // ── -lit flag ──
-  inf.cmdFlags.push('-lit');
-  inf.confidence.lit = stats.hasColor ? 'high' : 'inferred';
+  // ── Lighting output flag ──
+  inf.outputFlag = lit.outputFlag;
+  inf.cmdFlags.push(lit.outputFlag);
+  inf.confidence.output = stats.hasColor ? 'high' : 'inferred';
   if (stats.hasColor) {
-    inf.notes.push('Colored lighting detected in .lit — map uses colored lights or sunlight color.');
+    inf.notes.push(`Colored lighting detected in ${lit.sourceLabel} — map uses colored lights or sunlight color.`);
   }
+  for (const warning of lit.sourceWarnings || []) inf.notes.push(warning);
 
   // ── Sunlight ──
   const hasSunKey = inf.worldspawnKeys['_sunlight'] || inf.worldspawnKeys['_sun_light'];
@@ -1499,12 +1786,13 @@ function inferSettings(bsp, lit, entities, worldspawn, lightEnts, lightStats, st
 
   // ── Bounce ──
   if (!inf.worldspawnKeys['_bounce']) {
+    const analysisData = lit.analysisData || lit.data;
     let shadowSat = 0, shadowCnt = 0;
     const n = lit.numSamples;
-    for (let i = 0; i < n; i += 47) {
-      const gray = bsp.lightData[i];
+    for (let i = 0; i < n; i++) {
+      const gray = grayData[i];
       if (gray > 2 && gray < 30) {
-        const r = lit.data[i*3], g = lit.data[i*3+1], b = lit.data[i*3+2];
+        const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
         const mx = Math.max(r, g, b);
         if (mx > 3) {
           shadowSat += (mx - Math.min(r, g, b)) / mx;
@@ -1572,7 +1860,7 @@ function buildEntString(entities, worldspawnOverrides) {
 }
 
 // ── Render everything ──
-function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInf, inferred) {
+function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInf, inferred, defaultShiftBits) {
   const out = document.getElementById('output');
 
   const entString = buildEntString(entities, inferred.worldspawnKeys);
@@ -1606,8 +1894,13 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
           <div class="stat-value">${stats.numSamples.toLocaleString()}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">LIT Format</div>
-          <div class="stat-value">${lit.isHDR ? 'HDR (E5BGR9)' : 'RGB v' + lit.version}</div>
+          <div class="stat-label">Lighting Source</div>
+          <div class="stat-value">${escHTML(lit.sourceLabel)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Lighting Format</div>
+          <div class="stat-value">${escHTML(lit.formatLabel)}</div>
+          ${lit.isHDR ? `<div class="stat-note">preview exposure x${lit.hdrExposure.toFixed(2)}</div>` : ''}
         </div>
         <div class="stat-card">
           <div class="stat-label">Colored Lighting</div>
@@ -1615,11 +1908,22 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
           <div class="stat-note">drift: ${stats.colorDrift.toFixed(4)}</div>
         </div>
         <div class="stat-card">
+          <div class="stat-label">Gray Sample Source</div>
+          <div class="stat-value">${grayInfo.data.length.toLocaleString()}</div>
+          <div class="stat-note">${escHTML(grayInfo.sourceLabel)}</div>
+        </div>
+        <div class="stat-card">
           <div class="stat-label">BSPX Lumps</div>
           <div class="stat-value">${bsp.bspx.found ? bspxNames.length : 'None'}</div>
           ${bsp.bspx.found ? `<div class="stat-note">${escHTML(bspxNames.join(', '))}</div>` : ''}
         </div>
+        <div class="stat-card">
+          <div class="stat-label">Default Luxel Scale</div>
+          <div class="stat-value">${1 << defaultShiftBits}</div>
+          <div class="stat-note">${worldspawn['_lightmap_scale'] || worldspawn['lightmap_scale'] ? 'from worldspawn lightmap_scale' : 'vanilla default 16'}</div>
+        </div>
       </div>
+      ${lit.sourceWarnings && lit.sourceWarnings.length > 0 ? `<div class="warning" style="margin-top:12px">${escHTML(lit.sourceWarnings.join(' '))}</div>` : ''}
     </div>
 
     <div class="section">
@@ -1632,8 +1936,9 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Actual BSP lighting bytes</div>
-          <div class="stat-value">${bsp.lightData.length.toLocaleString()}</div>
+          <div class="stat-label">Active gray samples</div>
+          <div class="stat-value">${grayInfo.data.length.toLocaleString()}</div>
+          <div class="stat-note">${escHTML(grayInfo.sourceLabel)}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Match</div>
@@ -1649,6 +1954,10 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
         <div class="stat-card">
           <div class="stat-label">Max lightmap size</div>
           <div class="stat-value">${faceAnalysis.maxWidth} x ${faceAnalysis.maxHeight}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Style Table</div>
+          <div class="stat-value">${bsp.bspxLighting.lmstyleSource ? `${bsp.bspxLighting.lmstyleSource} (${bsp.bspxLighting.stylesPerFace}/face)` : 'Legacy face styles'}</div>
         </div>
       </div>
     </div>
@@ -1708,7 +2017,7 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
         </div>
         <div class="stat-card">
           <div class="stat-label">Max Values</div>
-          <div class="stat-value" style="font-size:0.875rem;font-family:'JetBrains Mono',monospace">G${stats.maxGray} R${stats.maxR} G${stats.maxG} B${stats.maxB}</div>
+          <div class="stat-value" style="font-size:0.875rem;font-family:'JetBrains Mono',monospace">G${stats.maxGray} R${lit.isHDR ? stats.maxR.toFixed(1) : stats.maxR} G${lit.isHDR ? stats.maxG.toFixed(1) : stats.maxG} B${lit.isHDR ? stats.maxB.toFixed(1) : stats.maxB}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Min Non-Zero Gray</div>
@@ -1720,13 +2029,14 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
           <div class="stat-note">${(stats.numLit / stats.numSamples * 100).toFixed(1)}% lit</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Saturated (=255)</div>
-          <div class="stat-value">${stats.numSaturated.toLocaleString()}</div>
-          <div class="stat-note">${(stats.numSaturated / stats.numSamples * 100).toFixed(1)}%</div>
+          <div class="stat-label">${lit.isHDR ? 'Preview-clipped (=255)' : 'Saturated (=255)'}</div>
+          <div class="stat-value">${stats.numPreviewClipped.toLocaleString()}</div>
+          <div class="stat-note">${(stats.numPreviewClipped / stats.numSamples * 100).toFixed(1)}%</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Avg Color Saturation</div>
           <div class="stat-value">${(stats.avgSaturation * 100).toFixed(1)}%</div>
+          ${lit.isHDR ? '<div class="stat-note">computed before preview clamp</div>' : ''}
         </div>
         <div class="stat-card">
           <div class="stat-label">Possible Minlight</div>
@@ -1766,8 +2076,8 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
       <div class="warning">Educated guesses from baked lightmap analysis. Tweak with sliders below.</div>
 
       <div class="inference-row">
-        <span class="inference-label">Colored lighting (-lit)</span>
-        <span class="tag ${stats.hasColor ? 'tag-yes' : 'tag-info'}">${stats.hasColor ? 'Detected' : 'Not detected (still outputting -lit)'}</span>
+        <span class="inference-label">Lighting output (${escHTML(inferred.outputFlag)})</span>
+        <span class="tag ${stats.hasColor ? 'tag-yes' : 'tag-info'}">${stats.hasColor ? 'Detected' : 'Flag inferred from source'}</span>
       </div>
       <div class="inference-row">
         <span class="inference-label">Sunlight</span>
@@ -2006,19 +2316,26 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
       </div>
       <div class="tip-box">
         <strong>Overbright &amp; gamma:</strong><br>
-        <code>gl_overbright 1</code> — multiplies lightmaps by 2x (default in modern engines). Raw .lit values appear darker than in-game because of this.<br>
+        <code>gl_overbright 1</code> — multiplies lightmaps by 2x (default in modern engines). Raw lighting values appear darker than in-game because of this.<br>
         <code>gamma</code> — additional display gamma correction
       </div>
       <div class="tip-box">
         <strong>External files:</strong><br>
         <code>external_ents 1</code> — enable loading .ent files (default on)<br>
         Place .ent file as: <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.crc}.ent</code> (CRC-matched, safest) or <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code><br>
-        <code>gl_loadlitfiles 1</code> — enable loading .lit files (default on)
+        <code>gl_loadlitfiles 1</code> — load the standard sibling <code>.lit</code> (default on)<br>
+        <code>gl_loadlitfiles 2</code> + <code>external_lits_dir</code> — prefer <code>maps/&lt;dir&gt;/mapname.lit</code>, then fall back to the normal file<br>
+        <code>gl_loadlitfiles 3</code> — randomly alternate between external and normal .lit for A/B checking
       </div>
       <div class="tip-box">
         <strong>Lightstyle debugging:</strong><br>
         <code>r_flatlightstyles 1</code> — use average brightness (removes flickering)<br>
         <code>r_flatlightstyles 2</code> — use peak brightness
+      </div>
+      <div class="tip-box">
+        <strong>QSS-M load order:</strong><br>
+        A valid external <code>.lit</code> wins first. If none is loaded and <code>gl_loadlitfiles &gt; 0</code>, QSS-M then falls back to BSPX lighting: <code>LIGHTING_E5BGR9</code> first, then <code>RGBLIGHTING</code>.<br>
+        Wrong-size <code>.lit</code> files are rejected, and files from lower-priority game dirs are ignored.
       </div>
       <div class="stat-grid" style="margin-top:8px">
         <div class="stat-card">
@@ -2027,16 +2344,20 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
           <div class="stat-note">for .ent filename matching</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">BSPX RGB Embedded</div>
-          <div class="stat-value">${bsp.bspxLighting.hasRGBLighting ? 'Yes (RGBLIGHTING)' : bsp.bspxLighting.hasHDRLighting ? 'Yes (HDR E5BGR9)' : 'No'}</div>
+          <div class="stat-label">BSPX Embedded Lighting</div>
+          <div class="stat-value">${bsp.bspxLighting.hasHDRLighting && bsp.bspxLighting.hasRGBLighting ? 'Both (HDR preferred)' : bsp.bspxLighting.hasHDRLighting ? 'HDR E5BGR9' : bsp.bspxLighting.hasRGBLighting ? 'RGBLIGHTING' : 'No'}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">BSPX LMSHIFT</div>
-          <div class="stat-value">${bsp.bspxLighting.lmshifts ? 'Yes (per-face)' : 'No (default 16)'}</div>
+          <div class="stat-value">${bsp.bspxLighting.lmshifts ? 'Yes (per-face)' : `No (default ${1 << defaultShiftBits})`}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">BSPX DECOUPLED_LM</div>
           <div class="stat-value">${bsp.bspxLighting.decoupledLM ? 'Yes' : 'No'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">BSPX Style Table</div>
+          <div class="stat-value">${bsp.bspxLighting.lmstyleSource ? `${bsp.bspxLighting.lmstyleSource} (${bsp.bspxLighting.stylesPerFace}/face)` : 'No'}</div>
         </div>
       </div>
     </div>
@@ -2058,7 +2379,7 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
         </div>
       </div>
       <div class="tab-content" id="lmLinear">
-        <p style="color:#71717a;font-size:0.8125rem;margin-bottom:6px">Raw .lit data, linearized — first ${Math.min(lit.numSamples, 262144).toLocaleString()} samples</p>
+        <p style="color:#71717a;font-size:0.8125rem;margin-bottom:6px">${lit.sourceKind.startsWith('bspx') ? `${lit.formatLabel} preview — first ${Math.min(lit.numSamples, 262144).toLocaleString()} samples` : lit.isHDR ? `HDR .lit preview, exposure-normalized from E5BGR9 — first ${Math.min(lit.numSamples, 262144).toLocaleString()} samples` : `Raw .lit data, linearized — first ${Math.min(lit.numSamples, 262144).toLocaleString()} samples`}</p>
         <div class="lightmap-canvas-wrap">
           <canvas id="lmCanvas"></canvas>
         </div>
@@ -2197,7 +2518,7 @@ function renderOutput(bsp, lit, entities, worldspawn, lightEnts, lightStats, sta
     }
 
     // Command line flags
-    const flags = ['-lit'];
+    const flags = [inferred.outputFlag];
     const useExtra4 = document.getElementById('adj_extra4').checked;
     const useExtra = document.getElementById('adj_extra').checked;
     if (useExtra4) flags.push('-extra4');

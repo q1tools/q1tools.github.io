@@ -197,11 +197,12 @@ body.tool-index {
 
 .tool-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(24px, 2.8vw, 42px);
-    width: min(1180px, calc(100vw - 56px));
+    grid-template-columns: repeat(3, minmax(0, 250px));
+    gap: clamp(22px, 2.4vw, 34px);
+    justify-content: center;
+    width: min(860px, calc(100vw - 96px));
     margin: 0 auto;
-    padding: clamp(22px, 3.2vw, 36px) clamp(24px, 3vw, 42px);
+    padding: clamp(20px, 3vw, 32px);
     box-sizing: border-box;
     align-items: stretch;
 }
@@ -215,14 +216,14 @@ body.tool-index {
     min-width: 0;
     aspect-ratio: 1 / 1;
     box-sizing: border-box;
-    font-size: clamp(14px, 2.15vw, 21px);
-    padding: clamp(8px, 1vw, 12px);
+    font-size: clamp(13px, 1.85vw, 19px);
+    padding: clamp(12px, 1.4vw, 18px);
 }
 
 .tool-grid .clickable-div img {
-    width: 72%;
-    max-height: 72%;
-    margin-bottom: clamp(10px, 1.5vw, 16px);
+    width: 62%;
+    max-height: 62%;
+    margin-bottom: clamp(12px, 1.6vw, 18px);
 }
 
 body.tool-index footer {
