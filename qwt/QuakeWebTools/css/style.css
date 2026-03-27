@@ -78,6 +78,25 @@ img {
     animation: progress-indeterminate 1.1s ease-in-out infinite;
 }
 
+.viewer-toolbar {
+    margin: 0 0 8px;
+    text-align: left;
+}
+
+.viewer-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #bbb;
+    font-size: 0.9em;
+    cursor: pointer;
+    user-select: none;
+}
+
+.viewer-toggle input {
+    margin: 0;
+}
+
 @keyframes progress-indeterminate {
     0% {
         left: -40%;

@@ -229,14 +229,71 @@ function viewBSP(bsp) {
   var scene, camera, renderer;
   var light_ambient, light_directional;
   var controls;
+  var wireframes = [];
+  var zoomStep = 48;
 
   var animate_id = 0;
   var frame_id = 0;
+
+  function onMouseWheel(event) {
+    var delta = 0;
+    var amount = 0;
+
+    if (event.deltaY !== undefined) {
+      delta = event.deltaY;
+    } else if (event.wheelDelta !== undefined) {
+      delta = -event.wheelDelta;
+    }
+
+    if (!delta) {
+      return;
+    }
+
+    if (event.deltaMode === 1) {
+      delta *= 16;
+    } else if (event.deltaMode === 2) {
+      delta *= 120;
+    }
+
+    amount = zoomStep * (delta / 120);
+    amount = Math.max(-zoomStep * 4, Math.min(zoomStep * 4, amount));
+    camera.translateZ(amount);
+
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function setWireframeVisible(visible) {
+    for (var i = 0; i < wireframes.length; ++i) {
+      wireframes[i].visible = visible;
+    }
+  }
+
+  function createViewerToolbar(parent) {
+    var toolbar = document.createElement("div");
+    toolbar.className = "viewer-toolbar";
+
+    var label = document.createElement("label");
+    label.className = "viewer-toggle";
+
+    var checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = false;
+    checkbox.addEventListener("change", function() {
+      setWireframeVisible(checkbox.checked);
+    });
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(" Show wireframe"));
+    toolbar.appendChild(label);
+    parent.appendChild(toolbar);
+  }
 
   function init() {
     var div_content = document.getElementById("file-content");
     var width = div_content.offsetWidth;
     var height = 300;
+    var largestRadius = 0;
 
     clock = new THREE.Clock();
     scene = new THREE.Scene();
@@ -259,9 +316,15 @@ function viewBSP(bsp) {
         // wfh is temporary
         var wfh = new THREE.WireframeHelper(mesh, 0x666666);
         wfh.material.linewidth = 2;
+        wfh.visible = false;
         scene.add(wfh);
         wfh.rotation.x = -90 * Math.PI / 180;
         wfh.rotation.z = -90 * Math.PI / 180;
+        wireframes[wireframes.length] = wfh;
+
+        if (geometry && geometry.boundingSphere && geometry.boundingSphere.radius > largestRadius) {
+          largestRadius = geometry.boundingSphere.radius;
+        }
       }
     }
 
@@ -270,11 +333,15 @@ function viewBSP(bsp) {
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(width, height);
 
+    createViewerToolbar(div_content);
     div_content.appendChild(renderer.domElement);
 
     controls = new THREE.FirstPersonControls(camera, renderer.domElement);
     controls.movementSpeed = 500;
     controls.lookSpeed = 0.5;
+
+    zoomStep = Math.max(largestRadius * 0.08, 24);
+    renderer.domElement.addEventListener("wheel", onMouseWheel, false);
   }
 
   function render() {
