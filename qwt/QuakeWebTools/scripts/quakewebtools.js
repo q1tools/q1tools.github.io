@@ -229,7 +229,9 @@ function viewBSP(bsp) {
   var scene, camera, renderer;
   var light_ambient, light_directional;
   var controls;
+  var materials = null;
   var wireframes = [];
+  var defaultLightingLevel = 0.88;
   var zoomStep = 48;
 
   var animate_id = 0;
@@ -269,6 +271,19 @@ function viewBSP(bsp) {
     }
   }
 
+  function setLightingLevel(level) {
+    if (!materials) {
+      return;
+    }
+
+    for (var i = 0; i < materials.length; ++i) {
+      if (!materials[i] || !materials[i].color) {
+        continue;
+      }
+      materials[i].color.setRGB(level, level, level);
+    }
+  }
+
   function createViewerToolbar(parent) {
     var toolbar = document.createElement("div");
     toolbar.className = "viewer-toolbar";
@@ -286,6 +301,37 @@ function viewBSP(bsp) {
     label.appendChild(checkbox);
     label.appendChild(document.createTextNode(" Show wireframe"));
     toolbar.appendChild(label);
+
+    var lightingControl = document.createElement("label");
+    lightingControl.className = "viewer-slider";
+    lightingControl.appendChild(document.createTextNode("Lighting"));
+
+    var slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "40";
+    slider.max = "140";
+    slider.step = "1";
+    slider.value = String(Math.round(defaultLightingLevel * 100));
+
+    var value = document.createElement("span");
+    value.className = "viewer-slider-value";
+    value.textContent = slider.value + "%";
+
+    slider.addEventListener("input", function() {
+      var level = Number(slider.value) / 100;
+      setLightingLevel(level);
+      value.textContent = slider.value + "%";
+    });
+
+    lightingControl.appendChild(slider);
+    lightingControl.appendChild(value);
+    toolbar.appendChild(lightingControl);
+
+    var hint = document.createElement("div");
+    hint.className = "viewer-hint";
+    hint.textContent = "W/A/S/D fly around, drag to look, scroll to zoom.";
+    toolbar.appendChild(hint);
+
     parent.appendChild(toolbar);
   }
 
@@ -299,7 +345,8 @@ function viewBSP(bsp) {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, width / height, 1, 10000);
 
-    var materials = bsp.getThreeMaterialDirectory();
+    materials = bsp.getThreeMaterialDirectory();
+    setLightingLevel(defaultLightingLevel);
     var models = bsp.geometry.models;
 
     for (var i = 0; i < models.length; ++i) {

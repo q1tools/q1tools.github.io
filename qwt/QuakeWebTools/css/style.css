@@ -83,6 +83,10 @@ img {
     text-align: left;
 }
 
+.viewer-toolbar > * + * {
+    margin-top: 6px;
+}
+
 .viewer-toggle {
     display: inline-flex;
     align-items: center;
@@ -95,6 +99,30 @@ img {
 
 .viewer-toggle input {
     margin: 0;
+}
+
+.viewer-slider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #bbb;
+    font-size: 0.9em;
+}
+
+.viewer-slider input {
+    flex: 1;
+    max-width: 220px;
+}
+
+.viewer-slider-value {
+    min-width: 42px;
+    color: #999;
+    font-variant-numeric: tabular-nums;
+}
+
+.viewer-hint {
+    color: #888;
+    font-size: 0.82em;
 }
 
 @keyframes progress-indeterminate {
