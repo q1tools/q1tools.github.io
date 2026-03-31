@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QSS-M Web Chat</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="controls card">
+      <div class="field-row">
+        <label class="field">
+          <span>Server</span>
+          <input id="serverUrl" type="text" value="ws://denver.quakeone.com:26000" spellcheck="false">
+        </label>
+        <label class="field field-name">
+          <span>Name</span>
+          <input id="playerName" type="text" value="webchat" maxlength="15" spellcheck="false">
+        </label>
+      </div>
+      <div class="actions">
+        <button id="connectButton" type="button">Connect</button>
+        <button id="disconnectButton" type="button" disabled>Disconnect</button>
+        <button id="clearButton" type="button">Clear Log</button>
+      </div>
+      <div class="status-row">
+        <span id="statusBadge" class="badge badge-offline">offline</span>
+        <span id="sessionMeta" class="session-meta">No connection</span>
+        <label class="debug-toggle">
+          <input id="centerprintToggle" type="checkbox">
+          <span>Show Centerprint</span>
+        </label>
+        <label class="debug-toggle">
+          <input id="debugToggle" type="checkbox">
+          <span>Show Debug</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="layout">
+      <section class="console card">
+        <header class="panel-header">
+          <h1>Server Output</h1>
+          <div class="panel-actions">
+            <button
+              id="copyLogButton"
+              class="icon-button"
+              type="button"
+              aria-label="Copy server output"
+              title="Copy Server Output"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 9h9v11H9z"></path>
+                <path d="M6 4h9v3h-2V6H8v9H7a1 1 0 0 1-1-1z"></path>
+              </svg>
+            </button>
+          </div>
+        </header>
+        <div id="consoleLog" class="console-log" role="log" aria-live="polite"></div>
+        <form id="composer" class="composer">
+          <input id="messageInput" type="text" placeholder="Type chat or /command" autocomplete="off" disabled>
+          <button id="sendButton" type="submit" disabled>Send</button>
+        </form>
+      </section>
+
+      <aside class="sidebar card">
+        <header class="panel-header">
+          <h2>Players</h2>
+        </header>
+        <div id="playerSummary" class="player-summary">No players yet</div>
+        <table class="players-table">
+          <thead>
+            <tr>
+              <th>Slot</th>
+              <th>Name</th>
+              <th>Frags</th>
+            </tr>
+          </thead>
+          <tbody id="playersBody"></tbody>
+        </table>
+      </aside>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
