@@ -32,6 +32,8 @@
   const VERSION_STAMP = "webchat 0.0.1";
   const LAST_SERVER_COOKIE_NAME = "qssm_webchat_last_server";
   const LAST_NAME_COOKIE_NAME = "qssm_webchat_last_name";
+  const FAVICON_DISCONNECTED = "./favicon_dis.png";
+  const FAVICON_CONNECTED = "./favicon_con.png";
   const PEXT2_REPLACEMENTDELTAS = 0x00000008;
   const CIF_CHAT = 1 << 0;
   const CIF_AFK = 1 << 1;
@@ -275,6 +277,7 @@
       this.bindUi();
       this.renderVersionStamp();
       this.renderPlayers();
+      setFavicon(FAVICON_DISCONNECTED);
     }
 
     bindUi() {
@@ -1654,6 +1657,7 @@
     setStatus(kind, badge, meta) {
       this.ui.statusBadge.textContent = kind;
       this.ui.statusBadge.className = `badge badge-${badge}`;
+      setFavicon(badge === "online" ? FAVICON_CONNECTED : FAVICON_DISCONNECTED);
       if (this.ui.sessionMeta) {
         this.ui.sessionMeta.textContent = meta;
       }
@@ -2334,6 +2338,22 @@
     } finally {
       document.body.removeChild(scratch);
     }
+  }
+
+  function ensureFaviconLink(rel) {
+    let link = document.head.querySelector(`link[rel="${rel}"]`);
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = rel;
+      link.type = "image/png";
+      document.head.appendChild(link);
+    }
+    return link;
+  }
+
+  function setFavicon(path) {
+    ensureFaviconLink("icon").href = path;
+    ensureFaviconLink("shortcut icon").href = path;
   }
 
   const ui = {
