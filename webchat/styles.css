@@ -22,6 +22,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top right, rgba(116, 198, 157, 0.12), transparent 22rem),
     linear-gradient(180deg, #13161c 0%, #0d0f14 100%);
@@ -34,7 +35,8 @@ code {
 }
 
 .app-shell {
-  width: min(1200px, calc(100vw - 2rem));
+  width: min(1200px, calc(100% - 2rem));
+  max-width: calc(100% - 2rem);
   margin: 1.5rem auto;
   display: grid;
   gap: 1rem;
@@ -357,7 +359,9 @@ button:disabled {
 
 .console-line {
   align-items: flex-start;
+  flex-wrap: nowrap;
   min-height: 10px;
+  min-width: max-content;
   --quake-glyph-size: 10px;
 }
 
@@ -392,8 +396,17 @@ button:disabled {
 
 @media (max-width: 640px) {
   .app-shell {
-    width: min(100vw - 1rem, 1200px);
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
     margin: 0.5rem auto 1rem;
+  }
+
+  .card {
+    border-radius: 14px;
+  }
+
+  .controls {
+    padding: 0.85rem;
   }
 
   .actions,
@@ -402,7 +415,61 @@ button:disabled {
     align-items: stretch;
   }
 
+  .panel-header {
+    gap: 0.75rem;
+    padding: 0.85rem 0.85rem 0;
+  }
+
+  .panel-header h1,
+  .panel-header h2 {
+    min-width: 0;
+    font-size: 0.95rem;
+  }
+
+  .icon-button {
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 auto;
+  }
+
+  .console-log-shell {
+    margin: 0.85rem;
+    aspect-ratio: auto;
+    min-height: 14rem;
+    height: min(58vh, 22rem);
+    max-height: none;
+  }
+
+  .console-log {
+    padding: 0.75rem;
+    padding-bottom: 2rem;
+  }
+
+  .console-line {
+    --quake-glyph-size: 8px;
+  }
+
+  .console-version {
+    right: 0.65rem;
+    bottom: 0.55rem;
+  }
+
+  .console-version-glyphs {
+    --quake-glyph-size: 6px;
+  }
+
   .composer {
     grid-template-columns: 1fr;
+    gap: 0.65rem;
+    padding: 0 0.85rem 0.85rem;
+  }
+
+  .players-table {
+    width: calc(100% - 1.7rem);
+    margin: 0.85rem;
+  }
+
+  .players-table td.name {
+    min-width: 0;
   }
 }
