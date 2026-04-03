@@ -37,7 +37,6 @@ code {
   width: min(1200px, calc(100vw - 2rem));
   margin: 1.5rem auto;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -115,9 +114,9 @@ button:disabled {
 }
 
 #connectButton {
-  background: linear-gradient(180deg, var(--accent-strong), #3b926b);
-  border-color: #4aa376;
-  color: #08130d;
+  background: linear-gradient(180deg, #c9a97a, #a98055);
+  border-color: #bb9467;
+  color: #2b1d0f;
   font-weight: 700;
 }
 
@@ -242,26 +241,52 @@ button:disabled {
 
 .console {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
   min-height: 0;
   overflow: hidden;
 }
 
-.console-log {
+.console-log-shell {
+  position: relative;
   margin: 1rem;
-  padding: 1rem;
   border: 1px solid #202632;
   border-radius: 14px;
+  aspect-ratio: 320 / 200;
+  min-height: 18rem;
+  max-height: 70vh;
+  overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(9, 11, 16, 0.8), rgba(9, 11, 16, 0.9)),
+    linear-gradient(180deg, rgba(9, 11, 16, 0.58), rgba(9, 11, 16, 0.68)),
     url("./conback.png") center / 100% 100% no-repeat,
     #090b10;
+}
+
+.console-log {
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  padding-bottom: 2.5rem;
   color: #d7dee9;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  min-height: 0;
   overflow: auto;
+}
+
+.console-version {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.7rem;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.console-version-glyphs {
+  align-items: center;
+  flex-wrap: nowrap;
+  min-height: 8px;
+  --quake-glyph-size: 8px;
 }
 
 .composer {
@@ -273,14 +298,9 @@ button:disabled {
 
 .sidebar {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   overflow: auto;
-}
-
-.player-summary {
-  padding: 0 1rem;
-  min-height: 1.5rem;
 }
 
 .players-table {
@@ -305,9 +325,7 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.players-table td.slot,
 .players-table td.frags {
-  font-family: var(--font-mono);
   width: 1%;
   white-space: nowrap;
 }
@@ -325,6 +343,14 @@ button:disabled {
 .quake-name {
   align-items: center;
   flex-wrap: nowrap;
+  min-height: 12px;
+  --quake-glyph-size: 12px;
+}
+
+.quake-frags {
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
   min-height: 12px;
   --quake-glyph-size: 12px;
 }
@@ -361,12 +387,6 @@ button:disabled {
 
   .field-row {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 921px) {
-  .app-shell {
-    height: calc(100dvh - 3rem);
   }
 }
 

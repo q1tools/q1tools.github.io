@@ -29,6 +29,13 @@
   const QUAKE_CHAR_IMAGE_BASE = "./assets/quake-chars";
   const CENTERPRINT_PREFERENCE_KEY = "qssm-webchat-centerprint-v1";
   const DEBUG_PREFERENCE_KEY = "qssm-webchat-debug-v2";
+  const VERSION_STAMP = "webchat 0.0.1";
+  const LAST_SERVER_COOKIE_NAME = "qssm_webchat_last_server";
+  const LAST_NAME_COOKIE_NAME = "qssm_webchat_last_name";
+  const PEXT2_REPLACEMENTDELTAS = 0x00000008;
+  const CIF_CHAT = 1 << 0;
+  const CIF_AFK = 1 << 1;
+  const CHAT_INFO_RESET_DELAY = 3000;
 
   const PRFL_SHORTANGLE = 1 << 1;
   const PRFL_FLOATANGLE = 1 << 2;
@@ -261,9 +268,12 @@
     constructor(ui) {
       this.ui = ui;
       this.logEntries = [];
+      this.pendingServerPrint = "";
       this.keepAliveTimer = window.setInterval(() => this.onTick(), 100);
       this.resetRuntime();
+      this.restoreSavedConnectionInputs();
       this.bindUi();
+      this.renderVersionStamp();
       this.renderPlayers();
     }
 
@@ -278,6 +288,9 @@
           this.copyConsoleLog();
         });
       }
+      document.addEventListener("copy", (event) => {
+        this.handleConsoleCopy(event);
+      });
       if (this.ui.debugToggle) {
         this.ui.debugToggle.addEventListener("change", () => {
           writeDebugPreference(this.ui.debugToggle.checked);
@@ -301,6 +314,24 @@
           this.sendFromInput();
         }
       });
+      this.ui.messageInput.addEventListener("input", () => {
+        this.handleChatInputActivity();
+      });
+      this.ui.messageInput.addEventListener("blur", () => {
+        this.clearChatInfoStatus();
+      });
+      this.ui.serverUrl.addEventListener("change", () => {
+        this.persistConnectionInputs();
+      });
+      this.ui.playerName.addEventListener("change", () => {
+        this.persistConnectionInputs();
+      });
+      this.ui.serverUrl.addEventListener("blur", () => {
+        this.persistConnectionInputs();
+      });
+      this.ui.playerName.addEventListener("blur", () => {
+        this.persistConnectionInputs();
+      });
     }
 
     resetRuntime() {
@@ -314,6 +345,9 @@
       this.pendingReliable = null;
       this.pendingReliableSentAt = 0;
       this.reliableFragments = [];
+      window.clearTimeout(this.chatInfoTimer);
+      this.chatInfoTimer = 0;
+      this.chatInfoFlags = 0;
       this.connectClockStart = 0;
       this.lastClientSendAt = 0;
       this.lastKeepAliveAt = 0;
@@ -335,6 +369,8 @@
         rxAck: 0
       };
       this.protocol = 0;
+      this.protocolPext1 = 0;
+      this.protocolPext2 = 0;
       this.protocolFlags = 0;
       this.proQuakeAngleHack = false;
       this.signon = 0;
@@ -366,7 +402,10 @@
       this.currentUrl = url;
       this.connectRequested = true;
       this.setStatus("connecting", "connecting", `Connecting to ${url}`);
+      this.appendLog(`Connecting to ${formatConnectionTarget(url)}`);
       this.ui.playerName.value = name;
+      this.ui.serverUrl.value = url;
+      this.persistConnectionInputs();
 
       try {
         this.ws = new WebSocket(url, ["quake", "fteqw"]);
@@ -573,6 +612,7 @@
           ? `accepted (proquake mod=${mod} ver=${version} flags=0x${flags.toString(16)} port=${port})`
           : "accepted";
 
+        this.logConnectPhase("Connection accepted");
         this.logVerbose(`Server ${acceptNote}`);
         this.setStatus("online", "online", `Connected to ${this.currentUrl}`);
         this.updateInputState();
@@ -828,12 +868,19 @@
     }
 
     parseServerInfo(reader) {
+      this.protocolPext1 = 0;
+      this.protocolPext2 = 0;
       this.protocolFlags = 0;
 
       for (;;) {
         const value = reader.readLong();
         if (value === PROTOCOL_FTE_PEXT1 || value === PROTOCOL_FTE_PEXT2) {
-          reader.readLong();
+          const extensionFlags = reader.readUnsignedLong();
+          if (value === PROTOCOL_FTE_PEXT1) {
+            this.protocolPext1 = extensionFlags;
+          } else {
+            this.protocolPext2 = extensionFlags;
+          }
           continue;
         }
 
@@ -850,13 +897,33 @@
       this.maxClients = reader.readByte();
       reader.readByte(); // gametype
       this.levelName = reader.readString();
+      let firstModelName = "";
 
-      while (reader.readString()) {
+      for (;;) {
+        const modelName = reader.readString();
+        if (!modelName) {
+          break;
+        }
+        if (!firstModelName) {
+          firstModelName = modelName;
+        }
         // model precaches
       }
 
       while (reader.readString()) {
         // sound precaches
+      }
+
+      if (!this.levelName) {
+        this.levelName = mapNameFromModelPath(firstModelName);
+      }
+
+      this.appendLog(`Using protocol ${nativeProtocolConsoleLabel(this.protocol, this.protocolPext2)}`);
+      this.appendLog("");
+      this.appendLog(buildQuakeBar(40));
+      this.appendLog("");
+      if (this.levelName) {
+        this.appendLog(`\u0002${this.levelName}`);
       }
 
       this.logVerbose(
@@ -916,7 +983,7 @@
 
       if (stage === 1) {
         this.logVerbose(`Signon ${stage}: sending initial userinfo, name, color, and prespawn`);
-        this.sendCommand('setinfo "*ver" "QSS-M webchat"\n', { raw: true });
+        this.sendCommand(`setinfo "*ver" "${VERSION_STAMP}"\n`, { raw: true });
         this.sendInitialUserinfo({ includeVersion: false });
         this.sendCommand(`name "${escapeQuakeQuoted(this.connectedName)}"\n`, { raw: true });
         this.sendCommand("color 0 0\n", { raw: true });
@@ -1219,11 +1286,8 @@
       this.ui.playersBody.textContent = "";
 
       if (!rows.length) {
-        this.ui.playerSummary.textContent = "No players yet";
         return;
       }
-
-      this.ui.playerSummary.textContent = `${rows.length} player${rows.length === 1 ? "" : "s"} visible`;
 
       for (const player of rows) {
         const row = document.createElement("tr");
@@ -1232,19 +1296,14 @@
           row.classList.add("self");
         }
 
-        const slotCell = document.createElement("td");
-        slotCell.className = "slot";
-        slotCell.textContent = String(player.slot);
-
         const nameCell = document.createElement("td");
         nameCell.className = "name";
         nameCell.appendChild(buildQuakeNameElement(displayName));
 
         const fragsCell = document.createElement("td");
         fragsCell.className = "frags";
-        fragsCell.textContent = String(player.frags);
+        fragsCell.appendChild(buildQuakeGlyphTextElement(String(player.frags), "span", "quake-run quake-frags"));
 
-        row.appendChild(slotCell);
         row.appendChild(nameCell);
         row.appendChild(fragsCell);
         this.ui.playersBody.appendChild(row);
@@ -1300,12 +1359,54 @@
       ];
 
       if (includeVersion) {
-        entries.push(["*ver", "QSS-M webchat"]);
+        entries.push(["*ver", VERSION_STAMP]);
       }
 
       for (const [key, value] of entries) {
         this.sendCommand(`setinfo "${key}" "${value}"\n`, { raw: true });
       }
+    }
+
+    sendChatInfo(flags) {
+      const chatValue = (flags & CIF_AFK) ? CIF_AFK : (flags & CIF_CHAT) ? CIF_CHAT : 0;
+      if (chatValue === this.chatInfoFlags) {
+        return;
+      }
+
+      this.chatInfoFlags = chatValue;
+      if (!this.accepted || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      this.sendCommand(`setinfo chat ${chatValue}\n`, { raw: true });
+    }
+
+    resetChatInfoIdleTimer() {
+      window.clearTimeout(this.chatInfoTimer);
+      this.chatInfoTimer = window.setTimeout(() => {
+        this.chatInfoTimer = 0;
+        this.sendChatInfo(0);
+      }, CHAT_INFO_RESET_DELAY);
+    }
+
+    handleChatInputActivity() {
+      if (!this.ui.messageInput || this.ui.messageInput.disabled) {
+        return;
+      }
+
+      if (!this.ui.messageInput.value) {
+        this.clearChatInfoStatus();
+        return;
+      }
+
+      this.sendChatInfo(CIF_CHAT);
+      this.resetChatInfoIdleTimer();
+    }
+
+    clearChatInfoStatus() {
+      window.clearTimeout(this.chatInfoTimer);
+      this.chatInfoTimer = 0;
+      this.sendChatInfo(0);
     }
 
     currentClientTime() {
@@ -1492,18 +1593,18 @@
         const raw = value.slice(1).trim();
         if (raw) {
           this.sendCommand(raw.endsWith("\n") ? raw : `${raw}\n`, { raw: true });
-          this.logLocal(`> /${raw}`);
+          this.appendLog(raw);
         }
       } else {
         this.sendCommand(value);
-        this.logLocal(`> ${value}`);
       }
 
       this.ui.messageInput.value = "";
+      this.clearChatInfoStatus();
     }
 
     async copyConsoleLog() {
-      const text = this.getVisibleLogText();
+      const text = this.getSelectedConsoleText() || this.getVisibleLogText();
       if (!text.trim()) {
         this.flashCopyButton("error", "Nothing to copy");
         return;
@@ -1516,6 +1617,19 @@
       }
 
       this.flashCopyButton("error", "Clipboard copy failed");
+    }
+
+    handleConsoleCopy(event) {
+      const text = this.getSelectedConsoleText();
+      if (!text) {
+        return;
+      }
+
+      if (event.clipboardData) {
+        event.preventDefault();
+        event.clipboardData.setData("text/plain", text);
+        this.flashCopyButton("copied", "Server output copied");
+      }
     }
 
     flashCopyButton(state, title) {
@@ -1540,7 +1654,9 @@
     setStatus(kind, badge, meta) {
       this.ui.statusBadge.textContent = kind;
       this.ui.statusBadge.className = `badge badge-${badge}`;
-      this.ui.sessionMeta.textContent = meta;
+      if (this.ui.sessionMeta) {
+        this.ui.sessionMeta.textContent = meta;
+      }
     }
 
     updateSessionMeta() {
@@ -1562,7 +1678,9 @@
         parts.push("No connection");
       }
 
-      this.ui.sessionMeta.textContent = parts.join(" | ");
+      if (this.ui.sessionMeta) {
+        this.ui.sessionMeta.textContent = parts.join(" | ");
+      }
     }
 
     updateInputState() {
@@ -1575,14 +1693,57 @@
       this.ui.serverUrl.disabled = online;
       this.ui.messageInput.disabled = !readyToChat;
       this.ui.sendButton.disabled = !readyToChat;
+
+      if (!readyToChat) {
+        this.clearChatInfoStatus();
+      }
+    }
+
+    renderVersionStamp() {
+      if (!this.ui.consoleVersion) {
+        return;
+      }
+
+      const stamp = buildQuakeGlyphTextElement(VERSION_STAMP, "span", "quake-run console-version-glyphs");
+      stamp.setAttribute("aria-label", VERSION_STAMP);
+      this.ui.consoleVersion.replaceChildren(stamp);
+    }
+
+    restoreSavedConnectionInputs() {
+      const savedServer = readCookiePreference(LAST_SERVER_COOKIE_NAME);
+      if (savedServer) {
+        this.ui.serverUrl.value = savedServer;
+      }
+
+      const savedName = readCookiePreference(LAST_NAME_COOKIE_NAME);
+      if (savedName) {
+        this.ui.playerName.value = sanitizePlayerName(savedName);
+      }
+    }
+
+    persistConnectionInputs() {
+      const serverUrl = String(this.ui.serverUrl.value || "").trim();
+      const playerName = sanitizePlayerName(this.ui.playerName.value);
+      this.ui.playerName.value = playerName;
+
+      if (serverUrl) {
+        writeCookiePreference(LAST_SERVER_COOKIE_NAME, serverUrl);
+      }
+      if (playerName) {
+        writeCookiePreference(LAST_NAME_COOKIE_NAME, playerName);
+      }
     }
 
     logServer(text) {
-      this.appendLog(text);
+      this.appendServerLog(text);
+    }
+
+    logConnectPhase(text) {
+      this.appendLog(`\u0002${text}`);
     }
 
     logLocal(text) {
-      this.appendLog(`[local] ${text}`);
+      this.appendLog(`[local] ${text}`, { debug: true });
     }
 
     logVerbose(text) {
@@ -1631,15 +1792,44 @@
       return this.getVisibleLogEntries().map((entry) => entry.text).join("\n");
     }
 
+    getSelectedConsoleText() {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount < 1) {
+        return "";
+      }
+
+      const texts = [];
+      const seenLines = new Set();
+      for (let index = 0; index < selection.rangeCount; index += 1) {
+        const range = selection.getRangeAt(index);
+        if (!rangeIntersectsNode(range, this.ui.consoleLog)) {
+          continue;
+        }
+
+        const lines = this.ui.consoleLog.querySelectorAll(".console-line");
+        for (const line of lines) {
+          if (seenLines.has(line) || !rangeIntersectsNode(range, line)) {
+            continue;
+          }
+
+          texts.push(line.dataset.plainText || line.getAttribute("aria-label") || "");
+          seenLines.add(line);
+        }
+      }
+
+      return texts.join("\n");
+    }
+
     clearConsoleLog() {
       this.logEntries.length = 0;
+      this.pendingServerPrint = "";
       this.ui.consoleLog.replaceChildren();
     }
 
     renderConsoleLog() {
       const fragment = document.createDocumentFragment();
       for (const entry of this.getVisibleLogEntries()) {
-        fragment.appendChild(buildQuakeConsoleLineElement(entry.text));
+        fragment.appendChild(buildQuakeConsoleLineElement(entry.rawText, entry.text));
       }
 
       this.ui.consoleLog.replaceChildren(fragment);
@@ -1680,15 +1870,52 @@
       return `Close summary: uptime=${uptime}s signon=${this.signon} rxGap=${rxGap}s txGap=${txGap}s pending=${pending} queue=${this.outgoingQueue.length} tx{ctl=${this.packetStats.txCtl},rel=${this.packetStats.txReliable},unrel=${this.packetStats.txUnreliable},ack=${this.packetStats.txAck}} rx{ctl=${this.packetStats.rxCtl},rel=${this.packetStats.rxReliable},unrel=${this.packetStats.rxUnreliable},ack=${this.packetStats.rxAck}}`;
     }
 
+    appendServerLog(text, { debug = false, centerprint = false } = {}) {
+      const parts = splitQuakeConsoleLines(text);
+
+      if (parts.length === 1) {
+        this.pendingServerPrint += parts[0];
+        return;
+      }
+
+      parts[0] = this.pendingServerPrint + parts[0];
+      this.pendingServerPrint = "";
+
+      for (let index = 0; index < parts.length - 1; index += 1) {
+        this.appendLogEntry(parts[index], { debug, centerprint });
+      }
+
+      this.pendingServerPrint = parts[parts.length - 1];
+      if (isStyleOnlyQuakeText(this.pendingServerPrint)) {
+        this.pendingServerPrint = "";
+      }
+    }
+
     appendLog(text, { debug = false, centerprint = false } = {}) {
-      const line = sanitizeText(String(text));
-      const entry = { text: line, debug, centerprint };
+      if (this.pendingServerPrint) {
+        this.appendLogEntry(this.pendingServerPrint);
+        this.pendingServerPrint = "";
+      }
+
+      const lines = splitQuakeConsoleLines(text);
+      const lastIndex = lines.length - 1;
+      for (let index = 0; index < lines.length; index += 1) {
+        if (index === lastIndex && isStyleOnlyQuakeText(lines[index]) && lines.length > 1) {
+          continue;
+        }
+        this.appendLogEntry(lines[index], { debug, centerprint });
+      }
+    }
+
+    appendLogEntry(rawText, { debug = false, centerprint = false } = {}) {
+      const line = normalizeQuakeConsoleText(rawText);
+      const entry = { rawText: line, text: quakeConsoleTextToPlainText(line), debug, centerprint };
       this.logEntries.push(entry);
       if (!this.shouldShowLogEntry(entry)) {
         return;
       }
 
-      this.ui.consoleLog.appendChild(buildQuakeConsoleLineElement(line));
+      this.ui.consoleLog.appendChild(buildQuakeConsoleLineElement(entry.rawText, entry.text));
       this.scheduleLogScroll();
     }
 
@@ -1740,6 +1967,33 @@
     return protocolNames[protocol] || String(protocol);
   }
 
+  function formatConnectionTarget(value) {
+    return String(value || "").replace(/^wss?:\/\//i, "");
+  }
+
+  function nativeProtocolConsoleLabel(protocol, protocolPext2) {
+    if (protocolPext2 & PEXT2_REPLACEMENTDELTAS) {
+      return `fte${protocol}`;
+    }
+    return String(protocol);
+  }
+
+  function buildQuakeBar(length) {
+    const barLength = Math.max(2, Number.isFinite(length) ? Math.floor(length) : 40);
+    return (
+      String.fromCharCode(29) +
+      String.fromCharCode(30).repeat(Math.max(0, barLength - 2)) +
+      String.fromCharCode(31)
+    );
+  }
+
+  function mapNameFromModelPath(value) {
+    const text = String(value || "");
+    const parts = text.split("/");
+    const lastPart = parts[parts.length - 1] || "";
+    return lastPart.replace(/\.[^.]*$/, "");
+  }
+
   function buildChatCommand(value) {
     const text = value.replace(/[\r\n]+/g, " ").trim();
     if (!text) {
@@ -1769,6 +2023,47 @@
     return value
       .replace(/\r/g, "")
       .replace(/[^\x09\x0a\x20-\x7e]/g, "");
+  }
+
+  function normalizeQuakeConsoleText(value) {
+    return String(value ?? "").replace(/\r/g, "");
+  }
+
+  function splitQuakeConsoleLines(value) {
+    const text = normalizeQuakeConsoleText(value);
+    const lines = [];
+    let current = "";
+    let maskActive = false;
+    let index = 0;
+
+    const firstCode = text.charCodeAt(0);
+    if (firstCode === 1 || firstCode === 2) {
+      maskActive = true;
+      current = "\u0002";
+      index = 1;
+    }
+
+    while (index < text.length) {
+      if (text.charCodeAt(index) === 10) {
+        lines.push(current);
+        current = maskActive ? "\u0002" : "";
+        index += 1;
+        continue;
+      }
+
+      if (text[index] === "^" && text[index + 1] === "m") {
+        current += "^m";
+        maskActive = !maskActive;
+        index += 2;
+        continue;
+      }
+
+      current += text[index];
+      index += 1;
+    }
+
+    lines.push(current);
+    return lines;
   }
 
   function escapeHtml(value) {
@@ -1807,14 +2102,22 @@
     return buildQuakeGlyphTextElement(value, "span", "quake-run quake-name");
   }
 
-  function buildQuakeConsoleLineElement(value) {
-    const line = buildQuakeGlyphTextElement(value, "div", "quake-run console-line");
-    if (!value) {
+  function buildQuakeConsoleLineElement(value, plainText = "") {
+    const parsed = parseQuakeConsoleText(value);
+    const line = document.createElement("div");
+    line.className = "quake-run console-line";
+    line.dataset.plainText = plainText || parsed.plainText;
+
+    for (const glyphCode of parsed.glyphCodes) {
+      line.appendChild(buildQuakeGlyphElement(glyphCode));
+    }
+
+    if (!parsed.glyphCodes.length) {
       const spacer = document.createElement("span");
       spacer.className = "console-line-spacer";
       line.appendChild(spacer);
     }
-    line.setAttribute("aria-label", value);
+    line.setAttribute("aria-label", plainText || parsed.plainText);
     return line;
   }
 
@@ -1838,11 +2141,105 @@
   }
 
   function truncateLogText(value, maxLength = 80) {
-    const text = sanitizeText(String(value ?? ""));
+    const text = quakeConsoleTextToPlainText(String(value ?? ""));
     if (text.length <= maxLength) {
       return text;
     }
     return `${text.slice(0, maxLength - 3)}...`;
+  }
+
+  function parseQuakeConsoleText(value) {
+    const text = normalizeQuakeConsoleText(value);
+    const glyphCodes = [];
+    const plainChars = [];
+    let mask = 0;
+    let index = 0;
+
+    const firstCode = text.charCodeAt(0);
+    if (firstCode === 1 || firstCode === 2) {
+      mask = 128;
+      index = 1;
+    }
+
+    while (index < text.length) {
+      let code = text.charCodeAt(index);
+
+      if (code === 94 && index + 1 < text.length) {
+        const next = text[index + 1];
+
+        if (next === "^") {
+          code = 94;
+          index += 2;
+        } else if (next === "m") {
+          mask ^= 128;
+          index += 2;
+          continue;
+        } else if ("0123456789hbdsr[]".includes(next)) {
+          index += 2;
+          continue;
+        } else if (next === "&" && index + 3 < text.length) {
+          index += 4;
+          continue;
+        } else if (
+          next === "x" &&
+          index + 4 < text.length &&
+          isQuakeHexDigit(text[index + 2]) &&
+          isQuakeHexDigit(text[index + 3]) &&
+          isQuakeHexDigit(text[index + 4])
+        ) {
+          index += 5;
+          continue;
+        } else {
+          code = 94;
+          index += 1;
+        }
+      } else {
+        index += 1;
+      }
+
+      if (code === 10) {
+        continue;
+      }
+
+      glyphCodes.push((code & 0x7f) | mask);
+      plainChars.push(quakeGlyphCodeToPlainText(code));
+    }
+
+    return {
+      glyphCodes,
+      plainText: plainChars.join("").trimEnd()
+    };
+  }
+
+  function quakeConsoleTextToPlainText(value) {
+    return parseQuakeConsoleText(value).plainText;
+  }
+
+  function isStyleOnlyQuakeText(value) {
+    return parseQuakeConsoleText(value).glyphCodes.length === 0;
+  }
+
+  function quakeGlyphCodeToPlainText(value) {
+    const code = value & 0x7f;
+    if (code === 9) {
+      return "\t";
+    }
+    if (code >= 32 && code <= 126) {
+      return String.fromCharCode(code);
+    }
+    return " ";
+  }
+
+  function isQuakeHexDigit(value) {
+    return /^[0-9a-f]$/i.test(value);
+  }
+
+  function rangeIntersectsNode(range, node) {
+    try {
+      return range.intersectsNode(node);
+    } catch (error) {
+      return false;
+    }
   }
 
   function readDebugPreference() {
@@ -1883,6 +2280,30 @@
       window.localStorage.setItem(CENTERPRINT_PREFERENCE_KEY, enabled ? "1" : "0");
     } catch (error) {
       // ignore storage issues
+    }
+  }
+
+  function readCookiePreference(name) {
+    try {
+      const prefix = `${encodeURIComponent(name)}=`;
+      const parts = document.cookie ? document.cookie.split(/;\s*/) : [];
+      for (const part of parts) {
+        if (!part.startsWith(prefix)) {
+          continue;
+        }
+        return decodeURIComponent(part.slice(prefix.length));
+      }
+    } catch (error) {
+      // ignore cookie parse issues
+    }
+    return "";
+  }
+
+  function writeCookiePreference(name, value) {
+    try {
+      document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(String(value))}; Max-Age=31536000; Path=/; SameSite=Lax`;
+    } catch (error) {
+      // ignore cookie write issues
     }
   }
 
@@ -1927,6 +2348,7 @@
     centerprintToggle: document.getElementById("centerprintToggle"),
     debugToggle: document.getElementById("debugToggle"),
     consoleLog: document.getElementById("consoleLog"),
+    consoleVersion: document.getElementById("consoleVersion"),
     composer: document.getElementById("composer"),
     messageInput: document.getElementById("messageInput"),
     sendButton: document.getElementById("sendButton"),

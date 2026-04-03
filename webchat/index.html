@@ -26,7 +26,6 @@
       </div>
       <div class="status-row">
         <span id="statusBadge" class="badge badge-offline">offline</span>
-        <span id="sessionMeta" class="session-meta">No connection</span>
         <label class="debug-toggle">
           <input id="centerprintToggle" type="checkbox">
           <span>Show Centerprint</span>
@@ -57,7 +56,10 @@
             </button>
           </div>
         </header>
-        <div id="consoleLog" class="console-log" role="log" aria-live="polite"></div>
+        <div class="console-log-shell">
+          <div id="consoleLog" class="console-log" role="log" aria-live="polite"></div>
+          <div id="consoleVersion" class="console-version" aria-hidden="true"></div>
+        </div>
         <form id="composer" class="composer">
           <input id="messageInput" type="text" placeholder="Type chat or /command" autocomplete="off" disabled>
           <button id="sendButton" type="submit" disabled>Send</button>
@@ -68,11 +70,9 @@
         <header class="panel-header">
           <h2>Players</h2>
         </header>
-        <div id="playerSummary" class="player-summary">No players yet</div>
         <table class="players-table">
           <thead>
             <tr>
-              <th>Slot</th>
               <th>Name</th>
               <th>Frags</th>
             </tr>
