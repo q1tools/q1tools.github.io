@@ -82,6 +82,7 @@
     interpolateToggle: document.getElementById("interpolate-toggle"),
     importSkinButton: document.getElementById("import-skin-button"),
     importSkinInput: document.getElementById("import-skin-input"),
+    exportSkinLmpButton: document.getElementById("export-skin-lmp-button"),
     skinPolyToggle: document.getElementById("skin-poly-toggle"),
     skinPaletteUnusedToggle: document.getElementById("skin-palette-unused-toggle"),
     skinPaletteScope: document.getElementById("skin-palette-scope"),
@@ -365,6 +366,10 @@
         await importSkinFile(file);
       }
       dom.importSkinInput.value = "";
+    });
+
+    dom.exportSkinLmpButton.addEventListener("click", () => {
+      exportCurrentSkinAsLmp();
     });
 
     dom.skinPaletteUnusedToggle.addEventListener("change", () => {
@@ -1452,6 +1457,64 @@
       console.error(error);
       setSaveStatus(`Skin import failed: ${error.message}`);
     }
+  }
+
+  function exportCurrentSkinAsLmp() {
+    if (!state.model) {
+      setSaveStatus("Load a model before exporting a skin.");
+      return;
+    }
+
+    const skin = state.model.skins[state.selectedSkinIndex];
+    if (!skin || !skin.frames.length) {
+      setSaveStatus("No skin available to export.");
+      return;
+    }
+
+    const skinFrameIndex = clamp(getCurrentSkinFrameIndex(), 0, skin.frames.length - 1);
+    const indexed = skin.frames[skinFrameIndex];
+    const width = state.model.skinWidth | 0;
+    const height = state.model.skinHeight | 0;
+    const pixelCount = width * height;
+
+    if (!indexed || indexed.length < pixelCount) {
+      setSaveStatus("Skin data is incomplete; cannot export.");
+      return;
+    }
+
+    const bytes = new Uint8Array(8 + pixelCount);
+    const view = new DataView(bytes.buffer);
+    view.setInt32(0, width, true);
+    view.setInt32(4, height, true);
+    bytes.set(indexed.subarray(0, pixelCount), 8);
+
+    const suggestedName = getSuggestedSkinLmpFilename(
+      state.model.path,
+      state.selectedSkinIndex,
+      skin.frames.length > 1 ? skinFrameIndex : -1
+    );
+
+    downloadBytes(bytes, suggestedName, "application/octet-stream");
+    setSaveStatus(`Exported ${suggestedName}.`);
+  }
+
+  function getSuggestedSkinLmpFilename(modelPath, skinIndex, skinFrameIndex) {
+    const normalized = normalizePath(modelPath || "model.mdl");
+    const base = (normalized.split("/").pop() || "model.mdl").replace(/\.mdl$/i, "");
+    const frameSuffix = skinFrameIndex >= 0 ? `_frame${skinFrameIndex}` : "";
+    return `${base}_skin${skinIndex}${frameSuffix}.lmp`;
+  }
+
+  function downloadBytes(bytes, filename, mimeType) {
+    const blob = new Blob([bytes], { type: mimeType || "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   function loadImageFromFile(file) {
