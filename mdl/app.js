@@ -7,6 +7,7 @@
   const SIDEBAR_WIDTH_KEY = "qss-mdl-viewer-sidebar-width";
   const PALETTE_GRID_DIMENSION = 16;
   const PALETTE_CANVAS_SIZE = 256;
+  const UV_EXPORT_TARGET_SIZE = 1024;
   const DEFAULT_QUAKE_PALETTE_RGB24 = [
     0x000000, 0x0f0f0f, 0x1f1f1f, 0x2f2f2f, 0x3f3f3f, 0x4b4b4b, 0x5b5b5b, 0x6b6b6b,
     0x7b7b7b, 0x8b8b8b, 0x9b9b9b, 0xababab, 0xbbbbbb, 0xcbcbcb, 0xdbdbdb, 0xebebeb,
@@ -57,6 +58,22 @@
     { mask: 128, label: "Vore Purple Tracer" },
     { mask: 1 << 14, label: "Index 255 Transparent" },
   ];
+  const VALIDATION_SEVERITY_LABELS = {
+    error: "Error",
+    warning: "Warning",
+    info: "Note",
+  };
+  const VALIDATION_SEVERITY_ORDER = {
+    error: 0,
+    warning: 1,
+    info: 2,
+  };
+  const VALIDATION_FIXES = {
+    fitExportPacking: { id: "fit-export-packing", label: "Fit Export Packing" },
+    useMeasuredRadius: { id: "use-measured-radius", label: "Use Measured Radius" },
+    normalizeFrameIntervals: { id: "normalize-frame-intervals", label: "Normalize Frame Intervals" },
+    normalizeSkinIntervals: { id: "normalize-skin-intervals", label: "Normalize Skin Intervals" },
+  };
 
   const dom = {
     assetInput: document.getElementById("asset-input"),
@@ -79,10 +96,17 @@
     frameInput: document.getElementById("frame-input"),
     frameValue: document.getElementById("frame-value"),
     frameName: document.getElementById("frame-name"),
+    animSequenceName: document.getElementById("anim-sequence-name"),
+    animPoseName: document.getElementById("anim-pose-name"),
+    animPoseDuration: document.getElementById("anim-pose-duration"),
+    animApplyPose: document.getElementById("anim-apply-pose"),
+    animRenameSequence: document.getElementById("anim-rename-sequence"),
+    animEditorStatus: document.getElementById("anim-editor-status"),
     interpolateToggle: document.getElementById("interpolate-toggle"),
     importSkinButton: document.getElementById("import-skin-button"),
     importSkinInput: document.getElementById("import-skin-input"),
     exportSkinLmpButton: document.getElementById("export-skin-lmp-button"),
+    exportUvPngButton: document.getElementById("export-uv-png-button"),
     skinPolyToggle: document.getElementById("skin-poly-toggle"),
     skinPaletteUnusedToggle: document.getElementById("skin-palette-unused-toggle"),
     skinPaletteScope: document.getElementById("skin-palette-scope"),
@@ -128,7 +152,8 @@
     objScaleY: document.getElementById("obj-scale-y"),
     objScaleZ: document.getElementById("obj-scale-z"),
     objToolsScope: document.getElementById("obj-tools-scope"),
-    objToolsMode: document.getElementById("obj-tools-mode"),
+    objCenterOrigin: document.getElementById("obj-center-origin"),
+    objAlignGround: document.getElementById("obj-align-ground"),
     objToolsApply: document.getElementById("obj-tools-apply"),
     objToolsReset: document.getElementById("obj-tools-reset"),
     lightingPanel: document.getElementById("lighting-panel"),
@@ -142,6 +167,21 @@
     lightDirectValue: document.getElementById("light-direct-value"),
     lightHemiRange: document.getElementById("light-hemi-range"),
     lightHemiValue: document.getElementById("light-hemi-value"),
+    displayPanel: document.getElementById("display-panel"),
+    validationPanel: document.getElementById("validation-panel"),
+    validationSummary: document.getElementById("validation-summary"),
+    validationList: document.getElementById("validation-list"),
+    renderModeSelect: document.getElementById("render-mode-select"),
+    opacityRange: document.getElementById("opacity-range"),
+    opacityValue: document.getElementById("opacity-value"),
+    backfaceCullToggle: document.getElementById("backface-cull-toggle"),
+    drawShadowsToggle: document.getElementById("draw-shadows-toggle"),
+    wireframeOverlayToggle: document.getElementById("wireframe-overlay-toggle"),
+    showEyeToggle: document.getElementById("show-eye-toggle"),
+    showBoundsToggle: document.getElementById("show-bounds-toggle"),
+    showRadiusToggle: document.getElementById("show-radius-toggle"),
+    fullbrightToggle: document.getElementById("fullbright-toggle"),
+    showNormalsToggle: document.getElementById("show-normals-toggle"),
     groundPlaneToggle: document.getElementById("ground-plane-toggle"),
     axisToggle: document.getElementById("axis-toggle"),
     bgDark: document.getElementById("bg-dark"),
@@ -168,6 +208,16 @@
     bgMode: "dark",
     showGroundPlane: true,
     showWorldAxes: true,
+    renderMode: "textured",
+    modelOpacity: 1,
+    backfaceCulling: false,
+    drawShadows: false,
+    wireframeOverlay: false,
+    showEyePosition: false,
+    showBoundsOverlay: false,
+    showBoundingRadius: false,
+    previewFullbrights: true,
+    showNormals: false,
     lightAzimuth: 45,
     lightElevation: 60,
     lightAmbient: 0.45,
@@ -221,7 +271,9 @@
     updatePlaybackControls();
     syncModelDependentPanels();
     updateColorLabels();
+    syncDisplayControls();
     updateSkinPaletteEditor();
+    updateValidationPanel();
     updateOverlay("Load a `.mdl` or `.pak` to begin. Using the default Quake palette; load `palette.lmp` to override it.");
     requestAnimationFrame(frame);
   }
@@ -341,7 +393,20 @@
 
       if (button.dataset.action === "apply-skin-size") {
         applySkinSizeDraft();
+        return;
       }
+
+      if (button.dataset.action === "fit-export-packing") {
+        fitModelExportPacking();
+      }
+    });
+
+    dom.validationList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-validation-fix]");
+      if (!button) {
+        return;
+      }
+      applyValidationFix(button.dataset.validationFix);
     });
 
     dom.saveModelButton.addEventListener("click", async () => {
@@ -350,6 +415,14 @@
 
     dom.objToolsApply.addEventListener("click", () => {
       applyObjectTransform();
+    });
+
+    dom.objCenterOrigin.addEventListener("click", () => {
+      centerModelOnOrigin();
+    });
+
+    dom.objAlignGround.addEventListener("click", () => {
+      alignModelToGround();
     });
 
     dom.objToolsReset.addEventListener("click", () => {
@@ -370,6 +443,52 @@
 
     dom.exportSkinLmpButton.addEventListener("click", () => {
       exportCurrentSkinAsLmp();
+    });
+
+    dom.exportUvPngButton.addEventListener("click", async () => {
+      await exportCurrentUvAsPng();
+    });
+
+    dom.renderModeSelect.addEventListener("change", () => {
+      state.renderMode = normalizeRenderMode(dom.renderModeSelect.value);
+      syncDisplayControls();
+    });
+
+    dom.opacityRange.addEventListener("input", () => {
+      state.modelOpacity = clamp(parseFloat(dom.opacityRange.value) || 1, 0.1, 1);
+      syncDisplayControls();
+    });
+
+    dom.backfaceCullToggle.addEventListener("change", () => {
+      state.backfaceCulling = dom.backfaceCullToggle.checked;
+    });
+
+    dom.drawShadowsToggle.addEventListener("change", () => {
+      state.drawShadows = dom.drawShadowsToggle.checked;
+    });
+
+    dom.wireframeOverlayToggle.addEventListener("change", () => {
+      state.wireframeOverlay = dom.wireframeOverlayToggle.checked;
+    });
+
+    dom.showEyeToggle.addEventListener("change", () => {
+      state.showEyePosition = dom.showEyeToggle.checked;
+    });
+
+    dom.showBoundsToggle.addEventListener("change", () => {
+      state.showBoundsOverlay = dom.showBoundsToggle.checked;
+    });
+
+    dom.showRadiusToggle.addEventListener("change", () => {
+      state.showBoundingRadius = dom.showRadiusToggle.checked;
+    });
+
+    dom.fullbrightToggle.addEventListener("change", () => {
+      state.previewFullbrights = dom.fullbrightToggle.checked;
+    });
+
+    dom.showNormalsToggle.addEventListener("change", () => {
+      state.showNormals = dom.showNormalsToggle.checked;
     });
 
     dom.skinPaletteUnusedToggle.addEventListener("change", () => {
@@ -499,6 +618,14 @@
 
     dom.frameInput.addEventListener("blur", () => {
       updateTimelineRange();
+    });
+
+    dom.animApplyPose.addEventListener("click", () => {
+      applyActivePoseEdits();
+    });
+
+    dom.animRenameSequence.addEventListener("click", () => {
+      renameActiveSequence();
     });
 
     dom.interpolateToggle.addEventListener("change", () => {
@@ -749,6 +876,7 @@
       renderFrameTree(model);
       populateSkinList(model);
       populateProperties(model);
+      updateValidationPanel();
       setSaveStatus("Edit fields below, then save or export the model.");
   
       const defaultFrameGroupIndex = findFirstPlayableFrameGroupIndex(model);
@@ -944,6 +1072,8 @@
     ]));
 
     dom.propertiesGrid.appendChild(buildBoundsCard("Bounds", firstFrameBounds, allFrameBounds));
+    dom.propertiesGrid.appendChild(buildBoundingRadiusEditor(model));
+    dom.propertiesGrid.appendChild(buildExportPackingCard(model));
     dom.propertiesGrid.appendChild(buildSkinSizeEditor(model));
     dom.propertiesGrid.appendChild(buildEyePositionEditor(model));
     dom.propertiesGrid.appendChild(buildSyncTypeEditor(model));
@@ -1070,7 +1200,72 @@
     return section;
   }
 
+  function buildBoundingRadiusEditor(model) {
+    const section = document.createElement("section");
+    section.className = "property-card";
+
+    const heading = document.createElement("h3");
+    heading.textContent = "Bounding Radius";
+    section.appendChild(heading);
+
+    const grid = document.createElement("div");
+    grid.className = "property-edit-grid";
+    grid.appendChild(buildLabeledNumberInput("Header", "prop-bounding-radius", model.boundingRadius, {
+      min: 0,
+      step: "any",
+    }));
+    section.appendChild(grid);
+
+    const measured = document.createElement("p");
+    measured.className = "hint property-hint";
+    measured.textContent = `Max vertex distance from origin across all poses: ${formatNumber(computeModelOriginRadius(model.render.positionsByPose))}`;
+    section.appendChild(measured);
+
+    const note = document.createElement("p");
+    note.className = "hint property-hint";
+    note.textContent = "This header value is visualized around the model origin and used when exporting the MDL.";
+    section.appendChild(note);
+
+    return section;
+  }
+
+  function buildExportPackingCard(model) {
+    const section = document.createElement("section");
+    section.className = "property-card property-card-wide";
+
+    const heading = document.createElement("h3");
+    heading.textContent = "Export Packing";
+    section.appendChild(heading);
+
+    const stats = computePackedCoordinateStats(model);
+    section.appendChild(buildPropertyList([
+      [buildAxisTupleLabel("Scale"), formatVec3(model.scale)],
+      [buildAxisTupleLabel("Origin"), formatVec3(model.scaleOrigin)],
+      [buildAxisTupleLabel("Packed Min"), formatVec3(stats.min)],
+      [buildAxisTupleLabel("Packed Max"), formatVec3(stats.max)],
+    ]));
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.action = "fit-export-packing";
+    button.textContent = "Fit Export Packing";
+    section.appendChild(button);
+
+    const status = document.createElement("p");
+    status.className = "hint property-hint";
+    status.textContent = describePackedCoordinateStats(stats);
+    section.appendChild(status);
+
+    const note = document.createElement("p");
+    note.className = "hint property-hint";
+    note.textContent = "This only updates MDL export packing metadata (scale + origin). It does not move vertices in the viewport.";
+    section.appendChild(note);
+
+    return section;
+  }
+
   function buildSyncTypeEditor(model) {
+    const syncType = model.synctype ?? model.syncType ?? 0;
     const section = document.createElement("section");
     section.className = "property-card";
 
@@ -1084,7 +1279,7 @@
     const input = document.createElement("input");
     input.type = "checkbox";
     input.id = "prop-sync-rand";
-    input.checked = model.synctype === 1;
+    input.checked = syncType === 1;
 
     const text = document.createElement("span");
     text.textContent = "Rand";
@@ -1095,7 +1290,7 @@
 
     const hint = document.createElement("p");
     hint.className = "hint property-hint";
-    hint.textContent = `Unchecked = Sync (0), checked = Rand (1). Current value: ${describeSyncType(model.synctype)}.`;
+    hint.textContent = `Unchecked = Sync (0), checked = Rand (1). Current value: ${describeSyncType(syncType)}.`;
     section.appendChild(hint);
 
     return section;
@@ -1242,6 +1437,7 @@
     dom.playToggle.disabled = !state.model || !hasPlayableGroup;
     dom.frameRange.disabled = !state.model || poseCount <= 1;
     dom.resetCamera.disabled = !state.model;
+    updateAnimationEditor();
   }
 
   function setManualFrameIndex(frameIndex, preserveFocusedFrameInput = false) {
@@ -1256,6 +1452,233 @@
     state.geometryDirty = true;
   }
 
+  function updateAnimationEditor() {
+    const context = getSelectedPoseEditContext();
+    if (!context) {
+      dom.animSequenceName.value = "";
+      dom.animPoseName.value = "";
+      dom.animPoseDuration.value = "";
+      dom.animSequenceName.disabled = true;
+      dom.animPoseName.disabled = true;
+      dom.animPoseDuration.disabled = true;
+      dom.animApplyPose.disabled = true;
+      dom.animRenameSequence.disabled = true;
+      dom.animEditorStatus.textContent = state.model
+        ? "Select a frame to edit names and timing."
+        : "Load a model to edit animation names and timing.";
+      return;
+    }
+
+    const disableEdits = state.playing;
+    dom.animSequenceName.value = context.sequenceName;
+    dom.animPoseName.value = context.pose?.name || `pose_${context.poseIndex}`;
+    dom.animPoseDuration.value = context.duration.toFixed(3).replace(/\.?0+$/, "");
+    dom.animSequenceName.disabled = disableEdits || context.activeGroup.type === "all";
+    dom.animPoseName.disabled = disableEdits;
+    dom.animPoseDuration.disabled = disableEdits;
+    dom.animApplyPose.disabled = disableEdits;
+    dom.animRenameSequence.disabled = disableEdits || context.activeGroup.type === "all";
+
+    if (state.playing) {
+      dom.animEditorStatus.textContent = "Pause playback to edit pose names and timing.";
+      return;
+    }
+
+    const groupLabel = context.activeGroup.type === "all"
+      ? "All frames view"
+      : (context.activeGroup.treeLabel || context.activeGroup.label);
+    dom.animEditorStatus.textContent = `Editing pose ${context.poseIndexInGroup + 1} of ${context.activeGroup.poseIndices.length} in ${groupLabel}.`;
+  }
+
+  function getSelectedPoseEditContext() {
+    if (!state.model) {
+      return null;
+    }
+
+    const activeGroup = getActiveFrameGroup();
+    if (!activeGroup || !activeGroup.poseIndices?.length) {
+      return null;
+    }
+
+    const poseIndexInGroup = clamp(state.manualFrameIndex, 0, Math.max(activeGroup.poseIndices.length - 1, 0));
+    const poseIndex = activeGroup.poseIndices[poseIndexInGroup];
+    const pose = state.model.poses[poseIndex] || null;
+    const fallbackSource = findPoseSource(state.model, poseIndex);
+    const topFrameIndex = Number.isInteger(activeGroup.topFrameIndices?.[poseIndexInGroup])
+      ? activeGroup.topFrameIndices[poseIndexInGroup]
+      : fallbackSource.topFrameIndex;
+    const topFramePoseOffset = Number.isInteger(activeGroup.topFramePoseOffsets?.[poseIndexInGroup])
+      ? activeGroup.topFramePoseOffsets[poseIndexInGroup]
+      : fallbackSource.poseOffset;
+    const topFrame = topFrameIndex >= 0 ? state.model.topFrames[topFrameIndex] || null : null;
+    const duration = Math.max(activeGroup.durations?.[poseIndexInGroup] || DEFAULT_FRAME_DURATION, 0.001);
+    const sequenceName = activeGroup.type === "all"
+      ? ""
+      : (activeGroup.treeLabel || inferSequenceName(pose?.name || activeGroup.name || activeGroup.label, poseIndexInGroup));
+
+    return {
+      activeGroup,
+      poseIndexInGroup,
+      poseIndex,
+      pose,
+      topFrameIndex,
+      topFramePoseOffset,
+      topFrame,
+      duration,
+      sequenceName,
+    };
+  }
+
+  function findPoseSource(model, poseIndex) {
+    if (!model?.topFrames?.length) {
+      return { topFrameIndex: -1, poseOffset: 0 };
+    }
+
+    for (let topFrameIndex = 0; topFrameIndex < model.topFrames.length; topFrameIndex++) {
+      const frame = model.topFrames[topFrameIndex];
+      const poseOffset = frame.poseIndices.indexOf(poseIndex);
+      if (poseOffset >= 0) {
+        return { topFrameIndex, poseOffset };
+      }
+    }
+
+    return { topFrameIndex: -1, poseOffset: 0 };
+  }
+
+  function applyActivePoseEdits() {
+    const context = getSelectedPoseEditContext();
+    if (!context || !context.pose) {
+      setSaveStatus("Select a pose before applying animation edits.");
+      return;
+    }
+
+    const nextPoseName = dom.animPoseName.value.trim();
+    const nextDuration = parseFloat(dom.animPoseDuration.value);
+    if (!nextPoseName) {
+      setSaveStatus("Pose name cannot be empty.");
+      return;
+    }
+    if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
+      setSaveStatus("Pose duration must be greater than zero.");
+      return;
+    }
+
+    context.pose.name = nextPoseName;
+    if (context.topFrame && context.topFrame.poseIndices.length <= 1) {
+      context.topFrame.name = nextPoseName;
+    }
+    if (context.topFrame) {
+      setTopFramePoseDuration(context.topFrame, context.topFramePoseOffset, nextDuration);
+    }
+
+    state.playing = false;
+    rebuildAnimationViewForPose(context.poseIndex, context.activeGroup.type === "all");
+    setSaveStatus(`Updated pose ${nextPoseName} to ${formatNumber(nextDuration)}s. Save .mdl to export changes.`);
+  }
+
+  function renameActiveSequence() {
+    const context = getSelectedPoseEditContext();
+    if (!context || !context.activeGroup || context.activeGroup.type === "all") {
+      setSaveStatus("Select a sequence group before renaming it.");
+      return;
+    }
+
+    const baseName = dom.animSequenceName.value.trim();
+    if (!baseName) {
+      setSaveStatus("Sequence name cannot be empty.");
+      return;
+    }
+
+    const poseCount = context.activeGroup.poseIndices.length;
+    const suffixWidth = Math.max(
+      poseCount > 1 ? String(poseCount).length : 0,
+      ...context.activeGroup.poseIndices.map((poseIndex) => {
+        const match = (state.model.poses[poseIndex]?.name || "").match(/(\d+)$/);
+        return match ? match[1].length : 0;
+      })
+    );
+    const touchedTopFrames = new Set();
+
+    context.activeGroup.poseIndices.forEach((poseIndex, index) => {
+      const existingName = state.model.poses[poseIndex]?.name || "";
+      const match = existingName.match(/(\d+)$/);
+      let suffix = "";
+      if (poseCount > 1) {
+        suffix = match?.[1] || String(index + 1).padStart(Math.max(suffixWidth, 1), "0");
+      }
+      state.model.poses[poseIndex].name = `${baseName}${suffix}`;
+
+      const topFrameIndex = context.activeGroup.topFrameIndices?.[index];
+      if (Number.isInteger(topFrameIndex) && topFrameIndex >= 0) {
+        touchedTopFrames.add(topFrameIndex);
+      }
+    });
+
+    touchedTopFrames.forEach((topFrameIndex) => {
+      const frame = state.model.topFrames[topFrameIndex];
+      if (!frame) {
+        return;
+      }
+      frame.name = frame.poseIndices.length > 1 ? baseName : (state.model.poses[frame.poseIndices[0]]?.name || baseName);
+    });
+
+    state.playing = false;
+    rebuildAnimationViewForPose(context.poseIndex, false);
+    setSaveStatus(`Renamed sequence to ${baseName}. Save .mdl to export changes.`);
+  }
+
+  function setTopFramePoseDuration(frame, poseOffset, duration) {
+    if (!frame) {
+      return;
+    }
+
+    const clampedDuration = Math.max(duration || DEFAULT_FRAME_DURATION, 0.001);
+    const poseCount = Math.max(frame.poseIndices?.length || 0, 1);
+    const durations = deriveDurations(frame.intervals, poseCount);
+    durations[clamp(poseOffset, 0, poseCount - 1)] = clampedDuration;
+    frame.intervals = deriveIntervalsFromDurations(durations);
+  }
+
+  function rebuildAnimationViewForPose(poseIndex, preferAllView = false) {
+    if (!state.model) {
+      return;
+    }
+
+    state.model.frameGroups = buildFrameGroups(state.model);
+    populateFrameGroupList(state.model);
+    renderFrameTree(state.model);
+    const nextGroupIndex = findFrameGroupIndexForPose(state.model, poseIndex, preferAllView);
+    const nextGroup = state.model.frameGroups[nextGroupIndex] || null;
+    const nextPoseIndex = nextGroup ? Math.max(nextGroup.poseIndices.indexOf(poseIndex), 0) : 0;
+    selectFrameGroup(nextGroupIndex, nextPoseIndex);
+    updateValidationPanel();
+  }
+
+  function findFrameGroupIndexForPose(model, poseIndex, preferAllView = false) {
+    if (!model?.frameGroups?.length) {
+      return 0;
+    }
+
+    if (preferAllView) {
+      const allIndex = model.frameGroups.findIndex((group) =>
+        group.type === "all" && group.poseIndices.includes(poseIndex)
+      );
+      if (allIndex >= 0) {
+        return allIndex;
+      }
+    }
+
+    const sequenceIndex = model.frameGroups.findIndex((group) =>
+      group.type !== "all" && group.poseIndices.includes(poseIndex)
+    );
+    if (sequenceIndex >= 0) {
+      return sequenceIndex;
+    }
+
+    const anyIndex = model.frameGroups.findIndex((group) => group.poseIndices.includes(poseIndex));
+    return anyIndex >= 0 ? anyIndex : 0;
+  }
+
   function syncModelDependentPanels() {
     const hasModel = !!state.model;
     const panels = [
@@ -1265,6 +1688,8 @@
       dom.detailsPanel,
       dom.objectToolsPanel,
       dom.lightingPanel,
+      dom.displayPanel,
+      dom.validationPanel,
       dom.savePanel,
     ];
 
@@ -1299,6 +1724,27 @@
     dom.bgGrid.setAttribute("aria-pressed", mode === "grid" ? "true" : "false");
   }
 
+  function normalizeRenderMode(mode) {
+    return ["textured", "smooth", "flat", "wireframe"].includes(mode) ? mode : "textured";
+  }
+
+  function syncDisplayControls() {
+    state.renderMode = normalizeRenderMode(state.renderMode);
+    state.modelOpacity = clamp(state.modelOpacity, 0.1, 1);
+
+    dom.renderModeSelect.value = state.renderMode;
+    dom.opacityRange.value = state.modelOpacity.toFixed(2);
+    dom.opacityValue.textContent = state.modelOpacity.toFixed(2);
+    dom.backfaceCullToggle.checked = state.backfaceCulling;
+    dom.drawShadowsToggle.checked = state.drawShadows;
+    dom.wireframeOverlayToggle.checked = state.wireframeOverlay;
+    dom.showEyeToggle.checked = state.showEyePosition;
+    dom.showBoundsToggle.checked = state.showBoundsOverlay;
+    dom.showRadiusToggle.checked = state.showBoundingRadius;
+    dom.fullbrightToggle.checked = state.previewFullbrights;
+    dom.showNormalsToggle.checked = state.showNormals;
+  }
+
   function syncPlayerColorControls() {
     const isPlayerModel = !!state.model && /(^|\/)player\.mdl$/i.test(state.model.path);
     dom.playerColorControls.classList.toggle("is-hidden", !isPlayerModel);
@@ -1315,31 +1761,47 @@
       return;
     }
 
+    let didChange = false;
     switch (target.id) {
+      case "prop-bounding-radius":
+        state.model.boundingRadius = Math.max(0, parseEditableNumber(target.value, state.model.boundingRadius));
+        setSaveStatus("Bounding radius updated. Save .mdl to export changes.");
+        didChange = true;
+        break;
       case "prop-eye-x":
         state.model.eyePosition[0] = parseEditableNumber(target.value, state.model.eyePosition[0]);
         setSaveStatus("Eye position updated. Save .mdl to export changes.");
+        didChange = true;
         break;
       case "prop-eye-y":
         state.model.eyePosition[1] = parseEditableNumber(target.value, state.model.eyePosition[1]);
         setSaveStatus("Eye position updated. Save .mdl to export changes.");
+        didChange = true;
         break;
       case "prop-eye-z":
         state.model.eyePosition[2] = parseEditableNumber(target.value, state.model.eyePosition[2]);
         setSaveStatus("Eye position updated. Save .mdl to export changes.");
+        didChange = true;
         break;
       case "prop-sync-rand":
         state.model.synctype = target.checked ? 1 : 0;
+        state.model.syncType = state.model.synctype;
         populateProperties(state.model);
         setSaveStatus("Sync type updated. Save .mdl to export changes.");
+        didChange = true;
         break;
       default:
         if (target.dataset.flagMask) {
           updateModelFlag(parseInt(target.dataset.flagMask, 10), target.checked);
           populateProperties(state.model);
           setSaveStatus("Flags updated. Save .mdl to export changes.");
+          didChange = true;
         }
         break;
+    }
+
+    if (didChange) {
+      updateValidationPanel();
     }
   }
 
@@ -1353,6 +1815,156 @@
     } else {
       state.model.flags &= ~mask;
     }
+  }
+
+  function fitModelExportPacking() {
+    if (!state.model) {
+      return;
+    }
+
+    const posePositions = state.model.poses
+      .map((pose) => pose.positions)
+      .filter((positions) => positions && positions.length);
+    if (!posePositions.length) {
+      setSaveStatus("No pose geometry is available to fit export packing.");
+      return;
+    }
+
+    const bounds = computeBounds(posePositions);
+    if (!bounds.min.every(Number.isFinite) || !bounds.max.every(Number.isFinite)) {
+      setSaveStatus("Export packing could not be fit because pose bounds are invalid.");
+      return;
+    }
+
+    const nextScale = [1, 1, 1];
+    const nextOrigin = bounds.min.slice();
+    for (let axis = 0; axis < 3; axis++) {
+      const range = bounds.max[axis] - bounds.min[axis];
+      nextScale[axis] = range > 1e-9 ? range / 255 : 1;
+    }
+
+    state.model.scale = nextScale;
+    state.model.scaleOrigin = nextOrigin;
+    populateProperties(state.model);
+    updateValidationPanel();
+    setSaveStatus(`Fitted export packing to current geometry. Scale ${formatVec3(nextScale)}, origin ${formatVec3(nextOrigin)}.`);
+  }
+
+  function applyValidationFix(fixId) {
+    switch (fixId) {
+      case VALIDATION_FIXES.fitExportPacking.id:
+        fitModelExportPacking();
+        break;
+      case VALIDATION_FIXES.useMeasuredRadius.id:
+        applyMeasuredBoundingRadius();
+        break;
+      case VALIDATION_FIXES.normalizeFrameIntervals.id:
+        normalizeFrameIntervals();
+        break;
+      case VALIDATION_FIXES.normalizeSkinIntervals.id:
+        normalizeSkinIntervals();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function applyMeasuredBoundingRadius() {
+    if (!state.model) {
+      return;
+    }
+
+    const measuredRadius = computeModelOriginRadius(state.model.render.positionsByPose);
+    state.model.boundingRadius = Math.max(0, measuredRadius);
+    populateProperties(state.model);
+    updateValidationPanel();
+    setSaveStatus(`Set bounding radius to measured extent ${formatNumber(measuredRadius)}. Save .mdl to export changes.`);
+  }
+
+  function normalizeFrameIntervals() {
+    if (!state.model?.topFrames?.length) {
+      return;
+    }
+
+    let normalized = 0;
+    state.model.topFrames.forEach((frame) => {
+      const poseCount = frame.poseIndices?.length || 0;
+      if (poseCount <= 1 && frame.type !== "group") {
+        return;
+      }
+
+      const hasValidIntervals = Array.isArray(frame.intervals) &&
+        frame.intervals.length === poseCount &&
+        frame.intervals.every((value) => Number.isFinite(value) && value > 0);
+      if (hasValidIntervals) {
+        return;
+      }
+
+      frame.intervals = deriveIntervalsFromDurations(deriveDurations(frame.intervals, poseCount));
+      normalized += 1;
+    });
+
+    if (!normalized) {
+      setSaveStatus("No invalid frame intervals needed normalization.");
+      return;
+    }
+
+    state.playing = false;
+    rebuildFrameGroupsPreservingSelection();
+    setSaveStatus(`Normalized ${normalized} animated frame group${normalized === 1 ? "" : "s"}. Save .mdl to export changes.`);
+  }
+
+  function normalizeSkinIntervals() {
+    if (!state.model?.skins?.length) {
+      return;
+    }
+
+    let normalized = 0;
+    state.model.skins.forEach((skin) => {
+      const frameCount = skin.frames?.length || 0;
+      if (frameCount <= 1 && skin.type !== "group") {
+        return;
+      }
+
+      const hasValidIntervals = Array.isArray(skin.intervals) &&
+        skin.intervals.length === frameCount &&
+        skin.intervals.every((value) => Number.isFinite(value) && value > 0);
+      if (hasValidIntervals) {
+        return;
+      }
+
+      skin.intervals = deriveIntervalsFromDurations(deriveDurations(skin.intervals, frameCount));
+      normalized += 1;
+    });
+
+    if (!normalized) {
+      setSaveStatus("No invalid skin intervals needed normalization.");
+      return;
+    }
+
+    state.textureDirty = true;
+    updateSkinStatus();
+    updateValidationPanel();
+    setSaveStatus(`Normalized ${normalized} animated skin entr${normalized === 1 ? "y" : "ies"}. Save .mdl to export changes.`);
+  }
+
+  function rebuildFrameGroupsPreservingSelection() {
+    if (!state.model) {
+      return;
+    }
+
+    const context = getSelectedPoseEditContext();
+    if (context) {
+      rebuildAnimationViewForPose(context.poseIndex, context.activeGroup.type === "all");
+      return;
+    }
+
+    state.model.frameGroups = buildFrameGroups(state.model);
+    populateFrameGroupList(state.model);
+    renderFrameTree(state.model);
+    updateTimelineRange();
+    updatePlaybackControls();
+    updateValidationPanel();
   }
 
   function applySkinSizeDraft() {
@@ -1414,6 +2026,7 @@
 
     populateProperties(model);
     updateSkinStatus();
+    updateValidationPanel();
     uploadModelBuffers();
     state.textureDirty = true;
     state.geometryDirty = true;
@@ -1452,6 +2065,7 @@
 
       state.textureDirty = true;
       updateSkinStatus();
+      updateValidationPanel();
       setSaveStatus(`Imported ${file.name} into skin ${state.selectedSkinIndex}, frame ${skinFrameIndex}.`);
     } catch (error) {
       console.error(error);
@@ -1498,6 +2112,43 @@
     setSaveStatus(`Exported ${suggestedName}.`);
   }
 
+  async function exportCurrentUvAsPng() {
+    if (!state.model) {
+      setSaveStatus("Load a model before exporting a UV map.");
+      return;
+    }
+
+    const width = state.model.skinWidth | 0;
+    const height = state.model.skinHeight | 0;
+    if (width <= 0 || height <= 0) {
+      setSaveStatus("Skin dimensions are invalid; cannot export the UV map.");
+      return;
+    }
+
+    const scale = Math.max(1, Math.ceil(UV_EXPORT_TARGET_SIZE / Math.max(width, height)));
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+
+    const context = canvas.getContext("2d", { alpha: true });
+    if (!context) {
+      setSaveStatus("Could not create an export canvas for the UV map.");
+      return;
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    drawSkinPolyOverlay(state.model, scale, context, {
+      shadowColor: "rgba(0, 0, 0, 0.92)",
+      lineColor: "rgba(255, 255, 255, 0.96)",
+      shadowScale: 1.35,
+      lineScale: 0.8,
+    });
+
+    const suggestedName = getSuggestedUvPngFilename(state.model.path, state.selectedSkinIndex);
+    await downloadCanvasAsPng(canvas, suggestedName);
+    setSaveStatus(`Exported ${suggestedName}.`);
+  }
+
   function getSuggestedSkinLmpFilename(modelPath, skinIndex, skinFrameIndex) {
     const normalized = normalizePath(modelPath || "model.mdl");
     const base = (normalized.split("/").pop() || "model.mdl").replace(/\.mdl$/i, "");
@@ -1505,8 +2156,18 @@
     return `${base}_skin${skinIndex}${frameSuffix}.lmp`;
   }
 
+  function getSuggestedUvPngFilename(modelPath, skinIndex) {
+    const normalized = normalizePath(modelPath || "model.mdl");
+    const base = (normalized.split("/").pop() || "model.mdl").replace(/\.mdl$/i, "");
+    return `${base}_skin${skinIndex}_uv.png`;
+  }
+
   function downloadBytes(bytes, filename, mimeType) {
     const blob = new Blob([bytes], { type: mimeType || "application/octet-stream" });
+    downloadBlob(blob, filename);
+  }
+
+  function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -1515,6 +2176,29 @@
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function downloadCanvasAsPng(canvas, filename) {
+    if (canvas.toBlob) {
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((result) => {
+          if (result) {
+            resolve(result);
+            return;
+          }
+          reject(new Error("Failed to encode PNG data"));
+        }, "image/png");
+      });
+      downloadBlob(blob, filename);
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function loadImageFromFile(file) {
@@ -1662,6 +2346,666 @@
     dom.skinStatus.textContent = `${state.model.skinWidth} x ${state.model.skinHeight}${animated}${recolor}`;
     syncPlayerColorControls();
     updateSkinPaletteEditor();
+  }
+
+  function updateValidationPanel() {
+    if (!dom.validationSummary || !dom.validationList) {
+      return;
+    }
+
+    dom.validationSummary.className = "validation-summary hint";
+    dom.validationList.innerHTML = "";
+
+    if (!state.model) {
+      dom.validationSummary.textContent = "No model loaded.";
+      return;
+    }
+
+    const report = buildValidationReport(state.model);
+    const { errors, warnings, infos } = report.counts;
+
+    if (!report.findings.length) {
+      dom.validationSummary.textContent = "No issues detected. Export data looks internally consistent.";
+      dom.validationSummary.classList.add("is-clean");
+
+      const empty = document.createElement("div");
+      empty.className = "validation-empty";
+      empty.textContent = "No export-time issues found for the current model.";
+      dom.validationList.appendChild(empty);
+      return;
+    }
+
+    const parts = [];
+    if (errors) {
+      parts.push(`${errors} error${errors === 1 ? "" : "s"}`);
+    }
+    if (warnings) {
+      parts.push(`${warnings} warning${warnings === 1 ? "" : "s"}`);
+    }
+    if (infos) {
+      parts.push(`${infos} note${infos === 1 ? "" : "s"}`);
+    }
+    dom.validationSummary.textContent = parts.join(", ") + ".";
+    dom.validationSummary.classList.add(errors ? "is-error" : warnings ? "is-warning" : "is-info");
+
+    if (report.fixes.length) {
+      const actions = document.createElement("section");
+      actions.className = "validation-actions";
+
+      const label = document.createElement("div");
+      label.className = "validation-actions-label";
+      label.textContent = "Quick fixes";
+      actions.appendChild(label);
+
+      const row = document.createElement("div");
+      row.className = "validation-actions-row";
+      report.fixes.forEach((fix) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "validation-fix-button";
+        button.dataset.validationFix = fix.id;
+        button.textContent = fix.label;
+        row.appendChild(button);
+      });
+      actions.appendChild(row);
+      dom.validationList.appendChild(actions);
+    }
+
+    report.findings.forEach((finding) => {
+      const item = document.createElement("section");
+      item.className = `validation-item is-${finding.severity}`;
+
+      const header = document.createElement("div");
+      header.className = "validation-item-header";
+
+      const badge = document.createElement("span");
+      badge.className = `validation-badge is-${finding.severity}`;
+      badge.textContent = VALIDATION_SEVERITY_LABELS[finding.severity] || VALIDATION_SEVERITY_LABELS.info;
+
+      const title = document.createElement("div");
+      title.className = "validation-item-title";
+      title.textContent = finding.title;
+
+      const detail = document.createElement("div");
+      detail.className = "validation-item-detail";
+      detail.textContent = finding.detail;
+
+      header.appendChild(badge);
+      header.appendChild(title);
+      item.appendChild(header);
+      item.appendChild(detail);
+      dom.validationList.appendChild(item);
+    });
+  }
+
+  function buildValidationReport(model) {
+    const findings = [];
+
+    validateModelCounts(model, findings);
+    validateSkinConsistency(model, findings);
+    validateFrameConsistency(model, findings);
+    validateTopologyConsistency(model, findings);
+    validatePackedGeometry(model, findings);
+    validateBoundingRadius(model, findings);
+
+    findings.sort((a, b) => {
+      const severityDiff = (VALIDATION_SEVERITY_ORDER[a.severity] ?? 99) - (VALIDATION_SEVERITY_ORDER[b.severity] ?? 99);
+      if (severityDiff !== 0) {
+        return severityDiff;
+      }
+      return a.title.localeCompare(b.title);
+    });
+
+    const counts = {
+      errors: 0,
+      warnings: 0,
+      infos: 0,
+    };
+    findings.forEach((finding) => {
+      if (finding.severity === "error") {
+        counts.errors += 1;
+      } else if (finding.severity === "warning") {
+        counts.warnings += 1;
+      } else {
+        counts.infos += 1;
+      }
+    });
+
+    const fixMap = new Map();
+    findings.forEach((finding) => {
+      finding.fixes?.forEach((fix) => {
+        if (!fixMap.has(fix.id)) {
+          fixMap.set(fix.id, fix);
+        }
+      });
+    });
+
+    return {
+      findings,
+      counts,
+      fixes: Array.from(fixMap.values()),
+    };
+  }
+
+  function pushValidationFinding(findings, severity, title, detail, fixes = []) {
+    findings.push({
+      severity,
+      title,
+      detail,
+      fixes,
+    });
+  }
+
+  function validateModelCounts(model, findings) {
+    if (!model.poses.length) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Model has no poses",
+        "The file contains no pose data, so there is nothing valid to render or export."
+      );
+    }
+
+    if (model.numSkins !== model.skins.length) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Header skin count differs from loaded skin data",
+        `Header says ${model.numSkins}, but ${model.skins.length} skin entries are loaded. Save will use the loaded skin array length.`
+      );
+    }
+
+    if (model.numVerts !== model.stVerts.length) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Header vertex count differs from texture vertex data",
+        `Header says ${model.numVerts} vertices, but ${model.stVerts.length} texture vertices are present.`
+      );
+    }
+
+    if (model.numTris !== model.triangles.length) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Header triangle count differs from triangle data",
+        `Header says ${model.numTris} triangles, but ${model.triangles.length} triangle records are present.`
+      );
+    }
+
+    if (model.numFrames !== model.topFrames.length) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Header frame count differs from top-level frame groups",
+        `Header says ${model.numFrames} frames, but ${model.topFrames.length} top-level frames/groups are loaded. Save will use the loaded frame groups.`
+      );
+    }
+
+    const expectedPositionLength = model.numVerts * 3;
+    const badPoseLengths = model.poses.reduce((count, pose) => (
+      pose.positions && pose.positions.length === expectedPositionLength ? count : count + 1
+    ), 0);
+    if (badPoseLengths) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Pose vertex data length does not match the header vertex count",
+        `${badPoseLengths} pose${badPoseLengths === 1 ? "" : "s"} do not contain ${expectedPositionLength} coordinate values.`
+      );
+    }
+  }
+
+  function validateSkinConsistency(model, findings) {
+    if (!Number.isInteger(model.skinWidth) || !Number.isInteger(model.skinHeight) || model.skinWidth < 1 || model.skinHeight < 1) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Skin dimensions are invalid",
+        `Skin size must be positive integers. Current size is ${model.skinWidth} x ${model.skinHeight}.`
+      );
+      return;
+    }
+
+    const expectedPixels = model.skinWidth * model.skinHeight;
+    let emptySkins = 0;
+    let frameSizeMismatches = 0;
+    let intervalIssues = 0;
+
+    model.skins.forEach((skin) => {
+      if (!skin.frames?.length) {
+        emptySkins += 1;
+        return;
+      }
+
+      skin.frames.forEach((frame) => {
+        if (!frame || frame.length !== expectedPixels) {
+          frameSizeMismatches += 1;
+        }
+      });
+
+      if (skin.frames.length > 1 || skin.type === "group") {
+        const hasValidIntervals = Array.isArray(skin.intervals) &&
+          skin.intervals.length === skin.frames.length &&
+          skin.intervals.every((value) => Number.isFinite(value) && value > 0);
+        if (!hasValidIntervals) {
+          intervalIssues += 1;
+        }
+      }
+    });
+
+    if (emptySkins) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Skin entries are missing frame data",
+        `${emptySkins} skin entr${emptySkins === 1 ? "y has" : "ies have"} no frame pixels.`
+      );
+    }
+
+    if (frameSizeMismatches) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Skin frame byte counts do not match the current skin dimensions",
+        `${frameSizeMismatches} skin frame${frameSizeMismatches === 1 ? "" : "s"} do not contain exactly ${expectedPixels} indexed pixels.`
+      );
+    }
+
+    if (intervalIssues) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Animated skin intervals are incomplete or invalid",
+        `${intervalIssues} animated skin entr${intervalIssues === 1 ? "y has" : "ies have"} missing, non-finite, or non-positive interval data.`,
+        [VALIDATION_FIXES.normalizeSkinIntervals]
+      );
+    }
+
+    const hasOnseamVertices = model.stVerts.some((st) => !!st.onseam);
+    if (hasOnseamVertices && model.skinWidth % 2 !== 0) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Odd skin width with onseam vertices",
+        `Skin width ${model.skinWidth} is odd, but the mesh uses onseam texture vertices. Backface seam offsets assume a half-width split.`
+      );
+    }
+  }
+
+  function validateFrameConsistency(model, findings) {
+    let emptyFrameGroups = 0;
+    let invalidPoseRefs = 0;
+    let intervalIssues = 0;
+
+    model.topFrames.forEach((frame) => {
+      const poseIndices = Array.isArray(frame.poseIndices) ? frame.poseIndices : [];
+      if (!poseIndices.length) {
+        emptyFrameGroups += 1;
+      }
+
+      poseIndices.forEach((poseIndex) => {
+        if (!Number.isInteger(poseIndex) || poseIndex < 0 || poseIndex >= model.poses.length) {
+          invalidPoseRefs += 1;
+        }
+      });
+
+      if (frame.type === "group" || poseIndices.length > 1) {
+        const hasValidIntervals = Array.isArray(frame.intervals) &&
+          frame.intervals.length === poseIndices.length &&
+          frame.intervals.every((value) => Number.isFinite(value) && value > 0);
+        if (!hasValidIntervals) {
+          intervalIssues += 1;
+        }
+      }
+    });
+
+    if (emptyFrameGroups) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Top-level frames are missing pose assignments",
+        `${emptyFrameGroups} frame entr${emptyFrameGroups === 1 ? "y has" : "ies have"} no pose indices.`
+      );
+    }
+
+    if (invalidPoseRefs) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Frame groups reference missing poses",
+        `${invalidPoseRefs} pose reference${invalidPoseRefs === 1 ? "" : "s"} point outside the loaded pose array.`
+      );
+    }
+
+    if (intervalIssues) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Frame group intervals are incomplete or invalid",
+        `${intervalIssues} animated frame group${intervalIssues === 1 ? "" : "s"} have missing, non-finite, or non-positive interval values.`,
+        [VALIDATION_FIXES.normalizeFrameIntervals]
+      );
+    }
+  }
+
+  function validateTopologyConsistency(model, findings) {
+    let outOfBoundsSt = 0;
+    model.stVerts.forEach((st) => {
+      if (!st || !Number.isFinite(st.s) || !Number.isFinite(st.t) ||
+        st.s < 0 || st.s >= model.skinWidth ||
+        st.t < 0 || st.t >= model.skinHeight) {
+        outOfBoundsSt += 1;
+      }
+    });
+
+    let uvOutOfRange = 0;
+    if (model.render?.uvs?.length) {
+      for (let i = 0; i < model.render.uvs.length; i += 2) {
+        const u = model.render.uvs[i + 0];
+        const v = model.render.uvs[i + 1];
+        if (!Number.isFinite(u) || !Number.isFinite(v) || u < 0 || u > 1 || v < 0 || v > 1) {
+          uvOutOfRange += 1;
+        }
+      }
+    }
+
+    let invalidTriangleRefs = 0;
+    let duplicateIndexTriangles = 0;
+    let invalidFacesfront = 0;
+    const validTriangles = [];
+
+    model.triangles.forEach((triangle, triIndex) => {
+      const [a, b, c] = triangle.vertIndex || [];
+      if (triangle.facesfront !== 0 && triangle.facesfront !== 1) {
+        invalidFacesfront += 1;
+      }
+
+      const isValid = [a, b, c].every((index) => Number.isInteger(index) && index >= 0 && index < model.numVerts);
+      if (!isValid) {
+        invalidTriangleRefs += 1;
+        return;
+      }
+
+      if (a === b || b === c || c === a) {
+        duplicateIndexTriangles += 1;
+        return;
+      }
+
+      validTriangles.push([triIndex, a, b, c]);
+    });
+
+    if (outOfBoundsSt) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Texture vertices fall outside the skin bounds",
+        `${outOfBoundsSt} texture vertex${outOfBoundsSt === 1 ? "" : "es"} have s/t coordinates outside the current ${model.skinWidth} x ${model.skinHeight} skin area.`
+      );
+    }
+
+    if (uvOutOfRange) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Expanded UVs extend outside the normalized skin range",
+        `${uvOutOfRange} rendered UV coordinate pair${uvOutOfRange === 1 ? "" : "s"} fall outside 0..1, so preview and export seam mapping may clamp unexpectedly.`
+      );
+    }
+
+    if (invalidTriangleRefs) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Triangles reference vertices outside the header vertex count",
+        `${invalidTriangleRefs} triangle${invalidTriangleRefs === 1 ? "" : "s"} point outside the 0..${Math.max(model.numVerts - 1, 0)} vertex range.`
+      );
+    }
+
+    if (duplicateIndexTriangles) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Triangles contain repeated vertex indices",
+        `${duplicateIndexTriangles} triangle${duplicateIndexTriangles === 1 ? "" : "s"} reuse the same vertex index more than once, which makes them degenerate by construction.`
+      );
+    }
+
+    if (invalidFacesfront) {
+      pushValidationFinding(
+        findings,
+        "info",
+        "Triangle facesfront flags contain non-standard values",
+        `${invalidFacesfront} triangle${invalidFacesfront === 1 ? "" : "s"} use facesfront values other than 0 or 1.`
+      );
+    }
+
+    const radius = model.render?.bounds?.radius || 1;
+    const areaEpsilon = Math.max(radius * radius * 1e-10, 1e-8);
+    let degenerateHits = 0;
+    const degenerateTriangles = new Set();
+    const degeneratePoses = new Set();
+    const degenerateExamples = [];
+
+    model.poses.forEach((pose, poseIndex) => {
+      const positions = pose.positions;
+      if (!positions || positions.length < model.numVerts * 3) {
+        return;
+      }
+
+      validTriangles.forEach(([triIndex, a, b, c]) => {
+        const i0 = a * 3;
+        const i1 = b * 3;
+        const i2 = c * 3;
+        const ax = positions[i1 + 0] - positions[i0 + 0];
+        const ay = positions[i1 + 1] - positions[i0 + 1];
+        const az = positions[i1 + 2] - positions[i0 + 2];
+        const bx = positions[i2 + 0] - positions[i0 + 0];
+        const by = positions[i2 + 1] - positions[i0 + 1];
+        const bz = positions[i2 + 2] - positions[i0 + 2];
+        const crossMagnitude = Math.hypot(
+          ay * bz - az * by,
+          az * bx - ax * bz,
+          ax * by - ay * bx
+        );
+
+        if (crossMagnitude <= areaEpsilon) {
+          degenerateHits += 1;
+          degenerateTriangles.add(triIndex);
+          degeneratePoses.add(poseIndex);
+          if (degenerateExamples.length < 3) {
+            degenerateExamples.push(`tri ${triIndex}, pose ${poseIndex}`);
+          }
+        }
+      });
+    });
+
+    if (degenerateHits) {
+      const exampleText = degenerateExamples.length ? ` Examples: ${degenerateExamples.join("; ")}.` : "";
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Degenerate triangles were detected in pose geometry",
+        `${degenerateHits} degenerate triangle instance${degenerateHits === 1 ? "" : "s"} were found across ${degenerateTriangles.size} triangle${degenerateTriangles.size === 1 ? "" : "s"} and ${degeneratePoses.size} pose${degeneratePoses.size === 1 ? "" : "s"}.${exampleText}`
+      );
+    }
+  }
+
+  function validatePackedGeometry(model, findings) {
+    const stats = computePackedCoordinateStats(model);
+    const { invalidScaleAxes, invalidOriginAxes } = stats;
+
+    if (invalidScaleAxes.length) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Scale axes are invalid for MDL export",
+        `Scale values for ${invalidScaleAxes.join(", ")} are zero, near-zero, or non-finite. Packed vertices cannot be written safely.`,
+        [VALIDATION_FIXES.fitExportPacking]
+      );
+      return;
+    }
+
+    if (invalidOriginAxes.length) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Scale origin contains non-finite values",
+        `Scale origin axes ${invalidOriginAxes.join(", ")} are not finite numbers.`,
+        [VALIDATION_FIXES.fitExportPacking]
+      );
+      return;
+    }
+
+    if (stats.nonFiniteCoords) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Pose geometry contains non-finite coordinates",
+        `${stats.nonFiniteCoords} coordinate value${stats.nonFiniteCoords === 1 ? "" : "s"} are NaN or infinite.`
+      );
+    }
+
+    const clampHits = stats.underflowCounts.reduce((sum, value) => sum + value, 0) +
+      stats.overflowCounts.reduce((sum, value) => sum + value, 0);
+    if (clampHits) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Geometry falls outside the MDL 0..255 packed coordinate range",
+        `${formatPackedAxisSummary("x", stats.min[0], stats.max[0], stats.underflowCounts[0], stats.overflowCounts[0])}; ${formatPackedAxisSummary("y", stats.min[1], stats.max[1], stats.underflowCounts[1], stats.overflowCounts[1])}; ${formatPackedAxisSummary("z", stats.min[2], stats.max[2], stats.underflowCounts[2], stats.overflowCounts[2])}. Save would clamp those coordinates.`,
+        [VALIDATION_FIXES.fitExportPacking]
+      );
+    }
+  }
+
+  function computePackedCoordinateStats(model) {
+    const stats = {
+      min: [Infinity, Infinity, Infinity],
+      max: [-Infinity, -Infinity, -Infinity],
+      underflowCounts: [0, 0, 0],
+      overflowCounts: [0, 0, 0],
+      nonFiniteCoords: 0,
+      invalidScaleAxes: [],
+      invalidOriginAxes: [],
+    };
+
+    ["x", "y", "z"].forEach((axis, axisIndex) => {
+      if (!Number.isFinite(model.scale?.[axisIndex]) || Math.abs(model.scale[axisIndex]) < 1e-6) {
+        stats.invalidScaleAxes.push(axis);
+      }
+      if (!Number.isFinite(model.scaleOrigin?.[axisIndex])) {
+        stats.invalidOriginAxes.push(axis);
+      }
+    });
+
+    if (stats.invalidScaleAxes.length || stats.invalidOriginAxes.length) {
+      return stats;
+    }
+
+    model.poses.forEach((pose) => {
+      const positions = pose.positions;
+      if (!positions) {
+        return;
+      }
+
+      for (let i = 0; i < positions.length; i += 3) {
+        for (let axisIndex = 0; axisIndex < 3; axisIndex++) {
+          const value = positions[i + axisIndex];
+          if (!Number.isFinite(value)) {
+            stats.nonFiniteCoords += 1;
+            continue;
+          }
+
+          const packed = (value - model.scaleOrigin[axisIndex]) / model.scale[axisIndex];
+          stats.min[axisIndex] = Math.min(stats.min[axisIndex], packed);
+          stats.max[axisIndex] = Math.max(stats.max[axisIndex], packed);
+          if (packed < 0) {
+            stats.underflowCounts[axisIndex] += 1;
+          } else if (packed > 255) {
+            stats.overflowCounts[axisIndex] += 1;
+          }
+        }
+      }
+    });
+
+    return stats;
+  }
+
+  function describePackedCoordinateStats(stats) {
+    if (stats.invalidScaleAxes.length) {
+      return `Current packing is invalid: scale ${stats.invalidScaleAxes.join(", ")} ${stats.invalidScaleAxes.length === 1 ? "axis is" : "axes are"} zero, near-zero, or non-finite.`;
+    }
+    if (stats.invalidOriginAxes.length) {
+      return `Current packing is invalid: scale origin ${stats.invalidOriginAxes.join(", ")} ${stats.invalidOriginAxes.length === 1 ? "axis is" : "axes are"} non-finite.`;
+    }
+    if (stats.nonFiniteCoords) {
+      return `Current geometry includes ${stats.nonFiniteCoords} non-finite coordinate value${stats.nonFiniteCoords === 1 ? "" : "s"}.`;
+    }
+
+    const clampHits = stats.underflowCounts.reduce((sum, value) => sum + value, 0) +
+      stats.overflowCounts.reduce((sum, value) => sum + value, 0);
+    const summary = [
+      formatPackedAxisSummary("x", stats.min[0], stats.max[0], stats.underflowCounts[0], stats.overflowCounts[0]),
+      formatPackedAxisSummary("y", stats.min[1], stats.max[1], stats.underflowCounts[1], stats.overflowCounts[1]),
+      formatPackedAxisSummary("z", stats.min[2], stats.max[2], stats.underflowCounts[2], stats.overflowCounts[2]),
+    ].join("; ");
+
+    if (clampHits) {
+      return `Current packing would clamp geometry on save: ${summary}.`;
+    }
+    return `Current packing stays within the MDL 0..255 range: ${summary}.`;
+  }
+
+  function validateBoundingRadius(model, findings) {
+    const measuredRadius = computeModelOriginRadius(model.render.positionsByPose);
+    const headerRadius = Number(model.boundingRadius);
+
+    if (!Number.isFinite(headerRadius) || headerRadius < 0) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "Header bounding radius is invalid",
+        `Bounding radius must be a finite value >= 0. Current value is ${String(model.boundingRadius)}.`,
+        [VALIDATION_FIXES.useMeasuredRadius]
+      );
+      return;
+    }
+
+    if (headerRadius + 0.01 < measuredRadius) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Header bounding radius is smaller than the model extent",
+        `Header radius is ${formatNumber(headerRadius)}, but the measured max vertex distance from origin is ${formatNumber(measuredRadius)}.`,
+        [VALIDATION_FIXES.useMeasuredRadius]
+      );
+      return;
+    }
+
+    if (headerRadius > Math.max(measuredRadius * 1.25, measuredRadius + 8)) {
+      pushValidationFinding(
+        findings,
+        "info",
+        "Header bounding radius is much larger than necessary",
+        `Header radius is ${formatNumber(headerRadius)}, while the measured max vertex distance from origin is ${formatNumber(measuredRadius)}.`,
+        [VALIDATION_FIXES.useMeasuredRadius]
+      );
+    }
+  }
+
+  function formatPackedAxisSummary(axis, min, max, underflow, overflow) {
+    const rangeText = Number.isFinite(min) && Number.isFinite(max)
+      ? `${formatNumber(min)}..${formatNumber(max)}`
+      : "n/a";
+    const counts = [];
+    if (underflow) {
+      counts.push(`${underflow} under`);
+    }
+    if (overflow) {
+      counts.push(`${overflow} over`);
+    }
+    return `${axis} ${rangeText}${counts.length ? ` (${counts.join(", ")})` : ""}`;
   }
 
   function getSkinPaletteRangeTitle(rangeIndex) {
@@ -1964,6 +3308,7 @@
     clearSkinPaletteSelection(false);
     state.textureDirty = true;
     updateSkinStatus();
+    updateValidationPanel();
     updateSkinPaletteEditor();
 
     const scopeLabel = state.skinPaletteScope === "skin"
@@ -1987,6 +3332,28 @@
   function parseEditableNumber(value, fallback) {
     const parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function getModelBoundingRadius(model) {
+    if (!model) {
+      return 0;
+    }
+    return Math.max(0, Number.isFinite(model.boundingRadius) ? model.boundingRadius : computeModelOriginRadius(model.render.positionsByPose));
+  }
+
+  function computeModelOriginRadius(positionsByPose) {
+    let radius = 0;
+    if (!positionsByPose) {
+      return radius;
+    }
+
+    for (const positions of positionsByPose) {
+      for (let i = 0; i < positions.length; i += 3) {
+        radius = Math.max(radius, Math.hypot(positions[i + 0], positions[i + 1], positions[i + 2]));
+      }
+    }
+
+    return radius;
   }
 
   function boundsSize(bounds) {
@@ -2261,6 +3628,7 @@
       numVerts,
       numTris,
       numFrames,
+      synctype: syncType,
       syncType,
       flags,
       size,
@@ -2557,12 +3925,14 @@
     });
 
     const indices = new Uint16Array(indexList);
+    const wireframeIndices = buildWireframeIndices(indices);
     const normalsByPose = positionsByPose.map((positions) => computeSmoothNormals(positions, indices));
     const bounds = computeBounds(positionsByPose);
 
     return {
       vertexCount,
       indices,
+      wireframeIndices,
       uvs,
       positionsByPose,
       normalsByPose,
@@ -2614,6 +3984,8 @@
         poseIndices: poseEntries.map((entry) => entry.poseIndex),
         durations: poseEntries.map((entry) => entry.duration),
         poseNames: poseEntries.map((entry) => entry.name),
+        topFrameIndices: poseEntries.map((entry) => entry.topFrameIndex),
+        topFramePoseOffsets: poseEntries.map((entry) => entry.topFramePoseOffset),
       }));
     }
 
@@ -2631,12 +4003,16 @@
           poseIndices: [],
           durations: [],
           poseNames: [],
+          topFrameIndices: [],
+          topFramePoseOffsets: [],
         };
       }
 
       currentGroup.poseIndices.push(entry.poseIndex);
       currentGroup.durations.push(entry.duration);
       currentGroup.poseNames.push(entry.name);
+      currentGroup.topFrameIndices.push(entry.topFrameIndex);
+      currentGroup.topFramePoseOffsets.push(entry.topFramePoseOffset);
     });
 
     if (currentGroup) {
@@ -2652,6 +4028,8 @@
         poseIndex,
         name: pose.name || `pose_${poseIndex}`,
         duration: DEFAULT_FRAME_DURATION,
+        topFrameIndex: -1,
+        topFramePoseOffset: 0,
       }));
     }
 
@@ -2663,6 +4041,8 @@
           poseIndex,
           name: model.poses[poseIndex]?.name || frame.name || `frame_${frameIndex}_${poseOffset}`,
           duration: Math.max(durations[poseOffset] || DEFAULT_FRAME_DURATION, 0.001),
+          topFrameIndex: frameIndex,
+          topFramePoseOffset: poseOffset,
         });
       });
     });
@@ -2731,6 +4111,33 @@
       time += Math.max(group.durations[i] || DEFAULT_FRAME_DURATION, 0.001);
     }
     return time;
+  }
+
+  function buildWireframeIndices(indices) {
+    const edgeSet = new Set();
+    const lineIndices = [];
+
+    function addEdge(a, b) {
+      const min = Math.min(a, b);
+      const max = Math.max(a, b);
+      const key = `${min}:${max}`;
+      if (edgeSet.has(key)) {
+        return;
+      }
+      edgeSet.add(key);
+      lineIndices.push(min, max);
+    }
+
+    for (let i = 0; i < indices.length; i += 3) {
+      const a = indices[i + 0];
+      const b = indices[i + 1];
+      const c = indices[i + 2];
+      addEdge(a, b);
+      addEdge(b, c);
+      addEdge(c, a);
+    }
+
+    return new Uint16Array(lineIndices);
   }
 
   function computeSmoothNormals(positions, indices) {
@@ -2825,6 +4232,103 @@
     dom.objScaleZ.value = 1;
   }
 
+  function getScopedPoseIndices(render, scope) {
+    const poseIndices = [];
+    if (scope === "all") {
+      for (let i = 0; i < render.positionsByPose.length; i++) {
+        poseIndices.push(i);
+      }
+    } else {
+      const sample = getCurrentPoseSample();
+      if (sample) {
+        poseIndices.push(sample.poseA);
+        if (sample.poseB !== sample.poseA) {
+          poseIndices.push(sample.poseB);
+        }
+      }
+    }
+
+    return [...new Set(poseIndices)];
+  }
+
+  function computeScopedBounds(render, poseIndices) {
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+    poseIndices.forEach((poseIndex) => {
+      const positions = render.positionsByPose[poseIndex];
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i + 0];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
+    });
+
+    return {
+      min: [minX, minY, minZ],
+      max: [maxX, maxY, maxZ],
+      center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
+    };
+  }
+
+  function translateScopedPoses(render, poseIndices, tx, ty, tz) {
+    poseIndices.forEach((poseIndex) => {
+      const positions = render.positionsByPose[poseIndex];
+      for (let i = 0; i < positions.length; i += 3) {
+        positions[i + 0] += tx;
+        positions[i + 1] += ty;
+        positions[i + 2] += tz;
+      }
+    });
+  }
+
+  function finalizeGeometryEdit(message) {
+    rebuildRenderBounds(state.model.render);
+    populateProperties(state.model);
+    updateValidationPanel();
+    state.geometryDirty = true;
+    setSaveStatus(message);
+    resetObjectToolsInputs();
+  }
+
+  function centerModelOnOrigin() {
+    if (!state.model) {
+      return;
+    }
+
+    const render = state.model.render;
+    const poseIndices = getScopedPoseIndices(render, dom.objToolsScope.value);
+    if (!poseIndices.length) {
+      return;
+    }
+
+    const bounds = computeScopedBounds(render, poseIndices);
+    translateScopedPoses(render, poseIndices, -bounds.center[0], -bounds.center[1], -bounds.center[2]);
+    finalizeGeometryEdit("Centered selected scope on origin. Save .mdl to export changes.");
+  }
+
+  function alignModelToGround() {
+    if (!state.model) {
+      return;
+    }
+
+    const render = state.model.render;
+    const poseIndices = getScopedPoseIndices(render, dom.objToolsScope.value);
+    if (!poseIndices.length) {
+      return;
+    }
+
+    const bounds = computeScopedBounds(render, poseIndices);
+    translateScopedPoses(render, poseIndices, 0, 0, -bounds.min[2]);
+    finalizeGeometryEdit("Aligned selected scope to ground. Save .mdl to export changes.");
+  }
+
   function applyObjectTransform() {
     if (!state.model) {
       return;
@@ -2853,31 +4357,17 @@
 
     const scope = dom.objToolsScope.value;
     const render = state.model.render;
-    const bounds = render.bounds;
+    const poseIndices = getScopedPoseIndices(render, scope);
+    if (!poseIndices.length) {
+      return;
+    }
+
+    const bounds = computeScopedBounds(render, poseIndices);
     const cx = bounds.center[0];
     const cy = bounds.center[1];
     const cz = bounds.center[2];
 
-    const poseIndices = [];
-    if (scope === "all") {
-      for (let i = 0; i < render.positionsByPose.length; i++) {
-        poseIndices.push(i);
-      }
-    } else {
-      const sample = getCurrentPoseSample();
-      if (sample) {
-        poseIndices.push(sample.poseA);
-        if (sample.poseB !== sample.poseA) {
-          poseIndices.push(sample.poseB);
-        }
-      }
-    }
-
-    const seen = new Set();
     for (const poseIndex of poseIndices) {
-      if (seen.has(poseIndex)) continue;
-      seen.add(poseIndex);
-
       const positions = render.positionsByPose[poseIndex];
       const normals = render.normalsByPose[poseIndex];
 
@@ -2925,9 +4415,7 @@
       }
     }
 
-    rebuildRenderBounds(render);
-    state.geometryDirty = true;
-    resetObjectToolsInputs();
+    finalizeGeometryEdit("Transform applied. Save .mdl to export changes.");
   }
 
   function rebuildRenderBounds(render) {
@@ -2996,8 +4484,11 @@
       precision mediump float;
 
       uniform sampler2D u_texture;
+      uniform sampler2D u_fullbright_texture;
       uniform vec4 u_flat_color;
+      uniform float u_alpha;
       uniform float u_use_texture;
+      uniform float u_use_fullbright;
 
       varying vec2 v_uv;
       varying float v_light;
@@ -3006,12 +4497,18 @@
         vec4 base = u_use_texture > 0.5
           ? texture2D(u_texture, v_uv)
           : u_flat_color;
+        vec4 fullbright = (u_use_texture > 0.5 && u_use_fullbright > 0.5)
+          ? texture2D(u_fullbright_texture, v_uv)
+          : vec4(0.0);
 
-        if (base.a < 0.01) {
+        float alpha = max(base.a, fullbright.a);
+        if (alpha < 0.01) {
           discard;
         }
 
-        gl_FragColor = vec4(base.rgb * v_light, base.a);
+        vec3 lit = base.rgb * v_light;
+        vec3 color = mix(lit, fullbright.rgb, fullbright.a);
+        gl_FragColor = vec4(color, alpha * u_alpha);
       }
     `);
 
@@ -3019,10 +4516,15 @@
 
     const buffers = {
       position: gl.createBuffer(),
+      shadowPosition: gl.createBuffer(),
       normal: gl.createBuffer(),
       uv: gl.createBuffer(),
       index: gl.createBuffer(),
+      wireframeIndex: gl.createBuffer(),
+      flatPosition: gl.createBuffer(),
+      flatNormal: gl.createBuffer(),
       texture: gl.createTexture(),
+      fullbrightTexture: gl.createTexture(),
     };
 
     gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
@@ -3031,6 +4533,13 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     uploadSolidTexture(gl, buffers.texture, [180, 180, 180, 255]);
+
+    gl.bindTexture(gl.TEXTURE_2D, buffers.fullbrightTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    uploadSolidTexture(gl, buffers.fullbrightTexture, [0, 0, 0, 0]);
 
     const gridProgram = createProgram(gl, `
       attribute vec3 a_position;
@@ -3058,6 +4567,24 @@
     gl.bindBuffer(gl.ARRAY_BUFFER, gridColorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, gridData.colors, gl.STATIC_DRAW);
 
+    const overlayProgram = createProgram(gl, `
+      attribute vec3 a_position;
+      uniform mat4 u_mvp;
+      uniform float u_point_size;
+      void main(void) {
+        gl_Position = u_mvp * vec4(a_position, 1.0);
+        gl_PointSize = u_point_size;
+      }
+    `, `
+      precision mediump float;
+      uniform vec4 u_color;
+      void main(void) {
+        if (u_color.a < 0.01) discard;
+        gl_FragColor = u_color;
+      }
+    `);
+    const overlayPositionBuffer = gl.createBuffer();
+
     state.gl = {
       gl,
       program,
@@ -3073,8 +4600,11 @@
         direct: gl.getUniformLocation(program, "u_direct"),
         hemi: gl.getUniformLocation(program, "u_hemi"),
         texture: gl.getUniformLocation(program, "u_texture"),
+        fullbrightTexture: gl.getUniformLocation(program, "u_fullbright_texture"),
         flatColor: gl.getUniformLocation(program, "u_flat_color"),
+        alpha: gl.getUniformLocation(program, "u_alpha"),
         useTexture: gl.getUniformLocation(program, "u_use_texture"),
+        useFullbright: gl.getUniformLocation(program, "u_use_fullbright"),
       },
       buffers,
       grid: {
@@ -3091,8 +4621,23 @@
         vertexCount: gridData.vertexCount,
         gridVertexCount: gridData.gridVertexCount,
       },
+      overlay: {
+        program: overlayProgram,
+        attribs: {
+          position: gl.getAttribLocation(overlayProgram, "a_position"),
+        },
+        uniforms: {
+          mvp: gl.getUniformLocation(overlayProgram, "u_mvp"),
+          color: gl.getUniformLocation(overlayProgram, "u_color"),
+          pointSize: gl.getUniformLocation(overlayProgram, "u_point_size"),
+        },
+        positionBuffer: overlayPositionBuffer,
+      },
       scratchPositions: null,
+      shadowScratchPositions: null,
       scratchNormals: null,
+      flatScratchPositions: null,
+      flatScratchNormals: null,
       currentTextureKey: "",
       currentTextureFrame: -1,
     };
@@ -3171,10 +4716,14 @@
     const render = state.model.render;
 
     state.gl.scratchPositions = new Float32Array(render.vertexCount * 3);
+    state.gl.shadowScratchPositions = new Float32Array(render.vertexCount * 3);
     state.gl.scratchNormals = new Float32Array(render.vertexCount * 3);
+    state.gl.flatScratchPositions = new Float32Array(render.indices.length * 3);
+    state.gl.flatScratchNormals = new Float32Array(render.indices.length * 3);
 
     gl.useProgram(state.gl.program);
     gl.uniform1i(uniforms.texture, 0);
+    gl.uniform1i(uniforms.fullbrightTexture, 1);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
     gl.bufferData(gl.ARRAY_BUFFER, render.uvs, gl.STATIC_DRAW);
@@ -3183,6 +4732,9 @@
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, render.indices, gl.STATIC_DRAW);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.wireframeIndex);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, render.wireframeIndices, gl.STATIC_DRAW);
   }
 
   function frame(now) {
@@ -3209,7 +4761,7 @@
 
     resizeCanvas(glState.gl, dom.canvas);
 
-    const { gl, buffers, attribs, uniforms } = glState;
+    const { gl } = glState;
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.enable(gl.DEPTH_TEST);
     if (state.bgMode === "white") {
@@ -3222,12 +4774,14 @@
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const hasModel = !!state.model;
+    let overlayGeometry = null;
 
     if (hasModel) {
       const sample = getCurrentPoseSample();
       uploadInterpolatedGeometry(sample);
       updateTextureIfNeeded();
       updatePlaybackLabels(sample);
+      overlayGeometry = buildOverlayGeometry(glState);
     }
 
     const viewports = getViewportDescriptors(gl.canvas);
@@ -3238,26 +4792,8 @@
     }
 
     if (hasModel) {
-      gl.useProgram(glState.program);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-      gl.enableVertexAttribArray(attribs.position);
-      gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
-      gl.enableVertexAttribArray(attribs.normal);
-      gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
-      gl.enableVertexAttribArray(attribs.uv);
-      gl.vertexAttribPointer(attribs.uv, 2, gl.FLOAT, false, 0, 0);
-
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
-
       viewports.forEach((viewport) => {
-        renderViewport(glState, uniforms, viewport);
+        renderViewport(glState, viewport, overlayGeometry);
       });
     }
   }
@@ -3297,7 +4833,27 @@
     gl.disable(gl.BLEND);
   }
 
-  function renderViewport(glState, uniforms, viewport) {
+  function buildOverlayGeometry(glState) {
+    const geometry = {};
+    if (state.renderMode === "flat") {
+      updateFlatShadedBuffers(glState);
+    }
+    if (state.showBoundsOverlay) {
+      geometry.boundsLines = buildBoundsLinePositions(computePositionsBounds(glState.scratchPositions));
+    }
+    if (state.showBoundingRadius) {
+      geometry.radiusLines = buildBoundingRadiusRingPositions(getModelBoundingRadius(state.model));
+    }
+    if (state.showEyePosition) {
+      geometry.eyeLines = buildEyeMarkerPositions(state.model.eyePosition, state.model.render.bounds.radius);
+    }
+    if (state.showNormals) {
+      geometry.normalLines = buildNormalLinePositions(glState.scratchPositions, glState.scratchNormals, state.model.render.bounds.radius);
+    }
+    return geometry;
+  }
+
+  function renderViewport(glState, viewport, overlayGeometry) {
     const { gl } = glState;
     if (!viewport || viewport.width < 2 || viewport.height < 2) {
       return;
@@ -3310,19 +4866,382 @@
     const mvp = mat4Multiply(projection, view);
 
     gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-    gl.uniformMatrix4fv(uniforms.mvp, false, mvp);
+    const lightDir = getCurrentLightDirection();
+
+    if (state.drawShadows && updateShadowBuffer(glState, lightDir)) {
+      drawShadowPass(glState, mvp);
+    }
+
+    if (state.renderMode === "wireframe") {
+      drawWireframePass(glState, mvp, [0.95, 0.97, 1.0, Math.max(state.modelOpacity, 0.5)]);
+    } else {
+      drawMeshPass(glState, mvp, lightDir, state.wireframeOverlay);
+      if (state.wireframeOverlay) {
+        drawWireframePass(glState, mvp, [0.52, 0.92, 1.0, 0.92]);
+      }
+    }
+
+    if (overlayGeometry?.boundsLines?.length) {
+      drawOverlayLines(glState, mvp, overlayGeometry.boundsLines, [1.0, 0.88, 0.28, 0.92], false);
+    }
+    if (overlayGeometry?.radiusLines?.length) {
+      drawOverlayLines(glState, mvp, overlayGeometry.radiusLines, [0.82, 0.7, 1.0, 0.88], false);
+    }
+    if (overlayGeometry?.eyeLines?.length) {
+      drawOverlayLines(glState, mvp, overlayGeometry.eyeLines, [1.0, 0.36, 0.78, 0.95], false);
+    }
+    if (overlayGeometry?.normalLines?.length) {
+      drawOverlayLines(glState, mvp, overlayGeometry.normalLines, [0.42, 0.96, 0.86, 0.72], true);
+    }
+  }
+
+  function getCurrentLightDirection() {
     const azRad = state.lightAzimuth * Math.PI / 180;
     const elRad = state.lightElevation * Math.PI / 180;
-    const lx = Math.cos(elRad) * Math.cos(azRad);
-    const ly = Math.cos(elRad) * Math.sin(azRad);
-    const lz = Math.sin(elRad);
-    gl.uniform3f(uniforms.lightDir, lx, ly, lz);
+    return [
+      Math.cos(elRad) * Math.cos(azRad),
+      Math.cos(elRad) * Math.sin(azRad),
+      Math.sin(elRad),
+    ];
+  }
+
+  function drawMeshPass(glState, mvp, lightDir, offsetMesh) {
+    const { gl, program, attribs, uniforms, buffers } = glState;
+    gl.useProgram(program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.fullbrightTexture);
+    gl.uniformMatrix4fv(uniforms.mvp, false, mvp);
+    gl.uniform3f(uniforms.lightDir, lightDir[0], lightDir[1], lightDir[2]);
     gl.uniform1f(uniforms.ambient, state.lightAmbient);
     gl.uniform1f(uniforms.direct, state.lightDirect);
     gl.uniform1f(uniforms.hemi, state.lightHemi);
-    gl.uniform4f(uniforms.flatColor, 0.72, 0.72, 0.72, 1);
-    gl.uniform1f(uniforms.useTexture, state.paletteRGBA ? 1 : 0);
+    gl.uniform4f(uniforms.flatColor, 0.76, 0.78, 0.82, 1);
+    gl.uniform1f(uniforms.alpha, state.modelOpacity);
+    gl.uniform1f(uniforms.useTexture, state.renderMode === "textured" && state.paletteRGBA ? 1 : 0);
+    gl.uniform1f(uniforms.useFullbright, state.renderMode === "textured" && state.paletteRGBA && state.previewFullbrights ? 1 : 0);
+
+    if (state.backfaceCulling) {
+      gl.enable(gl.CULL_FACE);
+      gl.cullFace(gl.BACK);
+    } else {
+      gl.disable(gl.CULL_FACE);
+    }
+
+    if (state.modelOpacity < 0.999) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+    } else {
+      gl.disable(gl.BLEND);
+      gl.depthMask(true);
+    }
+
+    if (offsetMesh) {
+      gl.enable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(1, 1);
+    }
+
+    if (state.renderMode === "flat") {
+      gl.disableVertexAttribArray(attribs.uv);
+      gl.vertexAttrib2f(attribs.uv, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.flatPosition);
+      gl.enableVertexAttribArray(attribs.position);
+      gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.flatNormal);
+      gl.enableVertexAttribArray(attribs.normal);
+      gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+      gl.drawArrays(gl.TRIANGLES, 0, state.model.render.indices.length);
+    } else {
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.uv);
+      gl.enableVertexAttribArray(attribs.uv);
+      gl.vertexAttribPointer(attribs.uv, 2, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+      gl.enableVertexAttribArray(attribs.position);
+      gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+      gl.enableVertexAttribArray(attribs.normal);
+      gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+      gl.drawElements(gl.TRIANGLES, state.model.render.indices.length, gl.UNSIGNED_SHORT, 0);
+    }
+
+    if (offsetMesh) {
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+    }
+    gl.disable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  }
+
+  function updateShadowBuffer(glState, lightDir) {
+    if (lightDir[2] <= 0.05) {
+      return false;
+    }
+
+    const source = glState.scratchPositions;
+    const out = glState.shadowScratchPositions;
+    const castX = -lightDir[0];
+    const castY = -lightDir[1];
+    const castZ = -lightDir[2];
+    const safeCastZ = Math.abs(castZ) < 0.05 ? (castZ < 0 ? -0.05 : 0.05) : castZ;
+    const groundZ = 0.03;
+
+    for (let i = 0; i < source.length; i += 3) {
+      const px = source[i + 0];
+      const py = source[i + 1];
+      const pz = source[i + 2];
+      const t = (groundZ - pz) / safeCastZ;
+      out[i + 0] = px + castX * t;
+      out[i + 1] = py + castY * t;
+      out[i + 2] = groundZ;
+    }
+
+    glState.gl.bindBuffer(glState.gl.ARRAY_BUFFER, glState.buffers.shadowPosition);
+    glState.gl.bufferData(glState.gl.ARRAY_BUFFER, out, glState.gl.DYNAMIC_DRAW);
+    return true;
+  }
+
+  function drawShadowPass(glState, mvp) {
+    const { gl, program, attribs, uniforms, buffers } = glState;
+    gl.useProgram(program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.fullbrightTexture);
+    gl.uniformMatrix4fv(uniforms.mvp, false, mvp);
+    gl.uniform3f(uniforms.lightDir, 0, 0, 1);
+    gl.uniform1f(uniforms.ambient, 1);
+    gl.uniform1f(uniforms.direct, 0);
+    gl.uniform1f(uniforms.hemi, 0);
+    gl.uniform4f(uniforms.flatColor, 0.03, 0.04, 0.06, 1);
+    gl.uniform1f(uniforms.alpha, 0.26);
+    gl.uniform1f(uniforms.useTexture, 0);
+    gl.uniform1f(uniforms.useFullbright, 0);
+
+    gl.disableVertexAttribArray(attribs.uv);
+    gl.vertexAttrib2f(attribs.uv, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.shadowPosition);
+    gl.enableVertexAttribArray(attribs.position);
+    gl.vertexAttribPointer(attribs.position, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+    gl.enableVertexAttribArray(attribs.normal);
+    gl.vertexAttribPointer(attribs.normal, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
     gl.drawElements(gl.TRIANGLES, state.model.render.indices.length, gl.UNSIGNED_SHORT, 0);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  }
+
+  function drawWireframePass(glState, mvp, color) {
+    const { gl, overlay, buffers } = glState;
+    gl.useProgram(overlay.program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.enableVertexAttribArray(overlay.attribs.position);
+    gl.vertexAttribPointer(overlay.attribs.position, 3, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.wireframeIndex);
+    gl.uniformMatrix4fv(overlay.uniforms.mvp, false, mvp);
+    gl.uniform4f(overlay.uniforms.color, color[0], color[1], color[2], color[3]);
+    gl.uniform1f(overlay.uniforms.pointSize, 1);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.drawElements(gl.LINES, state.model.render.wireframeIndices.length, gl.UNSIGNED_SHORT, 0);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  }
+
+  function drawOverlayLines(glState, mvp, positions, color, depthTest) {
+    if (!positions?.length) {
+      return;
+    }
+
+    const { gl, overlay } = glState;
+    gl.useProgram(overlay.program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, overlay.positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(overlay.attribs.position);
+    gl.vertexAttribPointer(overlay.attribs.position, 3, gl.FLOAT, false, 0, 0);
+    gl.uniformMatrix4fv(overlay.uniforms.mvp, false, mvp);
+    gl.uniform4f(overlay.uniforms.color, color[0], color[1], color[2], color[3]);
+    gl.uniform1f(overlay.uniforms.pointSize, 1);
+    if (depthTest) {
+      gl.enable(gl.DEPTH_TEST);
+    } else {
+      gl.disable(gl.DEPTH_TEST);
+    }
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.drawArrays(gl.LINES, 0, positions.length / 3);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+  }
+
+  function updateFlatShadedBuffers(glState) {
+    const render = state.model.render;
+    const outPositions = glState.flatScratchPositions;
+    const outNormals = glState.flatScratchNormals;
+    const sourcePositions = glState.scratchPositions;
+    const indices = render.indices;
+
+    for (let tri = 0, out = 0; tri < indices.length; tri += 3) {
+      const i0 = indices[tri + 0] * 3;
+      const i1 = indices[tri + 1] * 3;
+      const i2 = indices[tri + 2] * 3;
+
+      const ax = sourcePositions[i1 + 0] - sourcePositions[i0 + 0];
+      const ay = sourcePositions[i1 + 1] - sourcePositions[i0 + 1];
+      const az = sourcePositions[i1 + 2] - sourcePositions[i0 + 2];
+      const bx = sourcePositions[i2 + 0] - sourcePositions[i0 + 0];
+      const by = sourcePositions[i2 + 1] - sourcePositions[i0 + 1];
+      const bz = sourcePositions[i2 + 2] - sourcePositions[i0 + 2];
+      const nxRaw = ay * bz - az * by;
+      const nyRaw = az * bx - ax * bz;
+      const nzRaw = ax * by - ay * bx;
+      const length = Math.hypot(nxRaw, nyRaw, nzRaw) || 1;
+      const nx = nxRaw / length;
+      const ny = nyRaw / length;
+      const nz = nzRaw / length;
+
+      for (const sourceIndex of [i0, i1, i2]) {
+        outPositions[out + 0] = sourcePositions[sourceIndex + 0];
+        outPositions[out + 1] = sourcePositions[sourceIndex + 1];
+        outPositions[out + 2] = sourcePositions[sourceIndex + 2];
+        outNormals[out + 0] = nx;
+        outNormals[out + 1] = ny;
+        outNormals[out + 2] = nz;
+        out += 3;
+      }
+    }
+
+    glState.gl.bindBuffer(glState.gl.ARRAY_BUFFER, glState.buffers.flatPosition);
+    glState.gl.bufferData(glState.gl.ARRAY_BUFFER, outPositions, glState.gl.DYNAMIC_DRAW);
+    glState.gl.bindBuffer(glState.gl.ARRAY_BUFFER, glState.buffers.flatNormal);
+    glState.gl.bufferData(glState.gl.ARRAY_BUFFER, outNormals, glState.gl.DYNAMIC_DRAW);
+  }
+
+  function computePositionsBounds(positions) {
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i + 0];
+      const y = positions[i + 1];
+      const z = positions[i + 2];
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+
+    return {
+      min: [minX, minY, minZ],
+      max: [maxX, maxY, maxZ],
+    };
+  }
+
+  function buildBoundsLinePositions(bounds) {
+    const [minX, minY, minZ] = bounds.min;
+    const [maxX, maxY, maxZ] = bounds.max;
+    return new Float32Array([
+      minX, minY, minZ, maxX, minY, minZ,
+      maxX, minY, minZ, maxX, maxY, minZ,
+      maxX, maxY, minZ, minX, maxY, minZ,
+      minX, maxY, minZ, minX, minY, minZ,
+
+      minX, minY, maxZ, maxX, minY, maxZ,
+      maxX, minY, maxZ, maxX, maxY, maxZ,
+      maxX, maxY, maxZ, minX, maxY, maxZ,
+      minX, maxY, maxZ, minX, minY, maxZ,
+
+      minX, minY, minZ, minX, minY, maxZ,
+      maxX, minY, minZ, maxX, minY, maxZ,
+      maxX, maxY, minZ, maxX, maxY, maxZ,
+      minX, maxY, minZ, minX, maxY, maxZ,
+    ]);
+  }
+
+  function buildBoundingRadiusRingPositions(radius) {
+    if (!(radius > 0)) {
+      return new Float32Array(0);
+    }
+
+    const segments = 48;
+    const vertices = [];
+
+    function pushSegment(x0, y0, z0, x1, y1, z1) {
+      vertices.push(x0, y0, z0, x1, y1, z1);
+    }
+
+    for (let i = 0; i < segments; i++) {
+      const a0 = (i / segments) * Math.PI * 2;
+      const a1 = ((i + 1) / segments) * Math.PI * 2;
+      const c0 = Math.cos(a0) * radius;
+      const s0 = Math.sin(a0) * radius;
+      const c1 = Math.cos(a1) * radius;
+      const s1 = Math.sin(a1) * radius;
+
+      pushSegment(c0, s0, 0, c1, s1, 0);
+      pushSegment(c0, 0, s0, c1, 0, s1);
+      pushSegment(0, c0, s0, 0, c1, s1);
+    }
+
+    return new Float32Array(vertices);
+  }
+
+  function buildEyeMarkerPositions(eyePosition, radius) {
+    const x = eyePosition[0] || 0;
+    const y = eyePosition[1] || 0;
+    const z = eyePosition[2] || 0;
+    const length = Math.max(radius * 0.06, 2.5);
+    return new Float32Array([
+      x - length, y, z, x + length, y, z,
+      x, y - length, z, x, y + length, z,
+      x, y, z - length, x, y, z + length,
+    ]);
+  }
+
+  function buildNormalLinePositions(positions, normals, radius) {
+    const vertexStride = positions.length > 24000 ? 2 : 1;
+    const lineLength = Math.max(radius * 0.035, 1.5);
+    const lineCount = Math.ceil((positions.length / 3) / vertexStride);
+    const out = new Float32Array(lineCount * 6);
+    let outIndex = 0;
+
+    for (let i = 0; i < positions.length; i += 3 * vertexStride) {
+      const px = positions[i + 0];
+      const py = positions[i + 1];
+      const pz = positions[i + 2];
+      const nx = normals[i + 0];
+      const ny = normals[i + 1];
+      const nz = normals[i + 2];
+
+      out[outIndex + 0] = px;
+      out[outIndex + 1] = py;
+      out[outIndex + 2] = pz;
+      out[outIndex + 3] = px + nx * lineLength;
+      out[outIndex + 4] = py + ny * lineLength;
+      out[outIndex + 5] = pz + nz * lineLength;
+      outIndex += 6;
+    }
+
+    return out;
   }
 
   function getViewportDescriptors(canvas) {
@@ -3518,10 +5437,14 @@
     }
 
     const { gl, buffers } = state.gl;
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.fullbrightTexture);
 
     if (!state.paletteRGBA) {
       uploadSolidTexture(gl, buffers.texture, [180, 180, 180, 255]);
+      uploadSolidTexture(gl, buffers.fullbrightTexture, [0, 0, 0, 0]);
       clearSkinPreview();
       dom.skinStatus.textContent = "Palette not loaded, rendering with flat gray";
       state.gl.currentTextureKey = textureKey;
@@ -3533,10 +5456,12 @@
     const skin = state.model.skins[state.selectedSkinIndex];
     const indexed = skin.frames[skinFrameIndex];
     const translatedPalette = buildDisplayPalette(state.paletteRGBA, state.recolorEnabled, state.topColor, state.bottomColor);
-    const rgba = indexedToRgba(indexed, translatedPalette);
+    const textures = indexedToPreviewTextures(indexed, translatedPalette);
 
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.texture);
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -3546,10 +5471,24 @@
       0,
       gl.RGBA,
       gl.UNSIGNED_BYTE,
-      rgba
+      textures.base
     );
 
-    drawSkinPreview(rgba, state.model.skinWidth, state.model.skinHeight);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, buffers.fullbrightTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      state.model.skinWidth,
+      state.model.skinHeight,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      textures.fullbright
+    );
+
+    drawSkinPreview(textures.base, state.model.skinWidth, state.model.skinHeight);
     updateSkinStatus();
 
     state.gl.currentTextureKey = textureKey;
@@ -3630,16 +5569,25 @@
     outPalette[destinationIndex * 4 + 3] = sourcePalette[sourceIndex * 4 + 3];
   }
 
-  function indexedToRgba(indexed, palette) {
-    const rgba = new Uint8Array(indexed.length * 4);
+  function indexedToPreviewTextures(indexed, palette) {
+    const base = new Uint8Array(indexed.length * 4);
+    const fullbright = new Uint8Array(indexed.length * 4);
     for (let i = 0; i < indexed.length; i++) {
       const paletteIndex = indexed[i];
-      rgba[i * 4 + 0] = palette[paletteIndex * 4 + 0];
-      rgba[i * 4 + 1] = palette[paletteIndex * 4 + 1];
-      rgba[i * 4 + 2] = palette[paletteIndex * 4 + 2];
-      rgba[i * 4 + 3] = palette[paletteIndex * 4 + 3];
+      const offset = i * 4;
+      base[offset + 0] = palette[paletteIndex * 4 + 0];
+      base[offset + 1] = palette[paletteIndex * 4 + 1];
+      base[offset + 2] = palette[paletteIndex * 4 + 2];
+      base[offset + 3] = palette[paletteIndex * 4 + 3];
+
+      if (paletteIndex >= 224 && paletteIndex <= 254 && base[offset + 3] > 0) {
+        fullbright[offset + 0] = base[offset + 0];
+        fullbright[offset + 1] = base[offset + 1];
+        fullbright[offset + 2] = base[offset + 2];
+        fullbright[offset + 3] = 255;
+      }
     }
-    return rgba;
+    return { base, fullbright };
   }
 
   function drawSkinPreview(rgba, width, height) {
@@ -3658,35 +5606,40 @@
       skinPreviewContext.drawImage(tmp, 0, 0, width * scale, height * scale);
     }
     if (state.showSkinPolys && state.model) {
-      drawSkinPolyOverlay(state.model, scale);
+      drawSkinPolyOverlay(state.model, scale, skinPreviewContext);
     }
     updateSkinPaletteEditor();
   }
 
-  function drawSkinPolyOverlay(model, scale) {
+  function drawSkinPolyOverlay(model, scale, context, options = {}) {
     if (!model.triangles?.length || !model.stVerts?.length) {
       return;
     }
 
-    const shadowWidth = Math.max(1.5, scale * 1.2);
-    const lineWidth = Math.max(0.9, scale * 0.7);
+    const target = context || skinPreviewContext;
+    const shadowColor = options.shadowColor || "rgba(7, 10, 14, 0.95)";
+    const lineColor = options.lineColor || "rgba(248, 250, 252, 0.92)";
+    const shadowScale = options.shadowScale || 1.2;
+    const lineScale = options.lineScale || 0.7;
+    const shadowWidth = Math.max(1.5, scale * shadowScale);
+    const lineWidth = Math.max(0.9, scale * lineScale);
 
-    skinPreviewContext.save();
-    skinPreviewContext.scale(scale, scale);
-    skinPreviewContext.lineJoin = "round";
-    skinPreviewContext.lineCap = "round";
+    target.save();
+    target.scale(scale, scale);
+    target.lineJoin = "round";
+    target.lineCap = "round";
 
-    skinPreviewContext.strokeStyle = "rgba(7, 10, 14, 0.95)";
-    skinPreviewContext.lineWidth = shadowWidth / scale;
-    appendSkinPolyPath(skinPreviewContext, model);
-    skinPreviewContext.stroke();
+    target.strokeStyle = shadowColor;
+    target.lineWidth = shadowWidth / scale;
+    appendSkinPolyPath(target, model);
+    target.stroke();
 
-    skinPreviewContext.strokeStyle = "rgba(248, 250, 252, 0.92)";
-    skinPreviewContext.lineWidth = lineWidth / scale;
-    appendSkinPolyPath(skinPreviewContext, model);
-    skinPreviewContext.stroke();
+    target.strokeStyle = lineColor;
+    target.lineWidth = lineWidth / scale;
+    appendSkinPolyPath(target, model);
+    target.stroke();
 
-    skinPreviewContext.restore();
+    target.restore();
   }
 
   function appendSkinPolyPath(context, model) {

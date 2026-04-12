@@ -41,7 +41,11 @@
         </summary>
         <div class="panel-collapsible-content">
           <div class="skin-actions">
-            <button id="import-skin-button" type="button">Import Skin</button>
+            <div class="control-row">
+              <button id="import-skin-button" type="button">Import Skin</button>
+              <button id="export-skin-lmp-button" type="button">Export .lmp</button>
+              <button id="export-uv-png-button" type="button">Export UV .png</button>
+            </div>
             <label class="checkbox skin-option">
               <input id="skin-poly-toggle" type="checkbox">
               <span>Show skin polys</span>
@@ -179,12 +183,11 @@
             </select>
           </div>
 
-          <div class="obj-tools-scope-row">
-            <label for="obj-tools-mode">Mode</label>
-            <select id="obj-tools-mode">
-              <option value="relative">Relative</option>
-              <option value="absolute">Absolute</option>
-            </select>
+          <p class="hint">Transforms are baked into vertex data and applied relative to the selected scope.</p>
+
+          <div class="control-row">
+            <button id="obj-center-origin" type="button">Center On Origin</button>
+            <button id="obj-align-ground" type="button">Align To Ground</button>
           </div>
 
           <div class="control-row">
@@ -213,6 +216,76 @@
 
           <label for="light-hemi-range">Hemisphere <span id="light-hemi-value">1.00</span></label>
           <input id="light-hemi-range" type="range" min="0" max="1" step="0.01" value="1">
+        </div>
+      </details>
+
+      <details id="display-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Display</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <label for="render-mode-select">Render Mode</label>
+          <select id="render-mode-select">
+            <option value="textured">Texture Shaded</option>
+            <option value="smooth">Smooth Shaded</option>
+            <option value="flat">Flat Shaded</option>
+            <option value="wireframe">Wireframe</option>
+          </select>
+
+          <label for="opacity-range">Opacity <span id="opacity-value">1.00</span></label>
+          <input id="opacity-range" type="range" min="0.1" max="1" step="0.01" value="1">
+
+          <div class="display-toggle-grid">
+            <label class="checkbox">
+              <input id="backface-cull-toggle" type="checkbox">
+              <span>Backface Culling</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="draw-shadows-toggle" type="checkbox">
+              <span>Draw Shadows</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="wireframe-overlay-toggle" type="checkbox">
+              <span>Wireframe Overlay</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="show-eye-toggle" type="checkbox">
+              <span>Show Eye Position</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="show-bounds-toggle" type="checkbox">
+              <span>Show Bounds</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="show-radius-toggle" type="checkbox">
+              <span>Show Bounding Radius</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="fullbright-toggle" type="checkbox" checked>
+              <span>Preview Fullbrights</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="show-normals-toggle" type="checkbox">
+              <span>Show Normals</span>
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details id="validation-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Validation</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <div id="validation-summary" class="validation-summary hint">No model loaded.</div>
+          <div id="validation-list" class="validation-list" aria-live="polite"></div>
         </div>
       </details>
 
@@ -245,6 +318,29 @@
             <input id="frame-input" type="number" min="1" max="1" step="1" value="1" aria-label="Pose number">
           </div>
           <div id="frame-name" class="hint">No frame selected</div>
+
+          <div class="animation-editor">
+            <h3>Animation Editor</h3>
+            <div class="property-edit-grid">
+              <label class="property-input-row">
+                <span class="property-input-label">Sequence</span>
+                <input id="anim-sequence-name" type="text" spellcheck="false" autocomplete="off">
+              </label>
+              <label class="property-input-row">
+                <span class="property-input-label">Pose Name</span>
+                <input id="anim-pose-name" type="text" spellcheck="false" autocomplete="off">
+              </label>
+              <label class="property-input-row">
+                <span class="property-input-label">Duration</span>
+                <input id="anim-pose-duration" type="number" min="0.001" step="0.001">
+              </label>
+            </div>
+            <div class="control-row">
+              <button id="anim-apply-pose" type="button">Apply Pose</button>
+              <button id="anim-rename-sequence" type="button">Rename Sequence</button>
+            </div>
+            <div id="anim-editor-status" class="hint">Select a frame to edit names and timing.</div>
+          </div>
 
           <label class="checkbox">
             <input id="interpolate-toggle" type="checkbox" checked>
