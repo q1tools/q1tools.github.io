@@ -1249,6 +1249,54 @@ label.obj-tools-axis.axis-z { color: var(--axis-z); }
   margin-top: 0;
 }
 
+.svg-import-settings h3 {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.svg-import-grid {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 4px 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.svg-import-grid label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.svg-import-grid input[type="number"],
+.svg-import-grid select {
+  width: 100%;
+  margin-top: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(18, 24, 33, 0.8);
+  color: var(--text);
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.svg-import-grid input[type="number"]:focus,
+.svg-import-grid select:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(95, 214, 224, 0.15);
+}
+
+.svg-import-settings .control-row {
+  margin-top: 12px;
+}
+
 .properties-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

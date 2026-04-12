@@ -187,6 +187,16 @@
     bgDark: document.getElementById("bg-dark"),
     bgWhite: document.getElementById("bg-white"),
     bgGrid: document.getElementById("bg-grid"),
+    svgImportPanel: document.getElementById("svg-import-panel"),
+    svgImportInput: document.getElementById("svg-import-input"),
+    svgThickness: document.getElementById("svg-thickness"),
+    svgBevelWidth: document.getElementById("svg-bevel-width"),
+    svgBevelSegments: document.getElementById("svg-bevel-segments"),
+    svgSkinWidth: document.getElementById("svg-skin-width"),
+    svgSkinHeight: document.getElementById("svg-skin-height"),
+    svgModelScale: document.getElementById("svg-model-scale"),
+    svgImportGenerate: document.getElementById("svg-import-generate"),
+    svgImportStatus: document.getElementById("svg-import-status"),
   };
 
   const skinPreviewContext = dom.skinPreview.getContext("2d", { alpha: true });
@@ -238,6 +248,8 @@
     bottomColor: 0,
     textureDirty: true,
     geometryDirty: true,
+    svgPendingText: null,
+    svgPendingName: "",
     currentSkinFrameIndex: 0,
     drag: null,
     resizingSidebar: null,
@@ -447,6 +459,18 @@
 
     dom.exportUvPngButton.addEventListener("click", async () => {
       await exportCurrentUvAsPng();
+    });
+
+    dom.svgImportInput.addEventListener("change", async (event) => {
+      const [file] = Array.from(event.target.files || []);
+      if (file) {
+        await loadSvgFile(file);
+      }
+      dom.svgImportInput.value = "";
+    });
+
+    dom.svgImportGenerate.addEventListener("click", () => {
+      generateModelFromPendingSvg();
     });
 
     dom.renderModeSelect.addEventListener("change", () => {
@@ -767,7 +791,11 @@
         const bytes = new Uint8Array(await file.arrayBuffer());
         const lowerName = file.name.toLowerCase();
 
-        if (lowerName.endsWith(".pak")) {
+        if (lowerName.endsWith(".svg")) {
+          const text = new TextDecoder().decode(bytes);
+          await loadSvgText(text, file.name);
+          continue;
+        } else if (lowerName.endsWith(".pak")) {
           const pakAssets = parsePak(file.name, bytes);
           for (const asset of pakAssets) {
             ingestAsset(asset.path, asset.bytes, `pak:${file.name}`);
@@ -860,6 +888,9 @@
   function loadModelByKey(key, resetPlayhead = true) {
     const asset = state.assets.get(key);
     if (!asset || asset.kind !== "mdl") {
+      return;
+    }
+    if (!asset.bytes) {
       return;
     }
 
@@ -1163,7 +1194,7 @@
     }));
     grid.appendChild(buildLabeledNumberInput("Height", "prop-skin-height", model.skinHeight, {
       min: 1,
-      max: 512,
+      max: 1024,
       step: 1,
     }));
     section.appendChild(grid);
@@ -1979,7 +2010,7 @@
     }
 
     const nextWidth = clamp(Math.round(parseEditableNumber(widthInput.value, state.model.skinWidth)), 1, 3072);
-    const nextHeight = clamp(Math.round(parseEditableNumber(heightInput.value, state.model.skinHeight)), 1, 512);
+    const nextHeight = clamp(Math.round(parseEditableNumber(heightInput.value, state.model.skinHeight)), 1, 1024);
     resizeModelSkins(state.model, nextWidth, nextHeight);
   }
 
@@ -1995,7 +2026,7 @@
     }
 
     const draftWidth = clamp(Math.round(parseEditableNumber(widthInput.value, state.model.skinWidth)), 1, 3072);
-    const draftHeight = clamp(Math.round(parseEditableNumber(heightInput.value, state.model.skinHeight)), 1, 512);
+    const draftHeight = clamp(Math.round(parseEditableNumber(heightInput.value, state.model.skinHeight)), 1, 1024);
     if (draftWidth !== state.model.skinWidth || draftHeight !== state.model.skinHeight) {
       resizeModelSkins(state.model, draftWidth, draftHeight);
     }
@@ -2552,6 +2583,23 @@
         "error",
         "Pose vertex data length does not match the header vertex count",
         `${badPoseLengths} pose${badPoseLengths === 1 ? "" : "s"} do not contain ${expectedPositionLength} coordinate values.`
+      );
+    }
+
+    if (model.numVerts > 2048) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "High vertex count",
+        `Model has ${model.numVerts} vertices. Some Quake engines limit models to 2048 vertices.`
+      );
+    }
+    if (model.numTris > 4096) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "High triangle count",
+        `Model has ${model.numTris} triangles. Some Quake engines limit models to 4096 triangles.`
       );
     }
   }
@@ -3456,6 +3504,1607 @@
     rgba[255 * 4 + 3] = 0;
     return rgba;
   }
+
+  // ── SVG-to-MDL: parsing, triangulation, extrusion, bevel, skin ────────────
+
+  function parseSvgPathData(d, options = {}) {
+    const subpaths = [];
+    let current = [];
+    let cx = 0, cy = 0;
+    let sx = 0, sy = 0;
+    let prevCx2 = 0, prevCy2 = 0;
+    let prevCmd = "";
+    const flattenTolerance = Number.isFinite(options.flattenTolerance) ? options.flattenTolerance : 0.02;
+    const arcMaxAngle = Number.isFinite(options.arcMaxAngle) ? options.arcMaxAngle : (Math.PI / 16);
+
+    const tokens = d.match(/[a-zA-Z]|[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g) || [];
+    let i = 0;
+
+    function num() { return parseFloat(tokens[i++]); }
+
+    function flattenCubic(x0, y0, x1, y1, x2, y2, x3, y3, tol, pts) {
+      const dx = x3 - x0, dy = y3 - y0;
+      const d1 = Math.abs((x1 - x3) * dy - (y1 - y3) * dx);
+      const d2 = Math.abs((x2 - x3) * dy - (y2 - y3) * dx);
+      if ((d1 + d2) * (d1 + d2) <= tol * (dx * dx + dy * dy)) {
+        pts.push(x3, y3);
+        return;
+      }
+      const mx01 = (x0 + x1) * 0.5, my01 = (y0 + y1) * 0.5;
+      const mx12 = (x1 + x2) * 0.5, my12 = (y1 + y2) * 0.5;
+      const mx23 = (x2 + x3) * 0.5, my23 = (y2 + y3) * 0.5;
+      const mx012 = (mx01 + mx12) * 0.5, my012 = (my01 + my12) * 0.5;
+      const mx123 = (mx12 + mx23) * 0.5, my123 = (my12 + my23) * 0.5;
+      const mx0123 = (mx012 + mx123) * 0.5, my0123 = (my012 + my123) * 0.5;
+      flattenCubic(x0, y0, mx01, my01, mx012, my012, mx0123, my0123, tol, pts);
+      flattenCubic(mx0123, my0123, mx123, my123, mx23, my23, x3, y3, tol, pts);
+    }
+
+    function flattenQuadratic(x0, y0, x1, y1, x2, y2, tol, pts) {
+      flattenCubic(
+        x0, y0,
+        x0 + (x1 - x0) * 2 / 3, y0 + (y1 - y0) * 2 / 3,
+        x2 + (x1 - x2) * 2 / 3, y2 + (y1 - y2) * 2 / 3,
+        x2, y2, tol, pts
+      );
+    }
+
+    function arcToSegments(cx0, cy0, rx, ry, xAxisRotation, largeArc, sweep, x, y, pts) {
+      const phi = xAxisRotation * Math.PI / 180;
+      const cosPhi = Math.cos(phi), sinPhi = Math.sin(phi);
+      const dx2 = (cx0 - x) / 2, dy2 = (cy0 - y) / 2;
+      const x1p = cosPhi * dx2 + sinPhi * dy2;
+      const y1p = -sinPhi * dx2 + cosPhi * dy2;
+
+      let rxSq = rx * rx, rySq = ry * ry;
+      const x1pSq = x1p * x1p, y1pSq = y1p * y1p;
+
+      let lambda = x1pSq / rxSq + y1pSq / rySq;
+      if (lambda > 1) {
+        const s = Math.sqrt(lambda);
+        rx *= s; ry *= s;
+        rxSq = rx * rx; rySq = ry * ry;
+      }
+
+      let sq = Math.max(0, (rxSq * rySq - rxSq * y1pSq - rySq * x1pSq) / (rxSq * y1pSq + rySq * x1pSq));
+      let factor = Math.sqrt(sq) * ((largeArc === sweep) ? -1 : 1);
+      const cxp = factor * rx * y1p / ry;
+      const cyp = -factor * ry * x1p / rx;
+      const cxFinal = cosPhi * cxp - sinPhi * cyp + (cx0 + x) / 2;
+      const cyFinal = sinPhi * cxp + cosPhi * cyp + (cy0 + y) / 2;
+
+      const theta1 = Math.atan2((y1p - cyp) / ry, (x1p - cxp) / rx);
+      let dtheta = Math.atan2((-y1p - cyp) / ry, (-x1p - cxp) / rx) - theta1;
+      if (sweep && dtheta < 0) dtheta += 2 * Math.PI;
+      if (!sweep && dtheta > 0) dtheta -= 2 * Math.PI;
+
+      const segments = Math.max(1, Math.ceil(Math.abs(dtheta) / arcMaxAngle));
+      for (let j = 1; j <= segments; j++) {
+        const t = theta1 + dtheta * j / segments;
+        const ex = cosPhi * rx * Math.cos(t) - sinPhi * ry * Math.sin(t) + cxFinal;
+        const ey = sinPhi * rx * Math.cos(t) + cosPhi * ry * Math.sin(t) + cyFinal;
+        pts.push(ex, ey);
+      }
+    }
+
+    while (i < tokens.length) {
+      const cmd = /^[a-zA-Z]$/.test(tokens[i]) ? tokens[i++] : (
+        "MmLlHhVvCcSsQqTtAaZz".includes(prevCmd) ? (
+          prevCmd === "M" ? "L" : prevCmd === "m" ? "l" : prevCmd
+        ) : ""
+      );
+      prevCmd = cmd;
+
+      switch (cmd) {
+        case "M": cx = num(); cy = num(); sx = cx; sy = cy;
+          if (current.length) subpaths.push(current);
+          current = [cx, cy]; break;
+        case "m": cx += num(); cy += num(); sx = cx; sy = cy;
+          if (current.length) subpaths.push(current);
+          current = [cx, cy]; break;
+        case "L": cx = num(); cy = num(); current.push(cx, cy); break;
+        case "l": cx += num(); cy += num(); current.push(cx, cy); break;
+        case "H": cx = num(); current.push(cx, cy); break;
+        case "h": cx += num(); current.push(cx, cy); break;
+        case "V": cy = num(); current.push(cx, cy); break;
+        case "v": cy += num(); current.push(cx, cy); break;
+        case "C": {
+          const x1 = num(), y1 = num(), x2 = num(), y2 = num(), x3 = num(), y3 = num();
+          flattenCubic(cx, cy, x1, y1, x2, y2, x3, y3, flattenTolerance, current);
+          prevCx2 = x2; prevCy2 = y2; cx = x3; cy = y3; break;
+        }
+        case "c": {
+          const x1 = cx + num(), y1 = cy + num(), x2 = cx + num(), y2 = cy + num();
+          const x3 = cx + num(), y3 = cy + num();
+          flattenCubic(cx, cy, x1, y1, x2, y2, x3, y3, flattenTolerance, current);
+          prevCx2 = x2; prevCy2 = y2; cx = x3; cy = y3; break;
+        }
+        case "S": {
+          const rx1 = 2 * cx - prevCx2, ry1 = 2 * cy - prevCy2;
+          const x2 = num(), y2 = num(), x3 = num(), y3 = num();
+          flattenCubic(cx, cy, rx1, ry1, x2, y2, x3, y3, flattenTolerance, current);
+          prevCx2 = x2; prevCy2 = y2; cx = x3; cy = y3; break;
+        }
+        case "s": {
+          const rx1 = 2 * cx - prevCx2, ry1 = 2 * cy - prevCy2;
+          const x2 = cx + num(), y2 = cy + num(), x3 = cx + num(), y3 = cy + num();
+          flattenCubic(cx, cy, rx1, ry1, x2, y2, x3, y3, flattenTolerance, current);
+          prevCx2 = x2; prevCy2 = y2; cx = x3; cy = y3; break;
+        }
+        case "Q": {
+          const x1 = num(), y1 = num(), x2 = num(), y2 = num();
+          flattenQuadratic(cx, cy, x1, y1, x2, y2, flattenTolerance, current);
+          prevCx2 = x1; prevCy2 = y1; cx = x2; cy = y2; break;
+        }
+        case "q": {
+          const x1 = cx + num(), y1 = cy + num(), x2 = cx + num(), y2 = cy + num();
+          flattenQuadratic(cx, cy, x1, y1, x2, y2, flattenTolerance, current);
+          prevCx2 = x1; prevCy2 = y1; cx = x2; cy = y2; break;
+        }
+        case "T": {
+          const rx1 = 2 * cx - prevCx2, ry1 = 2 * cy - prevCy2;
+          const x2 = num(), y2 = num();
+          flattenQuadratic(cx, cy, rx1, ry1, x2, y2, flattenTolerance, current);
+          prevCx2 = rx1; prevCy2 = ry1; cx = x2; cy = y2; break;
+        }
+        case "t": {
+          const rx1 = 2 * cx - prevCx2, ry1 = 2 * cy - prevCy2;
+          const x2 = cx + num(), y2 = cy + num();
+          flattenQuadratic(cx, cy, rx1, ry1, x2, y2, flattenTolerance, current);
+          prevCx2 = rx1; prevCy2 = ry1; cx = x2; cy = y2; break;
+        }
+        case "A": case "a": {
+          const isRel = cmd === "a";
+          let arx = Math.abs(num()), ary = Math.abs(num());
+          const xRot = num(), lA = !!num(), sw = !!num();
+          let ax = num(), ay = num();
+          if (isRel) { ax += cx; ay += cy; }
+          if (arx === 0 || ary === 0) { current.push(ax, ay); }
+          else { arcToSegments(cx, cy, arx, ary, xRot, lA, sw, ax, ay, current); }
+          cx = ax; cy = ay; break;
+        }
+        case "Z": case "z":
+          cx = sx; cy = sy;
+          if (current.length >= 4) subpaths.push(current);
+          current = []; break;
+        default: i++; break;
+      }
+    }
+    if (current.length >= 4) subpaths.push(current);
+    return subpaths;
+  }
+
+  function flattenSvgTransform(element) {
+    let mat = [1, 0, 0, 1, 0, 0];
+
+    function multiply(a, b) {
+      return [
+        a[0] * b[0] + a[2] * b[1],
+        a[1] * b[0] + a[3] * b[1],
+        a[0] * b[2] + a[2] * b[3],
+        a[1] * b[2] + a[3] * b[3],
+        a[0] * b[4] + a[2] * b[5] + a[4],
+        a[1] * b[4] + a[3] * b[5] + a[5],
+      ];
+    }
+
+    function parseTransformAttr(attr) {
+      const transforms = [];
+      const re = /(\w+)\s*\(([^)]*)\)/g;
+      let m;
+      while ((m = re.exec(attr)) !== null) {
+        const type = m[1];
+        const args = m[2].split(/[\s,]+/).map(Number);
+        switch (type) {
+          case "translate":
+            transforms.push([1, 0, 0, 1, args[0] || 0, args[1] || 0]);
+            break;
+          case "scale": {
+            const sx = args[0] || 1, sy = args.length > 1 ? args[1] : sx;
+            transforms.push([sx, 0, 0, sy, 0, 0]);
+            break;
+          }
+          case "rotate": {
+            const a = (args[0] || 0) * Math.PI / 180;
+            const cos = Math.cos(a), sin = Math.sin(a);
+            const tx = args[1] || 0, ty = args[2] || 0;
+            let r = [cos, sin, -sin, cos, 0, 0];
+            if (tx || ty) {
+              r = multiply([1, 0, 0, 1, tx, ty], multiply(r, [1, 0, 0, 1, -tx, -ty]));
+            }
+            transforms.push(r);
+            break;
+          }
+          case "skewX": {
+            const a = Math.tan((args[0] || 0) * Math.PI / 180);
+            transforms.push([1, 0, a, 1, 0, 0]);
+            break;
+          }
+          case "skewY": {
+            const a = Math.tan((args[0] || 0) * Math.PI / 180);
+            transforms.push([1, a, 0, 1, 0, 0]);
+            break;
+          }
+          case "matrix":
+            if (args.length >= 6) transforms.push(args.slice(0, 6));
+            break;
+        }
+      }
+      let combined = [1, 0, 0, 1, 0, 0];
+      for (const t of transforms) combined = multiply(combined, t);
+      return combined;
+    }
+
+    const chain = [];
+    let el = element;
+    while (el && el.nodeType === 1 && el.tagName !== "svg") {
+      const attr = el.getAttribute("transform");
+      if (attr) chain.push(parseTransformAttr(attr));
+      el = el.parentElement;
+    }
+    for (let j = chain.length - 1; j >= 0; j--) {
+      mat = multiply(mat, chain[j]);
+    }
+    return mat;
+  }
+
+  function applyMatrix2D(points, matrix) {
+    const [a, b, c, d, e, f] = matrix;
+    for (let i = 0; i < points.length; i += 2) {
+      const x = points[i], y = points[i + 1];
+      points[i] = a * x + c * y + e;
+      points[i + 1] = b * x + d * y + f;
+    }
+  }
+
+  function getSvgCurveSettings(viewBox) {
+    const minDim = Math.max(1, Math.min(Math.abs(viewBox.w) || 1, Math.abs(viewBox.h) || 1));
+    return {
+      flattenTolerance: Math.max(minDim / 8192, 0.001),
+      arcMaxAngle: Math.PI / 32,
+      roundedRectSteps: 24,
+      ellipseSegments: 96,
+    };
+  }
+
+  function parseSvgToContours(svgText) {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const svgEl = doc.querySelector("svg");
+    if (!svgEl) throw new Error("No <svg> element found");
+
+    let viewBox;
+    const vbAttr = svgEl.getAttribute("viewBox");
+    if (vbAttr) {
+      const parts = vbAttr.split(/[\s,]+/).map(Number);
+      if (parts.length === 4) viewBox = { x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
+    }
+    if (!viewBox) {
+      const w = parseFloat(svgEl.getAttribute("width")) || 300;
+      const h = parseFloat(svgEl.getAttribute("height")) || 150;
+      viewBox = { x: 0, y: 0, w, h };
+    }
+    const curveSettings = getSvgCurveSettings(viewBox);
+
+    const contours = [];
+
+    function addContourPoints(points, element) {
+      if (points.length < 6) return;
+      const mat = flattenSvgTransform(element);
+      const isIdentity = mat[0] === 1 && mat[1] === 0 && mat[2] === 0 && mat[3] === 1 && mat[4] === 0 && mat[5] === 0;
+      if (!isIdentity) applyMatrix2D(points, mat);
+
+      const area = contourSignedArea(points);
+      contours.push({ points, isHole: area > 0 });
+    }
+
+    const shapes = svgEl.querySelectorAll("path, rect, circle, ellipse, polygon, polyline");
+    for (const el of shapes) {
+      const style = el.getAttribute("style") || "";
+      const display = el.getAttribute("display") || "";
+      if (display === "none" || /display\s*:\s*none/i.test(style)) continue;
+      const fillStyle = /fill\s*:\s*([^;]+)/i.exec(style);
+      const fillAttr = el.getAttribute("fill");
+      const resolvedFill = fillStyle ? fillStyle[1].trim() : fillAttr;
+      if (resolvedFill === "none") continue;
+
+      const tag = el.tagName.toLowerCase();
+
+      if (tag === "path") {
+        const d = el.getAttribute("d");
+        if (!d) continue;
+        const subpaths = parseSvgPathData(d, curveSettings);
+        for (const pts of subpaths) addContourPoints(pts, el);
+      } else if (tag === "rect") {
+        const x = parseFloat(el.getAttribute("x")) || 0;
+        const y = parseFloat(el.getAttribute("y")) || 0;
+        const w = parseFloat(el.getAttribute("width")) || 0;
+        const h = parseFloat(el.getAttribute("height")) || 0;
+        if (w > 0 && h > 0) {
+          const rx = Math.min(parseFloat(el.getAttribute("rx")) || 0, w / 2);
+          const ry = Math.min(parseFloat(el.getAttribute("ry")) || rx, h / 2);
+          if (rx > 0 && ry > 0) {
+            const pts = [];
+            const steps = curveSettings.roundedRectSteps;
+            function arcCorner(cx, cy, startAngle) {
+              for (let j = 0; j <= steps; j++) {
+                const a = startAngle + (Math.PI / 2) * j / steps;
+                pts.push(cx + rx * Math.cos(a), cy + ry * Math.sin(a));
+              }
+            }
+            arcCorner(x + w - rx, y + ry, -Math.PI / 2);
+            arcCorner(x + w - rx, y + h - ry, 0);
+            arcCorner(x + rx, y + h - ry, Math.PI / 2);
+            arcCorner(x + rx, y + ry, Math.PI);
+            addContourPoints(pts, el);
+          } else {
+            addContourPoints([x, y, x + w, y, x + w, y + h, x, y + h], el);
+          }
+        }
+      } else if (tag === "circle") {
+        const cx = parseFloat(el.getAttribute("cx")) || 0;
+        const cy = parseFloat(el.getAttribute("cy")) || 0;
+        const r = parseFloat(el.getAttribute("r")) || 0;
+        if (r > 0) {
+          const pts = [];
+          const n = curveSettings.ellipseSegments;
+          for (let j = 0; j < n; j++) {
+            const a = (2 * Math.PI * j) / n;
+            pts.push(cx + r * Math.cos(a), cy + r * Math.sin(a));
+          }
+          addContourPoints(pts, el);
+        }
+      } else if (tag === "ellipse") {
+        const cx = parseFloat(el.getAttribute("cx")) || 0;
+        const cy = parseFloat(el.getAttribute("cy")) || 0;
+        const erx = parseFloat(el.getAttribute("rx")) || 0;
+        const ery = parseFloat(el.getAttribute("ry")) || 0;
+        if (erx > 0 && ery > 0) {
+          const pts = [];
+          const n = curveSettings.ellipseSegments;
+          for (let j = 0; j < n; j++) {
+            const a = (2 * Math.PI * j) / n;
+            pts.push(cx + erx * Math.cos(a), cy + ery * Math.sin(a));
+          }
+          addContourPoints(pts, el);
+        }
+      } else if (tag === "polygon" || tag === "polyline") {
+        const raw = el.getAttribute("points");
+        if (!raw) continue;
+        const nums = raw.match(/[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/g);
+        if (nums && nums.length >= 4) {
+          addContourPoints(nums.map(Number), el);
+        }
+      }
+    }
+
+    if (!contours.length) throw new Error("SVG contains no drawable shapes");
+    return { contours, viewBox };
+  }
+
+  // ── Ear-clipping triangulation ──────────────────────────────────────────────
+
+  function contourSignedArea(pts) {
+    let area = 0;
+    for (let i = 0, n = pts.length; i < n; i += 2) {
+      const j = (i + 2) % n;
+      area += pts[i] * pts[j + 1] - pts[j] * pts[i + 1];
+    }
+    return area * 0.5;
+  }
+
+  function pointInContour(px, py, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 2; i < pts.length; j = i, i += 2) {
+      const xi = pts[i], yi = pts[i + 1], xj = pts[j], yj = pts[j + 1];
+      if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  const SVG_CONTOUR_EPSILON = 0.001;
+
+  function deduplicateContour(pts, epsilon) {
+    if (pts.length < 6) return pts;
+    const out = [pts[0], pts[1]];
+    for (let i = 2; i < pts.length; i += 2) {
+      const px = out[out.length - 2], py = out[out.length - 1];
+      if (Math.abs(pts[i] - px) > epsilon || Math.abs(pts[i + 1] - py) > epsilon) {
+        out.push(pts[i], pts[i + 1]);
+      }
+    }
+    // Remove last point if it duplicates the first
+    if (out.length >= 4) {
+      const lx = out[out.length - 2], ly = out[out.length - 1];
+      if (Math.abs(lx - out[0]) <= epsilon && Math.abs(ly - out[1]) <= epsilon) {
+        out.length -= 2;
+      }
+    }
+    return out;
+  }
+
+  function getContourCentroid(points) {
+    let cx = 0;
+    let cy = 0;
+    const count = points.length / 2;
+    for (let i = 0; i < points.length; i += 2) {
+      cx += points[i];
+      cy += points[i + 1];
+    }
+    return [cx / Math.max(count, 1), cy / Math.max(count, 1)];
+  }
+
+  function classifyContoursByNesting(contours) {
+    const nestingLevel = contours.map(() => 0);
+    for (let i = 0; i < contours.length; i++) {
+      const [cx, cy] = getContourCentroid(contours[i].points);
+      for (let j = 0; j < contours.length; j++) {
+        if (i === j) {
+          continue;
+        }
+        if (pointInContour(cx, cy, contours[j].points)) {
+          nestingLevel[i] += 1;
+        }
+      }
+    }
+
+    return contours.map((contour, index) => ({
+      ...contour,
+      nestingLevel: nestingLevel[index],
+      role: nestingLevel[index] % 2 === 0 ? "outer" : "hole",
+    }));
+  }
+
+  function orientContourPoints(points, role) {
+    let oriented = deduplicateContour(points.slice(), SVG_CONTOUR_EPSILON);
+    if (oriented.length < 6) {
+      return oriented;
+    }
+
+    const area = contourSignedArea(oriented);
+    if (role === "hole") {
+      if (area > 0) {
+        oriented = reverseContour(oriented);
+      }
+    } else if (area < 0) {
+      oriented = reverseContour(oriented);
+    }
+
+    return oriented;
+  }
+
+  function orientContourPointsForTriangulation(points, role) {
+    let oriented = deduplicateContour(points.slice(), SVG_CONTOUR_EPSILON);
+    if (oriented.length < 6) {
+      return oriented;
+    }
+
+    const area = contourSignedArea(oriented);
+    // The hole-bridge routine adapted from old three.js expects outer contours
+    // to be clockwise and holes counter-clockwise before it merges them.
+    if (role === "hole") {
+      if (area < 0) {
+        oriented = reverseContour(oriented);
+      }
+    } else if (area > 0) {
+      oriented = reverseContour(oriented);
+    }
+
+    return oriented;
+  }
+
+  function contourPointsToVec2List(points) {
+    const out = [];
+    for (let i = 0; i < points.length; i += 2) {
+      out.push({ x: points[i], y: points[i + 1] });
+    }
+    return out;
+  }
+
+  function triangulateSimplePolygon(points) {
+    const EPSILON = 1e-10;
+    const contour = points.slice();
+    const vertexCount = contour.length;
+    if (vertexCount < 3) {
+      return [];
+    }
+
+    function signedArea(polygon) {
+      let area = 0;
+      for (let p = polygon.length - 1, q = 0; q < polygon.length; p = q++) {
+        area += polygon[p].x * polygon[q].y - polygon[q].x * polygon[p].y;
+      }
+      return area * 0.5;
+    }
+
+    function snip(u, v, w, n, verts) {
+      const ax = contour[verts[u]].x;
+      const ay = contour[verts[u]].y;
+      const bx = contour[verts[v]].x;
+      const by = contour[verts[v]].y;
+      const cx = contour[verts[w]].x;
+      const cy = contour[verts[w]].y;
+
+      if (EPSILON > (((bx - ax) * (cy - ay)) - ((by - ay) * (cx - ax)))) {
+        return false;
+      }
+
+      const aX = cx - bx;
+      const aY = cy - by;
+      const bX = ax - cx;
+      const bY = ay - cy;
+      const cX = bx - ax;
+      const cY = by - ay;
+
+      for (let p = 0; p < n; p++) {
+        const px = contour[verts[p]].x;
+        const py = contour[verts[p]].y;
+
+        if ((px === ax && py === ay) || (px === bx && py === by) || (px === cx && py === cy)) {
+          continue;
+        }
+
+        const apx = px - ax;
+        const apy = py - ay;
+        const bpx = px - bx;
+        const bpy = py - by;
+        const cpx = px - cx;
+        const cpy = py - cy;
+
+        const aCrossBp = aX * bpy - aY * bpx;
+        const cCrossAp = cX * apy - cY * apx;
+        const bCrossCp = bX * cpy - bY * cpx;
+
+        if (aCrossBp >= -EPSILON && bCrossCp >= -EPSILON && cCrossAp >= -EPSILON) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    const verts = new Array(vertexCount);
+    if (signedArea(contour) > 0) {
+      for (let i = 0; i < vertexCount; i++) {
+        verts[i] = i;
+      }
+    } else {
+      for (let i = 0; i < vertexCount; i++) {
+        verts[i] = (vertexCount - 1) - i;
+      }
+    }
+
+    const triangles = [];
+    let nv = vertexCount;
+    let count = 2 * nv;
+
+    for (let v = nv - 1; nv > 2;) {
+      if ((count--) <= 0) {
+        throw new Error("Triangulation failed for a contour. The SVG may be self-intersecting or too complex to triangulate safely.");
+      }
+
+      let u = v;
+      if (nv <= u) {
+        u = 0;
+      }
+      v = u + 1;
+      if (nv <= v) {
+        v = 0;
+      }
+      let w = v + 1;
+      if (nv <= w) {
+        w = 0;
+      }
+
+      if (!snip(u, v, w, nv, verts)) {
+        continue;
+      }
+
+      triangles.push([verts[u], verts[v], verts[w]]);
+      for (let s = v, t = v + 1; t < nv; s++, t++) {
+        verts[s] = verts[t];
+      }
+      nv--;
+      count = 2 * nv;
+    }
+
+    return triangles;
+  }
+
+  function triangulateShapeWithHoles(contour, holes) {
+    function pointInSegmentColinear(segPt1, segPt2, otherPt) {
+      if (segPt1.x !== segPt2.x) {
+        if (segPt1.x < segPt2.x) {
+          return segPt1.x <= otherPt.x && otherPt.x <= segPt2.x;
+        }
+        return segPt2.x <= otherPt.x && otherPt.x <= segPt1.x;
+      }
+      if (segPt1.y < segPt2.y) {
+        return segPt1.y <= otherPt.y && otherPt.y <= segPt2.y;
+      }
+      return segPt2.y <= otherPt.y && otherPt.y <= segPt1.y;
+    }
+
+    function intersectSegments2D(seg1Pt1, seg1Pt2, seg2Pt1, seg2Pt2, excludeAdjacentSegs) {
+      const EPSILON = 1e-10;
+      const seg1dx = seg1Pt2.x - seg1Pt1.x;
+      const seg1dy = seg1Pt2.y - seg1Pt1.y;
+      const seg2dx = seg2Pt2.x - seg2Pt1.x;
+      const seg2dy = seg2Pt2.y - seg2Pt1.y;
+
+      const seg1seg2dx = seg1Pt1.x - seg2Pt1.x;
+      const seg1seg2dy = seg1Pt1.y - seg2Pt1.y;
+
+      const limit = seg1dy * seg2dx - seg1dx * seg2dy;
+      const perpSeg1 = seg1dy * seg1seg2dx - seg1dx * seg1seg2dy;
+
+      if (Math.abs(limit) > EPSILON) {
+        let perpSeg2;
+        if (limit > 0) {
+          if (perpSeg1 < 0 || perpSeg1 > limit) {
+            return [];
+          }
+          perpSeg2 = seg2dy * seg1seg2dx - seg2dx * seg1seg2dy;
+          if (perpSeg2 < 0 || perpSeg2 > limit) {
+            return [];
+          }
+        } else {
+          if (perpSeg1 > 0 || perpSeg1 < limit) {
+            return [];
+          }
+          perpSeg2 = seg2dy * seg1seg2dx - seg2dx * seg1seg2dy;
+          if (perpSeg2 > 0 || perpSeg2 < limit) {
+            return [];
+          }
+        }
+
+        if (perpSeg2 === 0) {
+          if (excludeAdjacentSegs && (perpSeg1 === 0 || perpSeg1 === limit)) {
+            return [];
+          }
+          return [seg1Pt1];
+        }
+        if (perpSeg2 === limit) {
+          if (excludeAdjacentSegs && (perpSeg1 === 0 || perpSeg1 === limit)) {
+            return [];
+          }
+          return [seg1Pt2];
+        }
+        if (perpSeg1 === 0) {
+          return [seg2Pt1];
+        }
+        if (perpSeg1 === limit) {
+          return [seg2Pt2];
+        }
+
+        const factorSeg1 = perpSeg2 / limit;
+        return [{
+          x: seg1Pt1.x + factorSeg1 * seg1dx,
+          y: seg1Pt1.y + factorSeg1 * seg1dy,
+        }];
+      }
+
+      if (perpSeg1 !== 0 || seg2dy * seg1seg2dx !== seg2dx * seg1seg2dy) {
+        return [];
+      }
+
+      const seg1Pt = seg1dx === 0 && seg1dy === 0;
+      const seg2Pt = seg2dx === 0 && seg2dy === 0;
+      if (seg1Pt && seg2Pt) {
+        if (seg1Pt1.x !== seg2Pt1.x || seg1Pt1.y !== seg2Pt1.y) {
+          return [];
+        }
+        return [seg1Pt1];
+      }
+      if (seg1Pt) {
+        return pointInSegmentColinear(seg2Pt1, seg2Pt2, seg1Pt1) ? [seg1Pt1] : [];
+      }
+      if (seg2Pt) {
+        return pointInSegmentColinear(seg1Pt1, seg1Pt2, seg2Pt1) ? [seg2Pt1] : [];
+      }
+
+      let seg1min;
+      let seg1max;
+      let seg1minVal;
+      let seg1maxVal;
+      let seg2min;
+      let seg2max;
+      let seg2minVal;
+      let seg2maxVal;
+      if (seg1dx !== 0) {
+        if (seg1Pt1.x < seg1Pt2.x) {
+          seg1min = seg1Pt1; seg1minVal = seg1Pt1.x;
+          seg1max = seg1Pt2; seg1maxVal = seg1Pt2.x;
+        } else {
+          seg1min = seg1Pt2; seg1minVal = seg1Pt2.x;
+          seg1max = seg1Pt1; seg1maxVal = seg1Pt1.x;
+        }
+        if (seg2Pt1.x < seg2Pt2.x) {
+          seg2min = seg2Pt1; seg2minVal = seg2Pt1.x;
+          seg2max = seg2Pt2; seg2maxVal = seg2Pt2.x;
+        } else {
+          seg2min = seg2Pt2; seg2minVal = seg2Pt2.x;
+          seg2max = seg2Pt1; seg2maxVal = seg2Pt1.x;
+        }
+      } else {
+        if (seg1Pt1.y < seg1Pt2.y) {
+          seg1min = seg1Pt1; seg1minVal = seg1Pt1.y;
+          seg1max = seg1Pt2; seg1maxVal = seg1Pt2.y;
+        } else {
+          seg1min = seg1Pt2; seg1minVal = seg1Pt2.y;
+          seg1max = seg1Pt1; seg1maxVal = seg1Pt1.y;
+        }
+        if (seg2Pt1.y < seg2Pt2.y) {
+          seg2min = seg2Pt1; seg2minVal = seg2Pt1.y;
+          seg2max = seg2Pt2; seg2maxVal = seg2Pt2.y;
+        } else {
+          seg2min = seg2Pt2; seg2minVal = seg2Pt2.y;
+          seg2max = seg2Pt1; seg2maxVal = seg2Pt1.y;
+        }
+      }
+
+      if (seg1minVal <= seg2minVal) {
+        if (seg1maxVal < seg2minVal) {
+          return [];
+        }
+        if (seg1maxVal === seg2minVal) {
+          return excludeAdjacentSegs ? [] : [seg2min];
+        }
+        if (seg1maxVal <= seg2maxVal) {
+          return [seg2min, seg1max];
+        }
+        return [seg2min, seg2max];
+      }
+
+      if (seg1minVal > seg2maxVal) {
+        return [];
+      }
+      if (seg1minVal === seg2maxVal) {
+        return excludeAdjacentSegs ? [] : [seg1min];
+      }
+      if (seg1maxVal <= seg2maxVal) {
+        return [seg1min, seg1max];
+      }
+      return [seg1min, seg2max];
+    }
+
+    function isPointInsideAngle(vertex, legFromPt, legToPt, otherPt) {
+      const EPSILON = 1e-10;
+      const legFromPtX = legFromPt.x - vertex.x;
+      const legFromPtY = legFromPt.y - vertex.y;
+      const legToPtX = legToPt.x - vertex.x;
+      const legToPtY = legToPt.y - vertex.y;
+      const otherPtX = otherPt.x - vertex.x;
+      const otherPtY = otherPt.y - vertex.y;
+
+      const fromToAngle = legFromPtX * legToPtY - legFromPtY * legToPtX;
+      const fromOtherAngle = legFromPtX * otherPtY - legFromPtY * otherPtX;
+
+      if (Math.abs(fromToAngle) <= EPSILON) {
+        return fromOtherAngle > 0;
+      }
+
+      const otherToAngle = otherPtX * legToPtY - otherPtY * legToPtX;
+      if (fromToAngle > 0) {
+        return fromOtherAngle >= 0 && otherToAngle >= 0;
+      }
+      return fromOtherAngle >= 0 || otherToAngle >= 0;
+    }
+
+    function removeHoles(shapeContour, holesList) {
+      let shape = shapeContour.concat();
+      let activeHole = null;
+      const independentHoles = holesList.map((_, index) => index);
+
+      function isCutLineInsideAngles(shapeIndex, holeIndex) {
+        const lastShapeIdx = shape.length - 1;
+        let prevShapeIdx = shapeIndex - 1;
+        if (prevShapeIdx < 0) {
+          prevShapeIdx = lastShapeIdx;
+        }
+        let nextShapeIdx = shapeIndex + 1;
+        if (nextShapeIdx > lastShapeIdx) {
+          nextShapeIdx = 0;
+        }
+
+        if (!isPointInsideAngle(shape[shapeIndex], shape[prevShapeIdx], shape[nextShapeIdx], activeHole[holeIndex])) {
+          return false;
+        }
+
+        const lastHoleIdx = activeHole.length - 1;
+        let prevHoleIdx = holeIndex - 1;
+        if (prevHoleIdx < 0) {
+          prevHoleIdx = lastHoleIdx;
+        }
+        let nextHoleIdx = holeIndex + 1;
+        if (nextHoleIdx > lastHoleIdx) {
+          nextHoleIdx = 0;
+        }
+
+        return isPointInsideAngle(activeHole[holeIndex], activeHole[prevHoleIdx], activeHole[nextHoleIdx], shape[shapeIndex]);
+      }
+
+      function intersectsShapeEdge(shapePt, holePt) {
+        for (let sIdx = 0; sIdx < shape.length; sIdx++) {
+          const nextIdx = (sIdx + 1) % shape.length;
+          if (intersectSegments2D(shapePt, holePt, shape[sIdx], shape[nextIdx], true).length > 0) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function intersectsHoleEdge(shapePt, holePt) {
+        for (let i = 0; i < independentHoles.length; i++) {
+          const holeContour = holesList[independentHoles[i]];
+          for (let hIdx = 0; hIdx < holeContour.length; hIdx++) {
+            const nextIdx = (hIdx + 1) % holeContour.length;
+            if (intersectSegments2D(shapePt, holePt, holeContour[hIdx], holeContour[nextIdx], true).length > 0) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      const failedCuts = new Set();
+      let minShapeIndex = 0;
+      let counter = independentHoles.length * 2;
+
+      while (independentHoles.length > 0) {
+        counter--;
+        if (counter < 0) {
+          throw new Error("Triangulation failed while connecting holes to the outer contour.");
+        }
+
+        let connected = false;
+        for (let shapeIndex = minShapeIndex; shapeIndex < shape.length; shapeIndex++) {
+          const shapePt = shape[shapeIndex];
+
+          for (let holeListIndex = 0; holeListIndex < independentHoles.length; holeListIndex++) {
+            const holeIdx = independentHoles[holeListIndex];
+            const cutKey = `${shapePt.x}:${shapePt.y}:${holeIdx}`;
+            if (failedCuts.has(cutKey)) {
+              continue;
+            }
+
+            activeHole = holesList[holeIdx];
+            let connectedHoleIndex = -1;
+            for (let holeIndex = 0; holeIndex < activeHole.length; holeIndex++) {
+              const holePt = activeHole[holeIndex];
+              if (!isCutLineInsideAngles(shapeIndex, holeIndex)) {
+                continue;
+              }
+              if (intersectsShapeEdge(shapePt, holePt)) {
+                continue;
+              }
+              if (intersectsHoleEdge(shapePt, holePt)) {
+                continue;
+              }
+
+              connectedHoleIndex = holeIndex;
+              independentHoles.splice(holeListIndex, 1);
+
+              const tmpShape1 = shape.slice(0, shapeIndex + 1);
+              const tmpShape2 = shape.slice(shapeIndex);
+              const tmpHole1 = activeHole.slice(connectedHoleIndex);
+              const tmpHole2 = activeHole.slice(0, connectedHoleIndex + 1);
+              shape = tmpShape1.concat(tmpHole1, tmpHole2, tmpShape2);
+              minShapeIndex = shapeIndex;
+              connected = true;
+              break;
+            }
+
+            if (connected) {
+              break;
+            }
+            failedCuts.add(cutKey);
+          }
+
+          if (connected) {
+            break;
+          }
+        }
+
+        if (!connected) {
+          throw new Error("Triangulation failed while connecting holes to the outer contour.");
+        }
+      }
+
+      return shape;
+    }
+
+    const allPoints = contour.concat(...holes);
+    const allPointsMap = new Map();
+    allPoints.forEach((point, index) => {
+      allPointsMap.set(`${point.x}:${point.y}`, index);
+    });
+
+    const mergedShape = holes.length ? removeHoles(contour, holes) : contour.slice();
+    const triangles = triangulateSimplePolygon(mergedShape);
+
+    return triangles.map((triangle) => triangle.map((mergedIndex) => {
+      const point = mergedShape[mergedIndex];
+      const originalIndex = allPointsMap.get(`${point.x}:${point.y}`);
+      if (originalIndex === undefined) {
+        throw new Error("Triangulation produced a point not present in the source contours.");
+      }
+      return originalIndex;
+    }));
+  }
+
+  function triangulatePlanarContours(contours) {
+    const classifiedContours = contours.length && contours[0]?.role
+      ? contours
+      : classifyContoursByNesting(contours);
+
+    const outers = classifiedContours.filter((contour) => contour.role === "outer");
+    const holes = classifiedContours.filter((contour) => contour.role === "hole");
+
+    if (!outers.length) {
+      throw new Error("No outer contours found for triangulation");
+    }
+
+    const allVertices = [];
+    const allIndices = [];
+
+    for (const outer of outers) {
+      const outerPoints = orientContourPointsForTriangulation(outer.points, "outer");
+      if (outerPoints.length < 6) continue;
+
+      const myHoles = [];
+      for (const hole of holes) {
+        const [hcx, hcy] = getContourCentroid(hole.points);
+        if (pointInContour(hcx, hcy, outerPoints)) {
+          const holePoints = orientContourPointsForTriangulation(hole.points, "hole");
+          if (holePoints.length < 6) continue;
+          myHoles.push(holePoints);
+        }
+      }
+
+      const baseIndex = allVertices.length / 2;
+      for (let i = 0; i < outerPoints.length; i += 2) {
+        allVertices.push(outerPoints[i], outerPoints[i + 1]);
+      }
+      myHoles.forEach((holePoints) => {
+        for (let i = 0; i < holePoints.length; i += 2) {
+          allVertices.push(holePoints[i], holePoints[i + 1]);
+        }
+      });
+
+      const triangleIndices = triangulateShapeWithHoles(
+        contourPointsToVec2List(outerPoints),
+        myHoles.map((holePoints) => contourPointsToVec2List(holePoints))
+      );
+      for (const triangle of triangleIndices) {
+        allIndices.push(baseIndex + triangle[0], baseIndex + triangle[1], baseIndex + triangle[2]);
+      }
+    }
+
+    return { vertices: allVertices, indices: allIndices };
+  }
+
+  function reverseContour(pts) {
+    const result = new Array(pts.length);
+    const n = pts.length / 2;
+    for (let i = 0; i < n; i++) {
+      result[i * 2] = pts[(n - 1 - i) * 2];
+      result[i * 2 + 1] = pts[(n - 1 - i) * 2 + 1];
+    }
+    return result;
+  }
+
+  function pointInTriangle(px, py, ax, ay, bx, by, cx, cy) {
+    const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
+    const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
+    const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
+    const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+    return !(hasNeg && hasPos);
+  }
+
+  // ── Extrusion and bevel ─────────────────────────────────────────────────────
+
+  function computeContourNormals2D(pts) {
+    const n = pts.length / 2;
+    const normals = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const k = (i - 1 + n) % n;
+      const ex1 = pts[j * 2] - pts[i * 2], ey1 = pts[j * 2 + 1] - pts[i * 2 + 1];
+      const ex2 = pts[i * 2] - pts[k * 2], ey2 = pts[i * 2 + 1] - pts[k * 2 + 1];
+      let nx = ey1 + ey2, ny = -(ex1 + ex2);
+      const len = Math.hypot(nx, ny);
+      if (len > 1e-12) { nx /= len; ny /= len; }
+      normals[i * 2] = nx;
+      normals[i * 2 + 1] = ny;
+    }
+    return normals;
+  }
+
+  function offsetContour2D(pts, normals, distance) {
+    const n = pts.length / 2;
+    const out = new Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      out[i * 2] = pts[i * 2] + normals[i * 2] * distance;
+      out[i * 2 + 1] = pts[i * 2 + 1] + normals[i * 2 + 1] * distance;
+    }
+    return out;
+  }
+
+  function buildInsetContours(classifiedContours, insetAmount) {
+    return classifiedContours.map((contour) => {
+      const pts = orientContourPoints(contour.points, contour.role);
+      if (pts.length < 6) {
+        throw new Error(`Bevel width collapses a ${contour.role} contour.`);
+      }
+
+      const normals = computeContourNormals2D(pts);
+      const insetPoints = deduplicateContour(offsetContour2D(pts, normals, -insetAmount), SVG_CONTOUR_EPSILON);
+      if (insetPoints.length !== pts.length || insetPoints.length < 6 || Math.abs(contourSignedArea(insetPoints)) <= 1e-3) {
+        throw new Error(`Bevel width collapses a ${contour.role} contour.`);
+      }
+
+      return {
+        ...contour,
+        points: insetPoints,
+      };
+    });
+  }
+
+  function extrudeContours(contours, triangulation, options) {
+    const { thickness, bevelWidth, bevelSegments } = options;
+    const halfThick = thickness / 2;
+    const bevelActual = (bevelSegments > 0 && bevelWidth > 0) ? bevelWidth : 0;
+    if (bevelActual * 2 >= thickness) {
+      throw new Error("Bevel width must be less than half the model thickness.");
+    }
+
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    const surfaceKinds = [];
+
+    const triVerts = triangulation.vertices;
+    const triIndices = triangulation.indices;
+    const numCapVerts = triVerts.length / 2;
+    const classifiedContours = contours.length && contours[0]?.role
+      ? contours
+      : classifyContoursByNesting(contours);
+
+    function addVertex(x, y, z, u, v, surfaceKind) {
+      const idx = positions.length / 3;
+      positions.push(x, y, z);
+      uvs.push(u, v);
+      surfaceKinds.push(surfaceKind || "cap");
+      return idx;
+    }
+
+    const bevelSteps = bevelActual > 0 ? bevelSegments : 0;
+
+    const frontCapZ = halfThick;
+    const backCapZ = -halfThick;
+    const sideTopZ = halfThick - bevelActual;
+    const sideBotZ = -halfThick + bevelActual;
+
+    // Cap triangulation is already built from the inset silhouette when beveling
+    // is enabled, so front/back faces stay on the true outer planes.
+    const frontCapBase = positions.length / 3;
+    for (let i = 0; i < numCapVerts; i++) {
+      addVertex(triVerts[i * 2], triVerts[i * 2 + 1], frontCapZ, 0, 0, "cap");
+    }
+    for (let i = 0; i < triIndices.length; i += 3) {
+      indices.push(frontCapBase + triIndices[i + 2], frontCapBase + triIndices[i + 1], frontCapBase + triIndices[i]);
+    }
+
+    const backCapBase = positions.length / 3;
+    for (let i = 0; i < numCapVerts; i++) {
+      addVertex(triVerts[i * 2], triVerts[i * 2 + 1], backCapZ, 0, 0, "cap");
+    }
+    for (let i = 0; i < triIndices.length; i += 3) {
+      indices.push(backCapBase + triIndices[i], backCapBase + triIndices[i + 1], backCapBase + triIndices[i + 2]);
+    }
+
+    for (const contour of classifiedContours.filter((entry) => entry.points.length >= 6)) {
+      const pts = orientContourPoints(contour.points, contour.role);
+      const n = pts.length / 2;
+      if (n < 3) continue;
+
+      const normals = computeContourNormals2D(pts);
+      const baseReverseWind = contour.role === "hole";
+
+      if (bevelSteps > 0 && bevelActual > 0) {
+        const rings = [];
+        rings.push({ pts, z: sideTopZ });
+
+        for (let step = 1; step <= bevelSteps; step++) {
+          const t = step / bevelSteps;
+          const angle = (Math.PI / 2) * t;
+          const insetDist = bevelActual * Math.sin(angle);
+          const zOff = bevelActual * (1 - Math.cos(angle));
+          const ringPts = deduplicateContour(offsetContour2D(pts, normals, -insetDist), SVG_CONTOUR_EPSILON);
+          if (ringPts.length !== pts.length || Math.abs(contourSignedArea(ringPts)) <= 1e-3) {
+            throw new Error(`Bevel width collapses a ${contour.role} contour.`);
+          }
+          rings.push({ pts: ringPts, z: sideTopZ + zOff });
+        }
+
+        for (let step = 0; step < rings.length - 1; step++) {
+          const ringA = rings[step], ringB = rings[step + 1];
+          buildSideStrip(ringA.pts, ringA.z, ringB.pts, ringB.z, n, baseReverseWind, addVertex, indices);
+        }
+
+        buildSideStrip(pts, sideTopZ, pts, sideBotZ, n, baseReverseWind, addVertex, indices);
+
+        const backRings = [];
+        backRings.push({ pts, z: sideBotZ });
+        for (let step = 1; step <= bevelSteps; step++) {
+          const t = step / bevelSteps;
+          const angle = (Math.PI / 2) * t;
+          const insetDist = bevelActual * Math.sin(angle);
+          const zOff = bevelActual * (1 - Math.cos(angle));
+          const ringPts = deduplicateContour(offsetContour2D(pts, normals, -insetDist), SVG_CONTOUR_EPSILON);
+          if (ringPts.length !== pts.length || Math.abs(contourSignedArea(ringPts)) <= 1e-3) {
+            throw new Error(`Bevel width collapses a ${contour.role} contour.`);
+          }
+          backRings.push({ pts: ringPts, z: sideBotZ - zOff });
+        }
+        for (let step = 0; step < backRings.length - 1; step++) {
+          const ringA = backRings[step], ringB = backRings[step + 1];
+          buildSideStrip(ringA.pts, ringA.z, ringB.pts, ringB.z, n, !baseReverseWind, addVertex, indices);
+        }
+      } else {
+        buildSideStrip(pts, frontCapZ, pts, backCapZ, n, baseReverseWind, addVertex, indices);
+      }
+    }
+
+    return {
+      positions: new Float32Array(positions),
+      uvs: new Float32Array(uvs),
+      indices,
+      surfaceKinds,
+      vertexCount: positions.length / 3,
+      triangleCount: indices.length / 3,
+    };
+  }
+
+  function buildSideStrip(ptsTop, zTop, ptsBot, zBot, n, reverseWind, addVertex, indices) {
+    const baseTop = [];
+    const baseBot = [];
+    for (let i = 0; i < n; i++) {
+      baseTop.push(addVertex(ptsTop[i * 2], ptsTop[i * 2 + 1], zTop, 0, 0, "side"));
+      baseBot.push(addVertex(ptsBot[i * 2], ptsBot[i * 2 + 1], zBot, 0, 0, "side"));
+    }
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      if (reverseWind) {
+        indices.push(baseTop[i], baseBot[i], baseBot[j]);
+        indices.push(baseTop[i], baseBot[j], baseTop[j]);
+      } else {
+        indices.push(baseTop[i], baseBot[j], baseBot[i]);
+        indices.push(baseTop[i], baseTop[j], baseBot[j]);
+      }
+    }
+  }
+
+  // ── Skin generation from SVG ────────────────────────────────────────────────
+
+  function generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, palette) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const rgba = drawSvgImageToRgba(img, viewBox, skinWidth, skinHeight);
+        const indexed = rgbaToIndexedQuakePalette(rgba, palette);
+        resolve(indexed);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Failed to rasterize SVG for skin"));
+      };
+      img.src = url;
+    });
+  }
+
+  function computeSvgSkinLayout(viewBox, skinWidth, skinHeight) {
+    const padding = Math.max(2, Math.round(Math.min(skinWidth, skinHeight) * 0.02));
+    const swatchSize = Math.max(6, Math.round(Math.min(skinWidth, skinHeight) * 0.08));
+    const swatchGap = padding;
+
+    const contentWidth = Math.max(1, skinWidth - padding * 2 - swatchSize - swatchGap);
+    const contentHeight = Math.max(1, skinHeight - padding * 2);
+    const fit = Math.min(contentWidth / Math.max(viewBox.w, 1), contentHeight / Math.max(viewBox.h, 1));
+    const drawWidth = viewBox.w * fit;
+    const drawHeight = viewBox.h * fit;
+    const offsetX = padding + (contentWidth - drawWidth) / 2 - viewBox.x * fit;
+    const offsetY = padding + (contentHeight - drawHeight) / 2 - viewBox.y * fit;
+
+    const sideSwatch = {
+      x: skinWidth - padding - swatchSize,
+      y: skinHeight - padding - swatchSize,
+      w: swatchSize,
+      h: swatchSize,
+    };
+
+    return {
+      fit,
+      offsetX,
+      offsetY,
+      sideSwatch,
+      sideSampleS: Math.round(sideSwatch.x + sideSwatch.w / 2),
+      sideSampleT: Math.round(sideSwatch.y + sideSwatch.h / 2),
+    };
+  }
+
+  function drawSvgImageToRgba(image, viewBox, width, height) {
+    const oversample = 4;
+    const hiCanvas = document.createElement("canvas");
+    hiCanvas.width = width * oversample;
+    hiCanvas.height = height * oversample;
+    const hiContext = hiCanvas.getContext("2d", { alpha: true });
+    if (!hiContext) {
+      throw new Error("Could not create a high-resolution SVG raster canvas.");
+    }
+
+    hiContext.clearRect(0, 0, hiCanvas.width, hiCanvas.height);
+    hiContext.imageSmoothingEnabled = true;
+
+    const layout = computeSvgSkinLayout(viewBox, width, height);
+    hiContext.drawImage(
+      image,
+      layout.offsetX * oversample,
+      layout.offsetY * oversample,
+      viewBox.w * layout.fit * oversample,
+      viewBox.h * layout.fit * oversample
+    );
+
+    hiContext.fillStyle = "#000";
+    hiContext.fillRect(
+      layout.sideSwatch.x * oversample,
+      layout.sideSwatch.y * oversample,
+      layout.sideSwatch.w * oversample,
+      layout.sideSwatch.h * oversample
+    );
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { alpha: true });
+    if (!context) {
+      throw new Error("Could not create an SVG raster canvas.");
+    }
+
+    context.imageSmoothingEnabled = true;
+    context.clearRect(0, 0, width, height);
+    context.drawImage(hiCanvas, 0, 0, width, height);
+    return context.getImageData(0, 0, width, height).data;
+  }
+
+  function projectSvgContourToSkinLoop(points, skinLayout, skinWidth, skinHeight) {
+    const loop = [];
+    for (let i = 0; i < points.length; i += 2) {
+      const s = Math.max(0, Math.min(skinWidth - 1, Math.round(points[i] * skinLayout.fit + skinLayout.offsetX)));
+      const t = Math.max(0, Math.min(skinHeight - 1, Math.round(points[i + 1] * skinLayout.fit + skinLayout.offsetY)));
+      loop.push([s + 0.5, t + 0.5]);
+    }
+    return loop;
+  }
+
+  function buildSvgSkinOverlayLoops(contours, skinLayout, skinWidth, skinHeight) {
+    const loops = [];
+    for (const contour of contours) {
+      if (!contour?.points || contour.points.length < 6) {
+        continue;
+      }
+      loops.push(projectSvgContourToSkinLoop(contour.points, skinLayout, skinWidth, skinHeight));
+    }
+
+    const swatch = skinLayout.sideSwatch;
+    loops.push([
+      [swatch.x + 0.5, swatch.y + 0.5],
+      [swatch.x + swatch.w - 0.5, swatch.y + 0.5],
+      [swatch.x + swatch.w - 0.5, swatch.y + swatch.h - 0.5],
+      [swatch.x + 0.5, swatch.y + swatch.h - 0.5],
+    ]);
+
+    return loops;
+  }
+
+  // ── Model assembly from SVG ─────────────────────────────────────────────────
+
+  async function buildModelFromSvg(svgText, options) {
+    const {
+      thickness = 16,
+      bevelWidth = 0,
+      bevelSegments = 0,
+      skinWidth = 1024,
+      skinHeight = 1024,
+      modelScale = 64,
+    } = options;
+
+    const { contours, viewBox } = parseSvgToContours(svgText);
+    const classifiedContours = classifyContoursByNesting(contours);
+    const bevelActual = (bevelSegments > 0 && bevelWidth > 0) ? bevelWidth : 0;
+    if (bevelActual * 2 >= thickness) {
+      throw new Error("Bevel width must be less than half the model thickness.");
+    }
+
+    const capContours = bevelActual > 0
+      ? buildInsetContours(classifiedContours, bevelActual)
+      : classifiedContours;
+
+    let geometryContours = classifiedContours;
+    let capTriangulation;
+    let importWarning = "";
+
+    try {
+      capTriangulation = triangulatePlanarContours(capContours);
+    } catch (error) {
+      const holeContours = classifiedContours.filter((contour) => contour.role === "hole");
+      if (!holeContours.length || !/hole|triangulation/i.test(error.message)) {
+        throw error;
+      }
+
+      // Fallback for complex even-odd SVGs: build the solid outer silhouette
+      // and preserve interior cutouts through transparent skin pixels.
+      geometryContours = classifiedContours.filter((contour) => contour.role === "outer");
+      const outerCapContours = capContours.filter((contour) => contour.role === "outer");
+      capTriangulation = triangulatePlanarContours(outerCapContours);
+      importWarning = "Inner SVG cutouts were preserved in the skin as transparent pixels because the contour holes could not be triangulated into solid geometry.";
+    }
+
+    const extrusion = extrudeContours(geometryContours, capTriangulation, {
+      thickness,
+      bevelWidth: bevelActual,
+      bevelSegments,
+    });
+
+    // Compute bounding box of generated geometry
+    const pos = extrusion.positions;
+    const gMin = [Infinity, Infinity, Infinity];
+    const gMax = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < pos.length; i += 3) {
+      gMin[0] = Math.min(gMin[0], pos[i]);     gMax[0] = Math.max(gMax[0], pos[i]);
+      gMin[1] = Math.min(gMin[1], pos[i + 1]); gMax[1] = Math.max(gMax[1], pos[i + 1]);
+      gMin[2] = Math.min(gMin[2], pos[i + 2]); gMax[2] = Math.max(gMax[2], pos[i + 2]);
+    }
+
+    // Scale to fit modelScale Quake units, center at origin
+    const rangeX = gMax[0] - gMin[0] || 1;
+    const rangeY = gMax[1] - gMin[1] || 1;
+    const rangeZ = gMax[2] - gMin[2] || 1;
+    const scaleFactor = modelScale / Math.max(rangeX, rangeY, rangeZ);
+    const centerX = (gMin[0] + gMax[0]) * 0.5;
+    const centerY = (gMin[1] + gMax[1]) * 0.5;
+    const centerZ = (gMin[2] + gMax[2]) * 0.5;
+
+    const numVerts = extrusion.vertexCount;
+    const positions = new Float32Array(numVerts * 3);
+    for (let i = 0; i < numVerts; i++) {
+      positions[i * 3 + 0] = (pos[i * 3 + 0] - centerX) * scaleFactor;
+      positions[i * 3 + 1] = (pos[i * 3 + 1] - centerY) * scaleFactor;
+      positions[i * 3 + 2] = (pos[i * 3 + 2] - centerZ) * scaleFactor;
+    }
+
+    // Build stVerts with UV mapping: front/back faces get SVG projection,
+    // side walls use a dedicated opaque swatch to avoid transparent holes.
+    const stVerts = [];
+    const skinLayout = computeSvgSkinLayout(viewBox, skinWidth, skinHeight);
+
+    for (let i = 0; i < numVerts; i++) {
+      let s;
+      let t;
+      if (extrusion.surfaceKinds[i] === "side") {
+        s = skinLayout.sideSampleS;
+        t = skinLayout.sideSampleT;
+      } else {
+        const origX = pos[i * 3 + 0];
+        const origY = pos[i * 3 + 1];
+        s = Math.round(origX * skinLayout.fit + skinLayout.offsetX);
+        t = Math.round(origY * skinLayout.fit + skinLayout.offsetY);
+      }
+      stVerts.push({
+        onseam: 0,
+        s: Math.max(0, Math.min(skinWidth - 1, s)),
+        t: Math.max(0, Math.min(skinHeight - 1, t)),
+      });
+    }
+
+    const skinOverlayContours = importWarning ? classifiedContours : capContours;
+    const skinOverlayLoops = buildSvgSkinOverlayLoops(
+      skinOverlayContours,
+      skinLayout,
+      skinWidth,
+      skinHeight,
+    );
+
+    // Build triangles
+    const triangles = [];
+    for (let i = 0; i < extrusion.indices.length; i += 3) {
+      triangles.push({
+        facesfront: 1,
+        vertIndex: [extrusion.indices[i], extrusion.indices[i + 1], extrusion.indices[i + 2]],
+      });
+    }
+
+    // Generate skin
+    const skinPixels = await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA);
+
+    // Compute export packing (scale/origin for 0-255 vertex range)
+    const pMin = [Infinity, Infinity, Infinity];
+    const pMax = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < positions.length; i += 3) {
+      pMin[0] = Math.min(pMin[0], positions[i]);     pMax[0] = Math.max(pMax[0], positions[i]);
+      pMin[1] = Math.min(pMin[1], positions[i + 1]); pMax[1] = Math.max(pMax[1], positions[i + 1]);
+      pMin[2] = Math.min(pMin[2], positions[i + 2]); pMax[2] = Math.max(pMax[2], positions[i + 2]);
+    }
+    const mdlScale = [1, 1, 1];
+    for (let axis = 0; axis < 3; axis++) {
+      const range = pMax[axis] - pMin[axis];
+      mdlScale[axis] = range > 1e-9 ? range / 255 : 1;
+    }
+
+    const boundingRadius = Math.hypot(
+      (pMax[0] - pMin[0]) / 2,
+      (pMax[1] - pMin[1]) / 2,
+      (pMax[2] - pMin[2]) / 2,
+    );
+
+    return {
+      path: "svg-import.mdl",
+      version: 6,
+      scale: mdlScale,
+      scaleOrigin: pMin.slice(),
+      boundingRadius,
+      eyePosition: [0, 0, pMax[2]],
+      numSkins: 1,
+      skinWidth,
+      skinHeight,
+      numVerts,
+      numTris: triangles.length,
+      numFrames: 1,
+      synctype: 0,
+      syncType: 0,
+      flags: importWarning ? (1 << 14) : 0,
+      size: 0,
+      importWarning,
+      skinOverlayLoops,
+      skins: [{
+        type: "single",
+        frames: [skinPixels],
+        intervals: [0.1],
+      }],
+      stVerts,
+      triangles,
+      topFrames: [{
+        type: "single",
+        name: "frame0",
+        poseIndices: [0],
+        intervals: [0.1],
+      }],
+      poses: [{
+        name: "frame0",
+        positions,
+      }],
+    };
+  }
+
+  // ── SVG file loading and model activation ───────────────────────────────────
+
+  async function loadSvgText(text, sourceName) {
+    try {
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      const svgEl = doc.querySelector("svg");
+      if (!svgEl) throw new Error("No <svg> element found");
+      state.svgPendingText = text;
+      state.svgPendingName = sourceName;
+      dom.svgImportGenerate.disabled = false;
+      dom.svgImportStatus.textContent = `Loaded ${sourceName}. Generating...`;
+      dom.svgImportPanel.open = true;
+      await generateModelFromPendingSvg();
+    } catch (error) {
+      state.svgPendingText = null;
+      state.svgPendingName = "";
+      dom.svgImportGenerate.disabled = true;
+      dom.svgImportStatus.textContent = `Failed to load SVG: ${error.message}`;
+    }
+  }
+
+  async function loadSvgFile(file) {
+    const text = await file.text();
+    await loadSvgText(text, file.name);
+  }
+
+  async function generateModelFromPendingSvg() {
+    if (!state.svgPendingText) return;
+    if (!state.paletteRGBA) {
+      dom.svgImportStatus.textContent = "No palette available for skin generation.";
+      return;
+    }
+
+    dom.svgImportGenerate.disabled = true;
+    dom.svgImportStatus.textContent = "Generating...";
+
+    try {
+      const options = {
+        thickness: parseFloat(dom.svgThickness.value) || 16,
+        bevelWidth: parseFloat(dom.svgBevelWidth.value) || 0,
+        bevelSegments: Math.max(0, Math.min(2, parseInt(dom.svgBevelSegments.value, 10) || 0)),
+        skinWidth: Math.max(16, Math.min(1024, parseInt(dom.svgSkinWidth.value, 10) || 1024)),
+        skinHeight: Math.max(16, Math.min(1024, parseInt(dom.svgSkinHeight.value, 10) || 1024)),
+        modelScale: parseFloat(dom.svgModelScale.value) || 64,
+      };
+
+      const model = await buildModelFromSvg(state.svgPendingText, options);
+      activateGeneratedModel(model, state.svgPendingName);
+      dom.svgImportStatus.textContent = model.importWarning
+        ? `Generated MDL with fallback: ${model.numVerts} verts, ${model.numTris} tris. ${model.importWarning}`
+        : `Generated MDL: ${model.numVerts} verts, ${model.numTris} tris.`;
+      dom.svgImportGenerate.disabled = false;
+    } catch (error) {
+      console.error(error);
+      dom.svgImportStatus.textContent = `Generation failed: ${error.message}`;
+      dom.svgImportGenerate.disabled = false;
+    }
+  }
+
+  function activateGeneratedModel(model, sourceName) {
+    model.render = buildRenderData(model);
+    model.frameGroups = buildFrameGroups(model);
+
+    const syntheticKey = `svg:${sourceName || "import"}.mdl`;
+    state.assets.set(syntheticKey, {
+      key: syntheticKey,
+      path: model.path,
+      source: "svg-import",
+      kind: "mdl",
+      bytes: null,
+    });
+    refreshModelList();
+
+    state.model = model;
+    state.currentModelKey = syntheticKey;
+    dom.modelSelect.value = syntheticKey;
+    dom.modelStatus.textContent = model.path;
+    state.frameTreeOpen = new Set(model.frameGroups.map((_, index) => index));
+
+    populateFrameGroupList(model);
+    renderFrameTree(model);
+    populateSkinList(model);
+    populateProperties(model);
+    updateValidationPanel();
+    setSaveStatus(model.importWarning
+      ? `SVG model generated with fallback. ${model.importWarning}`
+      : "SVG model generated. Edit properties and save as .mdl.");
+
+    const defaultFrameGroupIndex = findFirstPlayableFrameGroupIndex(model);
+    state.selectedFrameGroupIndex = defaultFrameGroupIndex >= 0 ? defaultFrameGroupIndex : 0;
+    dom.frameGroupSelect.value = String(state.selectedFrameGroupIndex);
+    state.selectedSkinIndex = 0;
+    dom.skinSelect.value = "0";
+    clearSkinPaletteSelection(true);
+    state.recolorEnabled = false;
+    dom.recolorToggle.checked = false;
+    syncPlayerColorControls();
+    state.playhead = 0;
+    state.manualFrameIndex = 0;
+    state.playing = false;
+    updateTimelineRange();
+    resetCamera();
+    updatePlaybackControls();
+    syncModelDependentPanels();
+    updateSkinStatus();
+    syncFrameTreeSelection(0);
+    state.textureDirty = true;
+    state.geometryDirty = true;
+    uploadModelBuffers();
+    hideOverlay();
+  }
+
+  // ── End SVG-to-MDL ──────────────────────────────────────────────────────────
 
   function parseMDL(bytes, path) {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -5612,7 +7261,7 @@
   }
 
   function drawSkinPolyOverlay(model, scale, context, options = {}) {
-    if (!model.triangles?.length || !model.stVerts?.length) {
+    if ((!model.triangles?.length || !model.stVerts?.length) && !model.skinOverlayLoops?.length) {
       return;
     }
 
@@ -5644,6 +7293,20 @@
 
   function appendSkinPolyPath(context, model) {
     context.beginPath();
+    if (model.skinOverlayLoops?.length) {
+      for (const loop of model.skinOverlayLoops) {
+        if (!loop?.length) {
+          continue;
+        }
+        context.moveTo(loop[0][0], loop[0][1]);
+        for (let i = 1; i < loop.length; i++) {
+          context.lineTo(loop[i][0], loop[i][1]);
+        }
+        context.closePath();
+      }
+      return;
+    }
+
     for (const triangle of model.triangles) {
       const a = getSkinPolyVertex(model, triangle, 0);
       const b = getSkinPolyVertex(model, triangle, 1);
