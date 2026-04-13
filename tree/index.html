@@ -155,7 +155,6 @@ const DATA = {
         },
         { name: "DirectQ", url: "https://steamcommunity.com/linkfilter/?u=https%3A%2F%2Fwww.quaddicted.com%2Ffiles%2Fengines%2Fdirectq%2FDirectQ%25201.9.0%2520Executable.zip" },
         { name: "squake", url: "https://www.linuxdoc.org/HOWTO/Quake-HOWTO-2.html" },
-        { name: "QDOS", url: "https://github.com/vogonsorg/QDOS" },
         {
           name: "Makaqu",
           url: "https://code.google.com/archive/p/makaqu/downloads",
@@ -206,6 +205,7 @@ const DATA = {
         }
       ]
     },
+    { name: "QDOS", url: "https://github.com/maraakate/qdos" },
     {
       name: "GLQuake",
       url: "https://github.com/Jason2Brownlee/QuakeOfficialArchive",
@@ -255,6 +255,7 @@ const DATA = {
                       name: "Ironwail",
                       url: "https://github.com/andrei-drexler/ironwail",
                       children: [
+                        { name: "Ironwail Go", url: "https://github.com/darkliquid/ironwail-go" },
                         { name: "QSprawl", url: "https://github.com/VoidForce/QSprawl" },
                         { name: "ironwail_ap", url: "https://github.com/randomcodegen/ironwail_ap" }
                       ]
@@ -560,7 +561,7 @@ const DATA = {
         const label = document.createElement('div');
         label.className = 'label';
         if (P.depth === 0) label.classList.add('root');
-        if (P.depth === 1 && (n.name === 'GLQuake' || n.name === 'WinQuake' || n.name === 'QuakeWorld' || n.name === 'KEX Quake')) {
+        if (P.depth === 1 && (n.name === 'GLQuake' || n.name === 'WinQuake' || n.name === 'QDOS' || n.name === 'QuakeWorld' || n.name === 'KEX Quake')) {
           label.classList.add('main-branch');
         }
         if (n.url) {
