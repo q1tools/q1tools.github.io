@@ -5,6 +5,8 @@
   const BOTTOM_RANGE = 96;
   const DEFAULT_FRAME_DURATION = 0.1;
   const SIDEBAR_WIDTH_KEY = "qss-mdl-viewer-sidebar-width";
+  const LOCAL_FONTS_CACHE_KEY = "qss-mdl-local-fonts-cache-v1";
+  const LOCAL_FONTS_ENABLED_KEY = "qss-mdl-local-fonts-enabled";
   const PALETTE_GRID_DIMENSION = 16;
   const PALETTE_CANVAS_SIZE = 256;
   const UV_EXPORT_TARGET_SIZE = 1024;
@@ -14,6 +16,16 @@
   const WAWOFF2_CDN_URL = "https://unpkg.com/wawoff2@2.0.1/build/decompress_binding.js";
   const FONTAWESOME_ICONS_URL = "https://cdn.jsdelivr.net/gh/FortAwesome/Font-Awesome@6.7.2/metadata/icons.json";
   const GOOGLE_FONTS_INDEX_URL = "./gfonts.json";
+  const GENERATED_FONT_ICON_FILL_RGB24 = 0x5b431f;
+  const BUILTIN_FONT_SOURCES = [
+    {
+      family: "Quake1",
+      aliases: ["Quake", "Quake 1"],
+      category: "built-in",
+      weights: [400],
+      url: "../namemaker/Quake1.ttf",
+    },
+  ];
   const DEFAULT_QUAKE_PALETTE_RGB24 = [
     0x000000, 0x0f0f0f, 0x1f1f1f, 0x2f2f2f, 0x3f3f3f, 0x4b4b4b, 0x5b5b5b, 0x6b6b6b,
     0x7b7b7b, 0x8b8b8b, 0x9b9b9b, 0xababab, 0xbbbbbb, 0xcbcbcb, 0xdbdbdb, 0xebebeb,
@@ -200,6 +212,7 @@
     svgFontWeight: document.getElementById("svg-font-weight"),
     svgFontItalic: document.getElementById("svg-font-italic"),
     svgTextGenerate: document.getElementById("svg-text-generate"),
+    svgLocalFontsEnable: document.getElementById("svg-local-fonts-enable"),
     svgThickness: document.getElementById("svg-thickness"),
     svgBevelWidth: document.getElementById("svg-bevel-width"),
     svgBevelSegments: document.getElementById("svg-bevel-segments"),
@@ -274,6 +287,12 @@
     gfFontsIndex: null,
     gfFontsLoading: false,
     gfActiveIndex: -1,
+    gfSearchResults: [],
+    selectedFontEntry: null,
+    localFontsIndex: null,
+    localFontsLoading: false,
+    localFontsHydrated: false,
+    localFontFaces: new Map(),
     faIconsIndex: null,
     faIconsLoading: false,
     faSelectedIcon: null,
@@ -313,6 +332,8 @@
     syncDisplayControls();
     updateSkinPaletteEditor();
     updateValidationPanel();
+    restoreCachedLocalFonts();
+    void maybeWarmLocalFontsCache();
     updateOverlay("Load a `.mdl` or `.pak` to begin. Using the default Quake palette; load `palette.lmp` to override it.");
     requestAnimationFrame(frame);
   }
@@ -499,9 +520,37 @@
     dom.svgTextGenerate.addEventListener("click", () => {
       generateModelFromGoogleFontText();
     });
+    if (dom.svgLocalFontsEnable) {
+      dom.svgLocalFontsEnable.addEventListener("click", async () => {
+        dom.svgLocalFontsEnable.disabled = true;
+        dom.svgImportStatus.textContent = "Requesting access to installed fonts...";
+        try {
+          const localFonts = await ensureLocalFontsIndex({ requireLiveData: true, forceRefresh: true });
+          const count = localFonts.length;
+          dom.svgImportStatus.textContent = count
+            ? `Loaded ${count} installed fonts. Search by full face name or family.`
+            : "No installed fonts were returned by the browser.";
+          if (dom.svgFontFamily.value.trim()) {
+            searchGoogleFonts();
+          }
+        } catch (error) {
+          console.error(error);
+          dom.svgImportStatus.textContent = `Installed font access failed: ${error.message}`;
+        } finally {
+          dom.svgLocalFontsEnable.disabled = false;
+          updateLocalFontsButtonState();
+        }
+      });
+      if (typeof window.queryLocalFonts !== "function") {
+        dom.svgLocalFontsEnable.disabled = true;
+        dom.svgLocalFontsEnable.title = "Installed font access is not available in this browser.";
+      }
+      updateLocalFontsButtonState();
+    }
 
     let gfSearchTimer = 0;
     dom.svgFontFamily.addEventListener("input", () => {
+      state.selectedFontEntry = null;
       clearTimeout(gfSearchTimer);
       gfSearchTimer = setTimeout(() => searchGoogleFonts(), 200);
     });
@@ -517,7 +566,7 @@
       const item = event.target.closest(".gf-font-item");
       if (!item) return;
       event.preventDefault();
-      pickGoogleFont(item.dataset.family);
+      pickGoogleFont(parseInt(item.dataset.index, 10));
     });
     document.addEventListener("mousedown", (event) => {
       if (!event.target.closest(".gf-search-wrapper")) {
@@ -866,7 +915,7 @@
 
         if (lowerName.endsWith(".svg")) {
           const text = new TextDecoder().decode(bytes);
-          await loadSvgText(text, file.name);
+          await loadSvgText(text, file.name, { sourceKind: "svg" });
           continue;
         } else if (lowerName.endsWith(".pak")) {
           const pakAssets = parsePak(file.name, bytes);
@@ -4969,14 +5018,14 @@
 
   // ── Skin generation from SVG ────────────────────────────────────────────────
 
-  function generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, palette) {
+  function generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, palette, sideFillRgb24 = 0x000000) {
     return new Promise((resolve, reject) => {
       const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const rgba = drawSvgImageToRgba(img, viewBox, skinWidth, skinHeight);
+        const rgba = drawSvgImageToRgba(img, viewBox, skinWidth, skinHeight, sideFillRgb24);
         const indexed = rgbaToIndexedQuakePalette(rgba, palette);
         resolve(indexed);
       };
@@ -5052,7 +5101,7 @@
     };
   }
 
-  function drawSvgImageToRgba(image, viewBox, width, height) {
+  function drawSvgImageToRgba(image, viewBox, width, height, sideFillRgb24 = 0x000000) {
     const oversample = 4;
     const hiCanvas = document.createElement("canvas");
     hiCanvas.width = width * oversample;
@@ -5074,7 +5123,7 @@
       viewBox.h * layout.fit * oversample
     );
 
-    hiContext.fillStyle = "#000";
+    hiContext.fillStyle = rgb24ToCssHex(sideFillRgb24);
     hiContext.fillRect(
       layout.sideSwatch.x * oversample,
       layout.sideSwatch.y * oversample,
@@ -5096,7 +5145,7 @@
     return context.getImageData(0, 0, width, height).data;
   }
 
-  function drawContourSkinToRgba(contours, viewBox, width, height) {
+  function drawContourSkinToRgba(contours, viewBox, width, height, fillRgb24 = 0x000000) {
     const oversample = 4;
     const hiCanvas = document.createElement("canvas");
     hiCanvas.width = width * oversample;
@@ -5109,7 +5158,7 @@
     hiContext.clearRect(0, 0, hiCanvas.width, hiCanvas.height);
     hiContext.save();
     hiContext.scale(oversample, oversample);
-    hiContext.fillStyle = "#000";
+    hiContext.fillStyle = rgb24ToCssHex(fillRgb24);
     hiContext.beginPath();
 
     const layout = computeSvgSkinLayout(viewBox, width, height);
@@ -5147,8 +5196,8 @@
     return context.getImageData(0, 0, width, height).data;
   }
 
-  function generateContourSkin(contours, viewBox, skinWidth, skinHeight, palette) {
-    const rgba = drawContourSkinToRgba(contours, viewBox, skinWidth, skinHeight);
+  function generateContourSkin(contours, viewBox, skinWidth, skinHeight, palette, fillRgb24 = 0x000000) {
+    const rgba = drawContourSkinToRgba(contours, viewBox, skinWidth, skinHeight, fillRgb24);
     return rgbaToIndexedQuakePalette(rgba, palette);
   }
 
@@ -5246,6 +5295,365 @@
     return woff2LoadPromise;
   }
 
+  function normalizeFontFamilyKey(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function rgb24ToCssHex(value) {
+    return `#${(value >>> 0).toString(16).padStart(6, "0").slice(-6)}`;
+  }
+
+  function guessFontWeightFromStyle(style) {
+    const normalized = String(style || "").toLowerCase();
+    if (!normalized) return 400;
+    if (/\bthin\b|\bhairline\b/.test(normalized)) return 100;
+    if (/\bextra[- ]?light\b|\bultra[- ]?light\b/.test(normalized)) return 200;
+    if (/\blight\b/.test(normalized)) return 300;
+    if (/\bmedium\b/.test(normalized)) return 500;
+    if (/\bsemi[- ]?bold\b|\bdemi[- ]?bold\b/.test(normalized)) return 600;
+    if (/\bextra[- ]?bold\b|\bultra[- ]?bold\b/.test(normalized)) return 800;
+    if (/\bblack\b|\bheavy\b/.test(normalized)) return 900;
+    if (/\bbold\b/.test(normalized)) return 700;
+    return 400;
+  }
+
+  function isItalicFontStyle(style) {
+    return /\bitalic\b|\boblique\b/i.test(String(style || ""));
+  }
+
+  function buildLocalFontEntry(fontData) {
+    const family = String(fontData?.family || "").trim();
+    const fullName = String(fontData?.fullName || "").trim();
+    const postscriptName = String(fontData?.postscriptName || "").trim();
+    const style = String(fontData?.style || "").trim();
+    const queryName = fullName || postscriptName || family;
+    const weight = guessFontWeightFromStyle(style);
+    const italic = isItalicFontStyle(style);
+    const key = `local:${normalizeFontFamilyKey(postscriptName || queryName)}:${normalizeFontFamilyKey(style)}`;
+
+    return {
+      key,
+      provider: "local",
+      family: family || queryName,
+      queryName,
+      fullName,
+      postscriptName,
+      style,
+      category: style ? `installed • ${style}` : "installed",
+      weights: [weight],
+      italic,
+      terms: [family, fullName, postscriptName, style, "installed", "local", "system"]
+        .join(" ")
+        .toLowerCase(),
+    };
+  }
+
+  function findBuiltinFontSource(family) {
+    const normalized = normalizeFontFamilyKey(family);
+    if (!normalized) return null;
+    return BUILTIN_FONT_SOURCES.find((entry) => {
+      if (normalizeFontFamilyKey(entry.family) === normalized) {
+        return true;
+      }
+      return (entry.aliases || []).some((alias) => normalizeFontFamilyKey(alias) === normalized);
+    }) || null;
+  }
+
+  function buildBuiltinFontIndexEntries() {
+    return BUILTIN_FONT_SOURCES.map((entry) => ({
+      key: `builtin:${normalizeFontFamilyKey(entry.family)}`,
+      provider: "builtin",
+      family: entry.family,
+      queryName: entry.family,
+      category: entry.category,
+      weights: Array.isArray(entry.weights) && entry.weights.length ? entry.weights.slice() : [400],
+      terms: [entry.family, ...(entry.aliases || []), entry.category, "local", "ttf"]
+        .join(" ")
+        .toLowerCase(),
+    }));
+  }
+
+  function sanitizeLocalFontCacheEntry(entry) {
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+    const queryName = String(entry.queryName || entry.fullName || entry.postscriptName || entry.family || "").trim();
+    if (!queryName) {
+      return null;
+    }
+    const weight = clamp(parseInt(entry.weights?.[0], 10) || 400, 100, 900);
+    const style = String(entry.style || "").trim();
+    const family = String(entry.family || queryName).trim();
+    const postscriptName = String(entry.postscriptName || "").trim();
+    const fullName = String(entry.fullName || "").trim();
+    const key = entry.key
+      ? String(entry.key)
+      : `local:${normalizeFontFamilyKey(postscriptName || queryName)}:${normalizeFontFamilyKey(style)}`;
+    return {
+      key,
+      provider: "local",
+      family,
+      queryName,
+      fullName,
+      postscriptName,
+      style,
+      category: style ? `installed • ${style}` : "installed",
+      weights: [weight],
+      italic: !!entry.italic,
+      terms: [family, fullName, postscriptName, style, "installed", "local", "system"]
+        .join(" ")
+        .toLowerCase(),
+    };
+  }
+
+  function saveCachedLocalFonts(entries) {
+    try {
+      const payload = {
+        savedAt: Date.now(),
+        entries: Array.isArray(entries) ? entries.map((entry) => sanitizeLocalFontCacheEntry(entry)).filter(Boolean) : [],
+      };
+      localStorage.setItem(LOCAL_FONTS_CACHE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.warn("Failed to cache installed font metadata:", error);
+    }
+  }
+
+  function clearCachedLocalFonts() {
+    try {
+      localStorage.removeItem(LOCAL_FONTS_CACHE_KEY);
+      localStorage.removeItem(LOCAL_FONTS_ENABLED_KEY);
+    } catch (error) {
+      console.warn("Failed to clear installed font cache:", error);
+    }
+  }
+
+  function setLocalFontsEnabled(enabled) {
+    try {
+      if (enabled) {
+        localStorage.setItem(LOCAL_FONTS_ENABLED_KEY, "true");
+      } else {
+        localStorage.removeItem(LOCAL_FONTS_ENABLED_KEY);
+      }
+    } catch (error) {
+      console.warn("Failed to persist installed font preference:", error);
+    }
+  }
+
+  function areLocalFontsEnabled() {
+    try {
+      return localStorage.getItem(LOCAL_FONTS_ENABLED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function restoreCachedLocalFonts() {
+    updateLocalFontsButtonState();
+    if (typeof window.queryLocalFonts !== "function" || !areLocalFontsEnabled()) {
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(LOCAL_FONTS_CACHE_KEY);
+      if (!raw) {
+        return;
+      }
+      const payload = JSON.parse(raw);
+      const entries = Array.isArray(payload?.entries)
+        ? payload.entries.map((entry) => sanitizeLocalFontCacheEntry(entry)).filter(Boolean)
+        : [];
+      if (!entries.length) {
+        return;
+      }
+      state.localFontsIndex = entries;
+      state.localFontsHydrated = false;
+      updateLocalFontsButtonState();
+    } catch (error) {
+      console.warn("Failed to restore installed font cache:", error);
+      clearCachedLocalFonts();
+    }
+  }
+
+  async function getLocalFontsPermissionState() {
+    try {
+      if (!navigator.permissions?.query) {
+        return null;
+      }
+      const status = await navigator.permissions.query({ name: "local-fonts" });
+      return status?.state || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function maybeWarmLocalFontsCache() {
+    if (!areLocalFontsEnabled() || typeof window.queryLocalFonts !== "function") {
+      updateLocalFontsButtonState();
+      return;
+    }
+    const permissionState = await getLocalFontsPermissionState();
+    if (permissionState === "denied") {
+      state.localFontsIndex = null;
+      state.localFontsHydrated = false;
+      state.localFontFaces = new Map();
+      clearCachedLocalFonts();
+      updateLocalFontsButtonState();
+      return;
+    }
+    if (permissionState === "granted") {
+      try {
+        await ensureLocalFontsIndex({ requireLiveData: true, forceRefresh: true });
+      } catch (error) {
+        console.warn("Failed to warm installed font cache:", error);
+      }
+    } else {
+      updateLocalFontsButtonState();
+    }
+  }
+
+  function updateLocalFontsButtonState() {
+    if (!dom.svgLocalFontsEnable) {
+      return;
+    }
+    if (typeof window.queryLocalFonts !== "function") {
+      dom.svgLocalFontsEnable.textContent = "Installed Fonts Unsupported";
+      return;
+    }
+    const count = state.localFontsIndex?.length || 0;
+    dom.svgLocalFontsEnable.textContent = count
+      ? `Reload Installed Fonts (${count})`
+      : "Load Installed Fonts";
+  }
+
+  function getCombinedFontIndex(baseIndex) {
+    return [...(state.localFontsIndex || []), ...(baseIndex || [])];
+  }
+
+  function getFontEntryDisplayName(entry) {
+    return entry?.queryName || entry?.family || "";
+  }
+
+  function resolveLocalFontEntry(family, requestedWeight, italic) {
+    if (!state.localFontsIndex?.length) {
+      return null;
+    }
+
+    const normalized = normalizeFontFamilyKey(family);
+    if (!normalized) {
+      return null;
+    }
+
+    const selected = state.selectedFontEntry;
+    if (selected?.provider === "local") {
+      const selectedNames = [
+        selected.queryName,
+        selected.family,
+        selected.fullName,
+        selected.postscriptName,
+      ].map(normalizeFontFamilyKey);
+      if (selectedNames.includes(normalized)) {
+        return selected;
+      }
+    }
+
+    const candidates = state.localFontsIndex.filter((entry) => {
+      return [
+        entry.queryName,
+        entry.family,
+        entry.fullName,
+        entry.postscriptName,
+      ].some((value) => normalizeFontFamilyKey(value) === normalized);
+    });
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    const targetWeight = Number.isFinite(requestedWeight) ? requestedWeight : 400;
+    const italicWanted = !!italic;
+    return candidates
+      .slice()
+      .sort((a, b) => {
+        const italicDeltaA = (a.italic ? 1 : 0) === (italicWanted ? 1 : 0) ? 0 : 1;
+        const italicDeltaB = (b.italic ? 1 : 0) === (italicWanted ? 1 : 0) ? 0 : 1;
+        if (italicDeltaA !== italicDeltaB) return italicDeltaA - italicDeltaB;
+        const weightDeltaA = Math.abs((a.weights?.[0] || 400) - targetWeight);
+        const weightDeltaB = Math.abs((b.weights?.[0] || 400) - targetWeight);
+        if (weightDeltaA !== weightDeltaB) return weightDeltaA - weightDeltaB;
+        return getFontEntryDisplayName(a).localeCompare(getFontEntryDisplayName(b));
+      })[0];
+  }
+
+  async function ensureLocalFontsIndex(options = {}) {
+    const {
+      requireLiveData = false,
+      forceRefresh = false,
+    } = options;
+
+    if (state.localFontsIndex && !forceRefresh && (!requireLiveData || state.localFontsHydrated)) {
+      return state.localFontsIndex;
+    }
+    if (state.localFontsLoading) {
+      while (state.localFontsLoading) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (state.localFontsIndex && (!requireLiveData || state.localFontsHydrated)) {
+        return state.localFontsIndex;
+      }
+    }
+    if (typeof window.queryLocalFonts !== "function") {
+      throw new Error("Installed font access is not supported in this browser.");
+    }
+
+    state.localFontsLoading = true;
+    try {
+      const fonts = await window.queryLocalFonts();
+      const faceMap = new Map();
+      const entries = [];
+      for (const fontData of fonts) {
+        const entry = buildLocalFontEntry(fontData);
+        if (!entry.queryName || faceMap.has(entry.key)) {
+          continue;
+        }
+        faceMap.set(entry.key, fontData);
+        entries.push(entry);
+      }
+
+      entries.sort((a, b) => getFontEntryDisplayName(a).localeCompare(getFontEntryDisplayName(b)));
+      state.localFontsIndex = entries;
+      state.localFontsHydrated = true;
+      state.localFontFaces = faceMap;
+      setLocalFontsEnabled(true);
+      saveCachedLocalFonts(entries);
+      return entries;
+    } catch (error) {
+      if (error?.name === "NotAllowedError") {
+        const permissionState = await getLocalFontsPermissionState();
+        if (permissionState === "denied") {
+          state.localFontsIndex = null;
+          state.localFontsHydrated = false;
+          state.localFontFaces = new Map();
+          clearCachedLocalFonts();
+        }
+      }
+      throw error;
+    } finally {
+      state.localFontsLoading = false;
+      updateLocalFontsButtonState();
+    }
+  }
+
   function buildGoogleFontCssUrl(family, weight, italic, text) {
     const familySpec = `${family.trim().replace(/\s+/g, "+")}:ital,wght@${italic ? 1 : 0},${weight}`;
     const encodedFamily = encodeURIComponent(familySpec)
@@ -5315,6 +5723,81 @@
     };
   }
 
+  async function loadBuiltinFont(source) {
+    const opentype = await ensureOpentypeLibrary();
+    const fontResponse = await fetch(source.url, { mode: "cors" });
+    if (!fontResponse.ok) {
+      throw new Error(`Built-in font download failed (${fontResponse.status}).`);
+    }
+
+    const buffer = await fontResponse.arrayBuffer();
+    return {
+      font: opentype.parse(buffer),
+      asset: {
+        fontUrl: source.url,
+        format: "ttf",
+        builtin: true,
+      },
+      source,
+    };
+  }
+
+  async function loadInstalledFont(entry) {
+    const opentype = await ensureOpentypeLibrary();
+    if (!state.localFontsHydrated || !state.localFontFaces.has(entry.key)) {
+      await ensureLocalFontsIndex({ requireLiveData: true, forceRefresh: true });
+    }
+    const fontData = state.localFontFaces.get(entry.key);
+    if (!fontData || typeof fontData.blob !== "function") {
+      throw new Error("The selected installed font is no longer available. Load installed fonts again.");
+    }
+
+    const blob = await fontData.blob();
+    const buffer = await blob.arrayBuffer();
+    return {
+      font: opentype.parse(buffer),
+      asset: {
+        format: blob.type || "font",
+        local: true,
+      },
+      entry,
+    };
+  }
+
+  async function loadModelFont(family, weight, italic, text, selectedEntry = null) {
+    if (selectedEntry?.provider === "local") {
+      const loaded = await loadInstalledFont(selectedEntry);
+      return {
+        ...loaded,
+        family: selectedEntry.family,
+        weight: selectedEntry.weights?.[0] || weight,
+        italic: !!selectedEntry.italic,
+        sourceKind: "local",
+      };
+    }
+
+    const builtin = findBuiltinFontSource(family);
+    if (builtin) {
+      const loaded = await loadBuiltinFont(builtin);
+      return {
+        ...loaded,
+        family: builtin.family,
+        weight: builtin.weights?.[0] || 400,
+        italic: false,
+        sourceKind: "builtin",
+      };
+    }
+
+    const loaded = await loadGoogleFont(family, weight, italic, text);
+    return {
+      ...loaded,
+      family,
+      weight,
+      italic: !!italic,
+      sourceKind: "google",
+    };
+  }
+
   function formatSvgNumber(value) {
     return Number.parseFloat(Number(value).toFixed(3)).toString();
   }
@@ -5366,23 +5849,24 @@
     return { minX, minY, maxX, maxY };
   }
 
-  function buildGoogleFontSourceName(text, family) {
-    const familySlug = family.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "google-font";
+  function buildFontSourceName(text, family) {
+    const familySlug = family.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "font";
     const textSlug = text.trim().replace(/\s+/g, "-").replace(/[^a-z0-9_-]+/gi, "").replace(/^-+|-+$/g, "").toLowerCase() || "text";
     return `${familySlug}-${textSlug.slice(0, 32)}.svg`;
   }
 
-  async function buildSvgFromGoogleFontText(options) {
+  async function buildSvgFromFontText(options) {
     const {
       text,
       family,
       weight,
       italic,
+      selectedEntry = null,
     } = options;
 
     const normalizedText = text.replace(/\r\n?/g, "\n");
     const subsetText = normalizedText.replace(/\n/g, "");
-    const { font } = await loadGoogleFont(family, weight, italic, subsetText);
+    const { font } = await loadModelFont(family, weight, italic, subsetText, selectedEntry);
     const fontSize = 512;
     const padding = Math.max(32, fontSize * 0.18);
     const ascender = (font.ascender / Math.max(font.unitsPerEm, 1)) * fontSize;
@@ -5418,7 +5902,8 @@
     const viewBoxHeight = Math.max(1, Math.ceil((bounds.maxY - bounds.minY) + margin * 2));
     const pathData = buildSvgPathDataFromCommands(commands);
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" fill="none" data-mdl-contour-rule="winding"><path d="${pathData}" fill="#000000" fill-rule="nonzero" clip-rule="nonzero" data-mdl-contour-rule="winding"/></svg>`;
+    const fillColor = rgb24ToCssHex(GENERATED_FONT_ICON_FILL_RGB24);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" fill="none" data-mdl-contour-rule="winding"><path d="${pathData}" fill="${fillColor}" fill-rule="nonzero" clip-rule="nonzero" data-mdl-contour-rule="winding"/></svg>`;
   }
 
   function projectSvgContourToSkinLoop(points, skinLayout, skinWidth, skinHeight) {
@@ -5463,6 +5948,7 @@
       modelScale = 64,
       useContourSkin = false,
       preferEarcut = false,
+      skinFillRgb24 = 0x000000,
     } = options;
 
     const { contours, viewBox } = parseSvgToContours(svgText);
@@ -5583,8 +6069,8 @@
 
     // Generate skin
     const skinPixels = useContourSkin
-      ? generateContourSkin(sourceContours, sourceViewBox, skinWidth, skinHeight, state.paletteRGBA)
-      : await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA);
+      ? generateContourSkin(sourceContours, sourceViewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24)
+      : await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24);
 
     // Compute export packing (scale/origin for 0-255 vertex range)
     const pMin = [Infinity, Infinity, Infinity];
@@ -5660,13 +6146,18 @@
 
   async function generateModelFromGoogleFontText() {
     const text = dom.svgTextContent.value || "";
-    const family = dom.svgFontFamily.value.trim();
+    const inputFamily = dom.svgFontFamily.value.trim();
     const rawWeight = parseEditableNumber(dom.svgFontWeight.value, 700);
     const requestedWeight = clamp(Math.round(rawWeight / 100) * 100, 100, 900);
-    const italic = dom.svgFontItalic.checked;
+    let italic = dom.svgFontItalic.checked;
+    const localFontEntry = resolveLocalFontEntry(inputFamily, requestedWeight, italic);
+    const builtinFont = localFontEntry ? null : findBuiltinFontSource(inputFamily);
+    let family = localFontEntry
+      ? getFontEntryDisplayName(localFontEntry)
+      : (builtinFont ? builtinFont.family : inputFamily);
 
     if (!family) {
-      dom.svgImportStatus.textContent = "Enter a Google Fonts family name.";
+      dom.svgImportStatus.textContent = "Enter a font family name.";
       return;
     }
     if (!text.trim()) {
@@ -5674,28 +6165,51 @@
       return;
     }
 
-    // Ensure font index is loaded so we can resolve weights
-    await ensureGoogleFontsIndex();
-    const weight = resolveGoogleFontWeight(family, requestedWeight);
-    if (weight !== requestedWeight) {
+    let weight = requestedWeight;
+    if (localFontEntry) {
+      weight = localFontEntry.weights?.[0] || requestedWeight;
+      italic = !!localFontEntry.italic;
+      state.selectedFontEntry = localFontEntry;
+      dom.svgFontFamily.value = getFontEntryDisplayName(localFontEntry);
       dom.svgFontWeight.value = weight;
+      dom.svgFontItalic.checked = italic;
+    } else if (builtinFont) {
+      weight = builtinFont.weights?.[0] || 400;
+      italic = false;
+      state.selectedFontEntry = null;
+      dom.svgFontFamily.value = family;
+      dom.svgFontWeight.value = weight;
+      dom.svgFontItalic.checked = false;
+    } else {
+      await ensureGoogleFontsIndex();
+      weight = resolveGoogleFontWeight(family, requestedWeight);
+      state.selectedFontEntry = null;
+      if (weight !== requestedWeight) {
+        dom.svgFontWeight.value = weight;
+      }
     }
 
     dom.svgTextGenerate.disabled = true;
     dom.svgImportGenerate.disabled = true;
-    dom.svgImportStatus.textContent = `Loading ${family} (weight ${weight}) from Google Fonts...`;
+    dom.svgImportStatus.textContent = localFontEntry
+      ? `Loading installed font ${getFontEntryDisplayName(localFontEntry)}...`
+      : builtinFont
+      ? `Loading built-in font ${family}...`
+      : `Loading ${family} (weight ${weight}) from Google Fonts...`;
 
     try {
-      const svgText = await buildSvgFromGoogleFontText({
+      const svgText = await buildSvgFromFontText({
         text,
         family,
         weight,
         italic,
+        selectedEntry: localFontEntry,
       });
-      const sourceName = buildGoogleFontSourceName(text, family);
+      const sourceName = buildFontSourceName(text, family);
       await loadSvgText(svgText, sourceName, {
         sourceKind: "font",
         useContourSkin: true,
+        skinFillRgb24: GENERATED_FONT_ICON_FILL_RGB24,
       });
     } catch (error) {
       console.error(error);
@@ -5719,6 +6233,7 @@
 
     state.gfFontsLoading = true;
     try {
+      const builtinEntries = buildBuiltinFontIndexEntries();
       const response = await fetch(GOOGLE_FONTS_INDEX_URL);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
@@ -5730,11 +6245,12 @@
         terms: `${entry.f} ${entry.c || ""}`.toLowerCase(),
       }));
 
-      state.gfFontsIndex = list;
-      return list;
+      state.gfFontsIndex = [...builtinEntries, ...list];
+      return state.gfFontsIndex;
     } catch (error) {
       console.error("Failed to load Google Fonts index:", error);
-      return null;
+      state.gfFontsIndex = buildBuiltinFontIndexEntries();
+      return state.gfFontsIndex;
     } finally {
       state.gfFontsLoading = false;
     }
@@ -5747,7 +6263,8 @@
       return;
     }
 
-    const index = await ensureGoogleFontsIndex();
+    const baseIndex = await ensureGoogleFontsIndex();
+    const index = getCombinedFontIndex(baseIndex);
     if (!index) {
       closeGoogleFontResults();
       return;
@@ -5766,33 +6283,43 @@
       return;
     }
 
+    state.gfSearchResults = shown;
     state.gfActiveIndex = -1;
     const currentWeight = parseInt(dom.svgFontWeight.value, 10) || 700;
     dom.gfResults.innerHTML = shown.map((font, i) => {
+      const displayName = escapeHtml(getFontEntryDisplayName(font));
+      const category = font.category ? `<span class="gf-font-category">${escapeHtml(font.category)}</span>` : "";
       const hasWeight = font.weights.includes(currentWeight);
-      const weightHint = hasWeight ? "" : ` <span class="gf-font-weight-hint">${font.weights.join("/")}</span>`;
-      return `<div class="gf-font-item" data-index="${i}" data-family="${font.family}">${font.family}<span class="gf-font-category">${font.category}</span>${weightHint}</div>`;
+      const weightHint = font.provider === "local" || hasWeight
+        ? ""
+        : ` <span class="gf-font-weight-hint">${escapeHtml(font.weights.join("/"))}</span>`;
+      return `<div class="gf-font-item" data-index="${i}">${displayName}${category}${weightHint}</div>`;
     }).join("");
 
     dom.gfResults.classList.add("is-open");
   }
 
-  function pickGoogleFont(family) {
-    dom.svgFontFamily.value = family;
+  function pickGoogleFont(index) {
+    const entry = state.gfSearchResults[index];
+    if (!entry) {
+      return;
+    }
+
+    state.selectedFontEntry = entry.provider === "local" ? entry : null;
+    dom.svgFontFamily.value = getFontEntryDisplayName(entry);
     closeGoogleFontResults();
 
     // Auto-adjust weight to nearest available for this font
-    const index = state.gfFontsIndex;
-    if (index) {
-      const entry = index.find((f) => f.family === family);
-      if (entry && entry.weights.length) {
-        const currentWeight = parseInt(dom.svgFontWeight.value, 10) || 700;
-        if (!entry.weights.includes(currentWeight)) {
-          const nearest = entry.weights.reduce((best, w) =>
-            Math.abs(w - currentWeight) < Math.abs(best - currentWeight) ? w : best,
-          );
-          dom.svgFontWeight.value = nearest;
-        }
+    if (entry.weights.length) {
+      const currentWeight = parseInt(dom.svgFontWeight.value, 10) || 700;
+      if (entry.provider === "local") {
+        dom.svgFontWeight.value = entry.weights[0];
+        dom.svgFontItalic.checked = !!entry.italic;
+      } else if (!entry.weights.includes(currentWeight)) {
+        const nearest = entry.weights.reduce((best, w) =>
+          Math.abs(w - currentWeight) < Math.abs(best - currentWeight) ? w : best,
+        );
+        dom.svgFontWeight.value = nearest;
       }
     }
   }
@@ -5801,6 +6328,7 @@
     dom.gfResults.classList.remove("is-open");
     dom.gfResults.innerHTML = "";
     state.gfActiveIndex = -1;
+    state.gfSearchResults = [];
   }
 
   function handleGoogleFontKeydown(event) {
@@ -5820,7 +6348,7 @@
     } else if (event.key === "Enter") {
       event.preventDefault();
       if (state.gfActiveIndex >= 0 && state.gfActiveIndex < items.length) {
-        pickGoogleFont(items[state.gfActiveIndex].dataset.family);
+        pickGoogleFont(state.gfActiveIndex);
       } else {
         closeGoogleFontResults();
       }
@@ -5963,7 +6491,8 @@
 
   function buildSvgFromFontAwesomeIcon(icon) {
     const pathData = Array.isArray(icon.path) ? icon.path.join(" ") : icon.path;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${icon.viewBox}"><path d="${pathData}" fill="#000000" fill-rule="nonzero"/></svg>`;
+    const fillColor = rgb24ToCssHex(GENERATED_FONT_ICON_FILL_RGB24);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${icon.viewBox}"><path d="${pathData}" fill="${fillColor}" fill-rule="nonzero"/></svg>`;
   }
 
   async function generateModelFromFontAwesomeIcon() {
@@ -5976,13 +6505,21 @@
     try {
       const svgText = buildSvgFromFontAwesomeIcon(icon);
       const sourceName = `fa-${icon.style}-${icon.name}`;
-      await loadSvgText(svgText, sourceName);
+      await loadSvgText(svgText, sourceName, {
+        sourceKind: "icon",
+        skinFillRgb24: GENERATED_FONT_ICON_FILL_RGB24,
+      });
     } catch (error) {
       console.error(error);
       dom.svgImportStatus.textContent = `Icon generation failed: ${error.message}`;
     } finally {
       dom.faGenerate.disabled = !state.faSelectedIcon;
     }
+  }
+
+  function isSvgManualGenerateSource(pendingOptions) {
+    const sourceKind = pendingOptions?.sourceKind || "svg";
+    return sourceKind === "svg";
   }
 
   async function loadSvgText(text, sourceName, pendingOptions = null) {
@@ -5993,7 +6530,7 @@
       state.svgPendingText = text;
       state.svgPendingName = sourceName;
       state.svgPendingOptions = pendingOptions ? { ...pendingOptions } : null;
-      dom.svgImportGenerate.disabled = false;
+      dom.svgImportGenerate.disabled = !isSvgManualGenerateSource(state.svgPendingOptions);
       dom.svgImportStatus.textContent = `Loaded ${sourceName}. Generating...`;
       dom.svgImportPanel.open = true;
       await generateModelFromPendingSvg();
@@ -6008,13 +6545,14 @@
 
   async function loadSvgFile(file) {
     const text = await file.text();
-    await loadSvgText(text, file.name);
+    await loadSvgText(text, file.name, { sourceKind: "svg" });
   }
 
   async function generateModelFromPendingSvg() {
     if (!state.svgPendingText) return;
     if (!state.paletteRGBA) {
       dom.svgImportStatus.textContent = "No palette available for skin generation.";
+      dom.svgImportGenerate.disabled = !isSvgManualGenerateSource(state.svgPendingOptions);
       return;
     }
 
@@ -6033,19 +6571,20 @@
         modelScale: parseFloat(dom.svgModelScale.value) || 64,
         useContourSkin: !!pendingOptions.useContourSkin,
         preferEarcut: pendingOptions.sourceKind === "font",
+        skinFillRgb24: Number.isFinite(pendingOptions.skinFillRgb24) ? pendingOptions.skinFillRgb24 : 0x000000,
       };
       state.svgPendingOptions = pendingOptions;
 
       const model = await buildModelFromSvg(state.svgPendingText, options);
       activateGeneratedModel(model, state.svgPendingName);
       dom.svgImportStatus.textContent = model.importWarning
-        ? `Generated MDL with fallback: ${model.numVerts} verts, ${model.numTris} tris. ${model.importWarning}`
-        : `Generated MDL: ${model.numVerts} verts, ${model.numTris} tris.`;
-      dom.svgImportGenerate.disabled = false;
+        ? `\nGenerated MDL with fallback: ${model.numVerts} verts, ${model.numTris} tris. ${model.importWarning}`
+        : `\nGenerated MDL: ${model.numVerts} verts, ${model.numTris} tris.`;
+      dom.svgImportGenerate.disabled = !isSvgManualGenerateSource(pendingOptions);
     } catch (error) {
       console.error(error);
       dom.svgImportStatus.textContent = `Generation failed: ${error.message}`;
-      dom.svgImportGenerate.disabled = false;
+      dom.svgImportGenerate.disabled = !isSvgManualGenerateSource(state.svgPendingOptions);
     }
   }
 

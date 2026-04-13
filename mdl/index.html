@@ -37,7 +37,7 @@
 
       <details id="svg-import-panel" class="panel panel-collapsible">
         <summary class="panel-summary">
-          <h2>Create From SVG/Font</h2>
+          <h2>Create From SVG/Icon/Font</h2>
         </summary>
         <div class="panel-collapsible-content">
           <label class="file-drop" for="svg-import-input">
@@ -49,49 +49,6 @@
           </label>
 
           <div class="svg-import-settings">
-            <h3>Google Font Text</h3>
-            <div class="svg-import-grid">
-              <label for="svg-text-content">Text</label>
-              <textarea id="svg-text-content" rows="3" placeholder="QUAKE">QUAKE</textarea>
-
-              <label for="svg-font-family">Google Font</label>
-              <div class="gf-search-wrapper">
-                <input id="svg-font-family" type="text" value="Roboto" placeholder="Search fonts..." autocomplete="off">
-                <div id="gf-results" class="gf-font-results"></div>
-              </div>
-
-              <label for="svg-font-weight">Weight</label>
-              <input id="svg-font-weight" type="number" value="700" min="100" max="900" step="100">
-
-              <label for="svg-font-italic">Style</label>
-              <label class="checkbox svg-import-inline-checkbox">
-                <input id="svg-font-italic" type="checkbox">
-                <span>Italic</span>
-              </label>
-            </div>
-
-            <div class="control-row">
-              <button id="svg-text-generate" type="button">Generate From Google Font</button>
-            </div>
-
-            <h3>Font Awesome Icon</h3>
-            <div class="svg-import-grid">
-              <label for="fa-search">Search</label>
-              <input id="fa-search" type="text" placeholder="house, star, skull...">
-
-              <label for="fa-style">Style</label>
-              <select id="fa-style">
-                <option value="solid">Solid</option>
-                <option value="regular">Regular</option>
-                <option value="brands">Brands</option>
-              </select>
-            </div>
-            <div id="fa-results" class="fa-icon-grid" data-empty="Type to search icons."></div>
-            <div id="fa-selected-label" class="fa-selected-label"></div>
-            <div class="control-row">
-              <button id="fa-generate" type="button" disabled>Generate From Icon</button>
-            </div>
-
             <h3>Extrusion</h3>
             <div class="svg-import-grid">
               <label for="svg-thickness">Thickness</label>
@@ -124,9 +81,53 @@
             </div>
 
             <div class="control-row">
-              <button id="svg-import-generate" type="button" disabled>Generate MDL</button>
+              <button id="svg-import-generate" type="button" disabled>Generate from SVG</button>
             </div>
-            <div id="svg-import-status" class="hint">Load an SVG or generate text from a Google Font.</div>
+
+            <h3>Google Font Text</h3>
+            <div class="svg-import-grid">
+              <label for="svg-text-content">Text</label>
+              <textarea id="svg-text-content" rows="3" placeholder="QUAKE">QUAKE</textarea>
+
+              <label for="svg-font-family">Font Family</label>
+              <div class="gf-search-wrapper">
+                <input id="svg-font-family" type="text" value="Quake1" placeholder="Quake1 or Roboto" autocomplete="off">
+                <div id="gf-results" class="gf-font-results"></div>
+              </div>
+
+              <label for="svg-font-weight">Weight</label>
+              <input id="svg-font-weight" type="number" value="400" min="100" max="900" step="100">
+
+              <label for="svg-font-italic">Style</label>
+              <label class="checkbox svg-import-inline-checkbox">
+                <input id="svg-font-italic" type="checkbox">
+                <span>Italic</span>
+              </label>
+            </div>
+
+            <div class="control-row">
+              <button id="svg-local-fonts-enable" type="button">Load Installed Fonts</button>
+              <button id="svg-text-generate" type="button">Generate From Font</button>
+            </div>
+
+            <h3>Font Awesome Icon</h3>
+            <div class="svg-import-grid">
+              <label for="fa-search">Search</label>
+              <input id="fa-search" type="text" placeholder="house, star, skull...">
+
+              <label for="fa-style">Style</label>
+              <select id="fa-style">
+                <option value="solid">Solid</option>
+                <option value="regular">Regular</option>
+                <option value="brands">Brands</option>
+              </select>
+            </div>
+            <div id="fa-results" class="fa-icon-grid" data-empty="Type to search icons."></div>
+            <div id="fa-selected-label" class="fa-selected-label"></div>
+            <div class="control-row">
+              <button id="fa-generate" type="button" disabled>Generate From Icon</button>
+            </div>
+            <div id="svg-import-status" class="hint"></div>
           </div>
         </div>
       </details>
