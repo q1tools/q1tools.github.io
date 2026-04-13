@@ -8,6 +8,12 @@
   const PALETTE_GRID_DIMENSION = 16;
   const PALETTE_CANVAS_SIZE = 256;
   const UV_EXPORT_TARGET_SIZE = 1024;
+  const GOOGLE_FONTS_CSS2_URL = "https://fonts.googleapis.com/css2";
+  const EARCUT_CDN_URL = "https://cdn.jsdelivr.net/npm/earcut/dist/earcut.min.js";
+  const OPENTYPE_CDN_URL = "https://cdn.jsdelivr.net/npm/opentype.js/dist/opentype.min.js";
+  const WAWOFF2_CDN_URL = "https://unpkg.com/wawoff2@2.0.1/build/decompress_binding.js";
+  const FONTAWESOME_ICONS_URL = "https://cdn.jsdelivr.net/gh/FortAwesome/Font-Awesome@6.7.2/metadata/icons.json";
+  const GOOGLE_FONTS_INDEX_URL = "./gfonts.json";
   const DEFAULT_QUAKE_PALETTE_RGB24 = [
     0x000000, 0x0f0f0f, 0x1f1f1f, 0x2f2f2f, 0x3f3f3f, 0x4b4b4b, 0x5b5b5b, 0x6b6b6b,
     0x7b7b7b, 0x8b8b8b, 0x9b9b9b, 0xababab, 0xbbbbbb, 0xcbcbcb, 0xdbdbdb, 0xebebeb,
@@ -189,6 +195,11 @@
     bgGrid: document.getElementById("bg-grid"),
     svgImportPanel: document.getElementById("svg-import-panel"),
     svgImportInput: document.getElementById("svg-import-input"),
+    svgTextContent: document.getElementById("svg-text-content"),
+    svgFontFamily: document.getElementById("svg-font-family"),
+    svgFontWeight: document.getElementById("svg-font-weight"),
+    svgFontItalic: document.getElementById("svg-font-italic"),
+    svgTextGenerate: document.getElementById("svg-text-generate"),
     svgThickness: document.getElementById("svg-thickness"),
     svgBevelWidth: document.getElementById("svg-bevel-width"),
     svgBevelSegments: document.getElementById("svg-bevel-segments"),
@@ -197,10 +208,19 @@
     svgModelScale: document.getElementById("svg-model-scale"),
     svgImportGenerate: document.getElementById("svg-import-generate"),
     svgImportStatus: document.getElementById("svg-import-status"),
+    gfResults: document.getElementById("gf-results"),
+    faSearch: document.getElementById("fa-search"),
+    faStyle: document.getElementById("fa-style"),
+    faResults: document.getElementById("fa-results"),
+    faSelectedLabel: document.getElementById("fa-selected-label"),
+    faGenerate: document.getElementById("fa-generate"),
   };
 
   const skinPreviewContext = dom.skinPreview.getContext("2d", { alpha: true });
   const skinPaletteContext = dom.skinPaletteCanvas.getContext("2d", { alpha: true });
+  let earcutLoadPromise = null;
+  let opentypeLoadPromise = null;
+  let woff2LoadPromise = null;
 
   const state = {
     assets: new Map(),
@@ -250,6 +270,13 @@
     geometryDirty: true,
     svgPendingText: null,
     svgPendingName: "",
+    svgPendingOptions: null,
+    gfFontsIndex: null,
+    gfFontsLoading: false,
+    gfActiveIndex: -1,
+    faIconsIndex: null,
+    faIconsLoading: false,
+    faSelectedIcon: null,
     currentSkinFrameIndex: 0,
     drag: null,
     resizingSidebar: null,
@@ -469,8 +496,54 @@
       dom.svgImportInput.value = "";
     });
 
+    dom.svgTextGenerate.addEventListener("click", () => {
+      generateModelFromGoogleFontText();
+    });
+
+    let gfSearchTimer = 0;
+    dom.svgFontFamily.addEventListener("input", () => {
+      clearTimeout(gfSearchTimer);
+      gfSearchTimer = setTimeout(() => searchGoogleFonts(), 200);
+    });
+    dom.svgFontFamily.addEventListener("focus", () => {
+      if (dom.svgFontFamily.value.trim()) {
+        searchGoogleFonts();
+      }
+    });
+    dom.svgFontFamily.addEventListener("keydown", (event) => {
+      handleGoogleFontKeydown(event);
+    });
+    dom.gfResults.addEventListener("mousedown", (event) => {
+      const item = event.target.closest(".gf-font-item");
+      if (!item) return;
+      event.preventDefault();
+      pickGoogleFont(item.dataset.family);
+    });
+    document.addEventListener("mousedown", (event) => {
+      if (!event.target.closest(".gf-search-wrapper")) {
+        closeGoogleFontResults();
+      }
+    });
+
     dom.svgImportGenerate.addEventListener("click", () => {
       generateModelFromPendingSvg();
+    });
+
+    let faSearchTimer = 0;
+    dom.faSearch.addEventListener("input", () => {
+      clearTimeout(faSearchTimer);
+      faSearchTimer = setTimeout(() => searchFontAwesomeIcons(), 250);
+    });
+    dom.faStyle.addEventListener("change", () => {
+      searchFontAwesomeIcons();
+    });
+    dom.faResults.addEventListener("click", (event) => {
+      const cell = event.target.closest(".fa-icon-cell");
+      if (!cell) return;
+      selectFontAwesomeIcon(cell.dataset.iconName, cell.dataset.iconStyle);
+    });
+    dom.faGenerate.addEventListener("click", () => {
+      generateModelFromFontAwesomeIcon();
     });
 
     dom.renderModeSelect.addEventListener("change", () => {
@@ -3794,7 +3867,12 @@
       if (!isIdentity) applyMatrix2D(points, mat);
 
       const area = contourSignedArea(points);
-      contours.push({ points, isHole: area > 0 });
+      contours.push({
+        points,
+        windingSign: area >= 0 ? 1 : -1,
+        useWindingRole: element.getAttribute("data-mdl-contour-rule") === "winding"
+          || svgEl.getAttribute("data-mdl-contour-rule") === "winding",
+      });
     }
 
     const shapes = svgEl.querySelectorAll("path, rect, circle, ellipse, polygon, polyline");
@@ -3935,10 +4013,118 @@
     return [cx / Math.max(count, 1), cy / Math.max(count, 1)];
   }
 
+  function getContourInteriorPoint(points) {
+    if (!points || points.length < 6) {
+      return getContourCentroid(points || []);
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < points.length; i += 2) {
+      minX = Math.min(minX, points[i]);
+      minY = Math.min(minY, points[i + 1]);
+      maxX = Math.max(maxX, points[i]);
+      maxY = Math.max(maxY, points[i + 1]);
+    }
+
+    const bboxSize = Math.max(maxX - minX, maxY - minY, 1);
+    const inset = Math.max(SVG_CONTOUR_EPSILON * 8, bboxSize * 1e-4);
+    for (let i = 0, n = points.length; i < n; i += 2) {
+      const j = (i + 2) % n;
+      const x1 = points[i];
+      const y1 = points[i + 1];
+      const x2 = points[j];
+      const y2 = points[j + 1];
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.hypot(dx, dy);
+      if (length <= SVG_CONTOUR_EPSILON) {
+        continue;
+      }
+
+      const midX = (x1 + x2) * 0.5;
+      const midY = (y1 + y2) * 0.5;
+      const nx = -dy / length;
+      const ny = dx / length;
+      const candidateA = [midX + nx * inset, midY + ny * inset];
+      if (pointInContour(candidateA[0], candidateA[1], points)) {
+        return candidateA;
+      }
+
+      const candidateB = [midX - nx * inset, midY - ny * inset];
+      if (pointInContour(candidateB[0], candidateB[1], points)) {
+        return candidateB;
+      }
+    }
+
+    const yValues = [];
+    for (let i = 0; i < points.length; i += 2) {
+      yValues.push(points[i + 1]);
+    }
+    yValues.sort((a, b) => a - b);
+
+    for (let i = 0; i < yValues.length - 1; i++) {
+      const y0 = yValues[i];
+      const y1 = yValues[i + 1];
+      if (!Number.isFinite(y0) || !Number.isFinite(y1) || Math.abs(y1 - y0) <= SVG_CONTOUR_EPSILON) {
+        continue;
+      }
+
+      const scanY = (y0 + y1) * 0.5;
+      const hits = [];
+      for (let j = 0, n = points.length; j < n; j += 2) {
+        const k = (j + 2) % n;
+        const x1 = points[j];
+        const y1Edge = points[j + 1];
+        const x2 = points[k];
+        const y2Edge = points[k + 1];
+
+        if (Math.abs(y2Edge - y1Edge) <= SVG_CONTOUR_EPSILON) {
+          continue;
+        }
+
+        const minY = Math.min(y1Edge, y2Edge);
+        const maxY = Math.max(y1Edge, y2Edge);
+        if (scanY < minY || scanY >= maxY) {
+          continue;
+        }
+
+        const t = (scanY - y1Edge) / (y2Edge - y1Edge);
+        hits.push(x1 + (x2 - x1) * t);
+      }
+
+      if (hits.length < 2) {
+        continue;
+      }
+
+      hits.sort((a, b) => a - b);
+      let bestSegment = null;
+      for (let j = 0; j < hits.length - 1; j += 2) {
+        const left = hits[j];
+        const right = hits[j + 1];
+        const width = right - left;
+        if (width <= SVG_CONTOUR_EPSILON) {
+          continue;
+        }
+        if (!bestSegment || width > bestSegment.width) {
+          bestSegment = { left, right, width };
+        }
+      }
+
+      if (bestSegment) {
+        return [(bestSegment.left + bestSegment.right) * 0.5, scanY];
+      }
+    }
+
+    return getContourCentroid(points);
+  }
+
   function classifyContoursByNesting(contours) {
     const nestingLevel = contours.map(() => 0);
     for (let i = 0; i < contours.length; i++) {
-      const [cx, cy] = getContourCentroid(contours[i].points);
+      const [cx, cy] = getContourInteriorPoint(contours[i].points);
       for (let j = 0; j < contours.length; j++) {
         if (i === j) {
           continue;
@@ -3949,10 +4135,34 @@
       }
     }
 
+    const windingContours = contours
+      .map((contour, index) => ({ contour, index }))
+      .filter(({ contour }) => contour.useWindingRole && contour.points.length >= 6);
+    let outerWindingSign = 1;
+    if (windingContours.length) {
+      const minNestingLevel = windingContours.reduce(
+        (best, entry) => Math.min(best, nestingLevel[entry.index]),
+        Infinity,
+      );
+      let signBalance = 0;
+      for (const entry of windingContours) {
+        if (nestingLevel[entry.index] === minNestingLevel) {
+          signBalance += entry.contour.windingSign || 1;
+        }
+      }
+      if (signBalance !== 0) {
+        outerWindingSign = signBalance > 0 ? 1 : -1;
+      } else {
+        outerWindingSign = windingContours[0].contour.windingSign || 1;
+      }
+    }
+
     return contours.map((contour, index) => ({
       ...contour,
       nestingLevel: nestingLevel[index],
-      role: nestingLevel[index] % 2 === 0 ? "outer" : "hole",
+      role: contour.useWindingRole
+        ? ((contour.windingSign || 1) === outerWindingSign ? "outer" : "hole")
+        : (nestingLevel[index] % 2 === 0 ? "outer" : "hole"),
     }));
   }
 
@@ -4003,7 +4213,6 @@
   }
 
   function triangulateSimplePolygon(points) {
-    const EPSILON = 1e-10;
     const contour = points.slice();
     const vertexCount = contour.length;
     if (vertexCount < 3) {
@@ -4018,6 +4227,14 @@
       return area * 0.5;
     }
 
+    // Compute a scale-relative epsilon for the cross-product test.
+    // Using an absolute epsilon fails for large-coordinate font outlines.
+    let maxExtent = 0;
+    for (const pt of contour) {
+      maxExtent = Math.max(maxExtent, Math.abs(pt.x), Math.abs(pt.y));
+    }
+    const EPSILON = Math.max(1e-10, maxExtent * maxExtent * 1e-12);
+
     function snip(u, v, w, n, verts) {
       const ax = contour[verts[u]].x;
       const ay = contour[verts[u]].y;
@@ -4026,7 +4243,8 @@
       const cx = contour[verts[w]].x;
       const cy = contour[verts[w]].y;
 
-      if (EPSILON > (((bx - ax) * (cy - ay)) - ((by - ay) * (cx - ax)))) {
+      const cross = ((bx - ax) * (cy - ay)) - ((by - ay) * (cx - ax));
+      if (cross < EPSILON) {
         return false;
       }
 
@@ -4038,12 +4256,14 @@
       const cY = by - ay;
 
       for (let p = 0; p < n; p++) {
+        if (p === u || p === v || p === w) continue;
         const px = contour[verts[p]].x;
         const py = contour[verts[p]].y;
 
-        if ((px === ax && py === ay) || (px === bx && py === by) || (px === cx && py === cy)) {
-          continue;
-        }
+        // Skip vertices that coincide with any triangle vertex — bridge edges
+        // in removeHoles create duplicate points at different indices that
+        // would otherwise falsely block ear detection.
+        if ((px === ax && py === ay) || (px === bx && py === by) || (px === cx && py === cy)) continue;
 
         const apx = px - ax;
         const apy = py - ay;
@@ -4077,11 +4297,44 @@
 
     const triangles = [];
     let nv = vertexCount;
-    let count = 2 * nv;
+    let count = nv * 3;
 
     for (let v = nv - 1; nv > 2;) {
       if ((count--) <= 0) {
-        throw new Error("Triangulation failed for a contour. The SVG may be self-intersecting or too complex to triangulate safely.");
+        // Desperate pass: try to snip any ear, including degenerate ones
+        let rescued = false;
+        for (let attempt = 0; attempt < nv && nv > 2; attempt++) {
+          let du = (v + attempt) % nv;
+          let dv = (du + 1) % nv;
+          let dw = (dv + 1) % nv;
+          // Accept any non-zero-area triangle
+          const ax = contour[verts[du]].x, ay = contour[verts[du]].y;
+          const bx = contour[verts[dv]].x, by = contour[verts[dv]].y;
+          const cx = contour[verts[dw]].x, cy = contour[verts[dw]].y;
+          const cross = ((bx - ax) * (cy - ay)) - ((by - ay) * (cx - ax));
+          if (Math.abs(cross) > EPSILON * 0.001) {
+            triangles.push([verts[du], verts[dv], verts[dw]]);
+            for (let s = dv, t = dv + 1; t < nv; s++, t++) verts[s] = verts[t];
+            nv--;
+            count = nv * 3;
+            v = du >= nv ? 0 : du;
+            rescued = true;
+            break;
+          }
+          // Degenerate edge — just remove the middle vertex
+          if (Math.abs(cross) <= EPSILON * 0.001) {
+            for (let s = dv, t = dv + 1; t < nv; s++, t++) verts[s] = verts[t];
+            nv--;
+            count = nv * 3;
+            v = du >= nv ? 0 : du;
+            rescued = true;
+            break;
+          }
+        }
+        if (!rescued) {
+          throw new Error("Triangulation failed for a contour. The SVG may be self-intersecting or too complex to triangulate safely.");
+        }
+        continue;
       }
 
       let u = v;
@@ -4106,7 +4359,7 @@
         verts[s] = verts[t];
       }
       nv--;
-      count = 2 * nv;
+      count = nv * 3;
     }
 
     return triangles;
@@ -4350,7 +4603,7 @@
 
       const failedCuts = new Set();
       let minShapeIndex = 0;
-      let counter = independentHoles.length * 2;
+      let counter = independentHoles.length * 4 + 2;
 
       while (independentHoles.length > 0) {
         counter--;
@@ -4408,7 +4661,13 @@
         }
 
         if (!connected) {
-          throw new Error("Triangulation failed while connecting holes to the outer contour.");
+          // Retry from the beginning of the shape
+          if (minShapeIndex > 0) {
+            minShapeIndex = 0;
+            failedCuts.clear();
+          } else {
+            throw new Error("Triangulation failed while connecting holes to the outer contour.");
+          }
         }
       }
 
@@ -4434,7 +4693,7 @@
     }));
   }
 
-  function triangulatePlanarContours(contours) {
+  function triangulatePlanarContours(contours, earcutFn = null) {
     const classifiedContours = contours.length && contours[0]?.role
       ? contours
       : classifyContoursByNesting(contours);
@@ -4455,7 +4714,7 @@
 
       const myHoles = [];
       for (const hole of holes) {
-        const [hcx, hcy] = getContourCentroid(hole.points);
+        const [hcx, hcy] = getContourInteriorPoint(hole.points);
         if (pointInContour(hcx, hcy, outerPoints)) {
           const holePoints = orientContourPointsForTriangulation(hole.points, "hole");
           if (holePoints.length < 6) continue;
@@ -4473,12 +4732,32 @@
         }
       });
 
-      const triangleIndices = triangulateShapeWithHoles(
-        contourPointsToVec2List(outerPoints),
-        myHoles.map((holePoints) => contourPointsToVec2List(holePoints))
-      );
-      for (const triangle of triangleIndices) {
-        allIndices.push(baseIndex + triangle[0], baseIndex + triangle[1], baseIndex + triangle[2]);
+      if (typeof earcutFn === "function") {
+        const holeIndices = [];
+        let vertexCursor = outerPoints.length / 2;
+        for (const holePoints of myHoles) {
+          holeIndices.push(vertexCursor);
+          vertexCursor += holePoints.length / 2;
+        }
+        const triangleIndices = earcutFn(allVertices.slice(baseIndex * 2), holeIndices, 2);
+        if (!triangleIndices.length || triangleIndices.length % 3 !== 0) {
+          throw new Error("Triangulation failed for a contour. The SVG may be self-intersecting or too complex to triangulate safely.");
+        }
+        for (let i = 0; i < triangleIndices.length; i += 3) {
+          allIndices.push(
+            baseIndex + triangleIndices[i],
+            baseIndex + triangleIndices[i + 1],
+            baseIndex + triangleIndices[i + 2],
+          );
+        }
+      } else {
+        const triangleIndices = triangulateShapeWithHoles(
+          contourPointsToVec2List(outerPoints),
+          myHoles.map((holePoints) => contourPointsToVec2List(holePoints))
+        );
+        for (const triangle of triangleIndices) {
+          allIndices.push(baseIndex + triangle[0], baseIndex + triangle[1], baseIndex + triangle[2]);
+        }
       }
     }
 
@@ -4719,8 +4998,10 @@
     const fit = Math.min(contentWidth / Math.max(viewBox.w, 1), contentHeight / Math.max(viewBox.h, 1));
     const drawWidth = viewBox.w * fit;
     const drawHeight = viewBox.h * fit;
-    const offsetX = padding + (contentWidth - drawWidth) / 2 - viewBox.x * fit;
-    const offsetY = padding + (contentHeight - drawHeight) / 2 - viewBox.y * fit;
+    const drawX = padding + (contentWidth - drawWidth) / 2;
+    const drawY = padding + (contentHeight - drawHeight) / 2;
+    const offsetX = drawX - viewBox.x * fit;
+    const offsetY = drawY - viewBox.y * fit;
 
     const sideSwatch = {
       x: skinWidth - padding - swatchSize,
@@ -4731,11 +5012,43 @@
 
     return {
       fit,
+      drawX,
+      drawY,
       offsetX,
       offsetY,
       sideSwatch,
       sideSampleS: Math.round(sideSwatch.x + sideSwatch.w / 2),
       sideSampleT: Math.round(sideSwatch.y + sideSwatch.h / 2),
+    };
+  }
+
+  function computeContoursViewBox(contours) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const contour of contours) {
+      if (!contour?.points || contour.points.length < 2) {
+        continue;
+      }
+      for (let i = 0; i < contour.points.length; i += 2) {
+        minX = Math.min(minX, contour.points[i]);
+        minY = Math.min(minY, contour.points[i + 1]);
+        maxX = Math.max(maxX, contour.points[i]);
+        maxY = Math.max(maxY, contour.points[i + 1]);
+      }
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return { x: 0, y: 0, w: 1, h: 1 };
+    }
+
+    return {
+      x: minX,
+      y: minY,
+      w: Math.max(maxX - minX, 1),
+      h: Math.max(maxY - minY, 1),
     };
   }
 
@@ -4755,8 +5068,8 @@
     const layout = computeSvgSkinLayout(viewBox, width, height);
     hiContext.drawImage(
       image,
-      layout.offsetX * oversample,
-      layout.offsetY * oversample,
+      layout.drawX * oversample,
+      layout.drawY * oversample,
       viewBox.w * layout.fit * oversample,
       viewBox.h * layout.fit * oversample
     );
@@ -4781,6 +5094,331 @@
     context.clearRect(0, 0, width, height);
     context.drawImage(hiCanvas, 0, 0, width, height);
     return context.getImageData(0, 0, width, height).data;
+  }
+
+  function drawContourSkinToRgba(contours, viewBox, width, height) {
+    const oversample = 4;
+    const hiCanvas = document.createElement("canvas");
+    hiCanvas.width = width * oversample;
+    hiCanvas.height = height * oversample;
+    const hiContext = hiCanvas.getContext("2d", { alpha: true });
+    if (!hiContext) {
+      throw new Error("Could not create a high-resolution contour raster canvas.");
+    }
+
+    hiContext.clearRect(0, 0, hiCanvas.width, hiCanvas.height);
+    hiContext.save();
+    hiContext.scale(oversample, oversample);
+    hiContext.fillStyle = "#000";
+    hiContext.beginPath();
+
+    const layout = computeSvgSkinLayout(viewBox, width, height);
+    for (const contour of contours) {
+      if (!contour?.points || contour.points.length < 6) {
+        continue;
+      }
+      const pts = orientContourPoints(contour.points, contour.role);
+      hiContext.moveTo(pts[0] * layout.fit + layout.offsetX, pts[1] * layout.fit + layout.offsetY);
+      for (let i = 2; i < pts.length; i += 2) {
+        hiContext.lineTo(pts[i] * layout.fit + layout.offsetX, pts[i + 1] * layout.fit + layout.offsetY);
+      }
+      hiContext.closePath();
+    }
+    hiContext.fill("nonzero");
+    hiContext.fillRect(
+      layout.sideSwatch.x,
+      layout.sideSwatch.y,
+      layout.sideSwatch.w,
+      layout.sideSwatch.h
+    );
+    hiContext.restore();
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d", { alpha: true });
+    if (!context) {
+      throw new Error("Could not create a contour raster canvas.");
+    }
+
+    context.imageSmoothingEnabled = true;
+    context.clearRect(0, 0, width, height);
+    context.drawImage(hiCanvas, 0, 0, width, height);
+    return context.getImageData(0, 0, width, height).data;
+  }
+
+  function generateContourSkin(contours, viewBox, skinWidth, skinHeight, palette) {
+    const rgba = drawContourSkinToRgba(contours, viewBox, skinWidth, skinHeight);
+    return rgbaToIndexedQuakePalette(rgba, palette);
+  }
+
+  async function ensureEarcutLibrary() {
+    const existing = window.earcut;
+    if (typeof existing === "function") {
+      return existing;
+    }
+    if (typeof existing?.default === "function") {
+      return existing.default;
+    }
+    if (!earcutLoadPromise) {
+      earcutLoadPromise = loadExternalScript(EARCUT_CDN_URL).then(() => {
+        const resolved = typeof window.earcut === "function"
+          ? window.earcut
+          : window.earcut?.default;
+        if (typeof resolved !== "function") {
+          throw new Error("earcut did not initialize.");
+        }
+        return resolved;
+      });
+    }
+    return earcutLoadPromise;
+  }
+
+  function loadExternalScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-external-src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.loaded === "true") {
+          resolve();
+          return;
+        }
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      script.dataset.externalSrc = src;
+      script.onload = () => {
+        script.dataset.loaded = "true";
+        resolve();
+      };
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensureOpentypeLibrary() {
+    if (window.opentype?.parse) {
+      return window.opentype;
+    }
+    if (!opentypeLoadPromise) {
+      opentypeLoadPromise = loadExternalScript(OPENTYPE_CDN_URL).then(() => {
+        if (!window.opentype?.parse) {
+          throw new Error("opentype.js did not initialize.");
+        }
+        return window.opentype;
+      });
+    }
+    return opentypeLoadPromise;
+  }
+
+  async function ensureWoff2Decoder() {
+    if (window.Module?.decompress) {
+      return window.Module;
+    }
+    if (!woff2LoadPromise) {
+      woff2LoadPromise = (async () => {
+        const existingModule = (window.Module && typeof window.Module === "object") ? window.Module : {};
+        const previousInit = existingModule.onRuntimeInitialized;
+        let readyResolve;
+        const ready = new Promise((resolve) => {
+          readyResolve = resolve;
+        });
+        existingModule.onRuntimeInitialized = () => {
+          if (typeof previousInit === "function") {
+            previousInit();
+          }
+          readyResolve();
+        };
+        window.Module = existingModule;
+        await loadExternalScript(WAWOFF2_CDN_URL);
+        await ready;
+        if (!window.Module?.decompress) {
+          throw new Error("WOFF2 decoder did not initialize.");
+        }
+        return window.Module;
+      })();
+    }
+    return woff2LoadPromise;
+  }
+
+  function buildGoogleFontCssUrl(family, weight, italic, text) {
+    const familySpec = `${family.trim().replace(/\s+/g, "+")}:ital,wght@${italic ? 1 : 0},${weight}`;
+    const encodedFamily = encodeURIComponent(familySpec)
+      .replace(/%2B/g, "+")
+      .replace(/%3A/gi, ":")
+      .replace(/%2C/gi, ",")
+      .replace(/%40/gi, "@")
+      .replace(/%3B/gi, ";");
+    const url = new URL(`${GOOGLE_FONTS_CSS2_URL}?family=${encodedFamily}`);
+    if (text) {
+      url.searchParams.set("text", text);
+    }
+    url.searchParams.set("display", "block");
+    return url.toString();
+  }
+
+  async function fetchGoogleFontAsset(family, weight, italic, text) {
+    const cssUrl = buildGoogleFontCssUrl(family, weight, italic, text);
+    const response = await fetch(cssUrl, { mode: "cors" });
+    if (!response.ok) {
+      throw new Error(`Google Fonts request failed (${response.status}).`);
+    }
+
+    const css = await response.text();
+    const matches = Array.from(css.matchAll(/url\(([^)]+)\)\s+format\(['"]?([^'")]+)['"]?\)/g));
+    if (!matches.length) {
+      throw new Error("No font file URL was found in the Google Fonts response.");
+    }
+
+    const preferredMatch = matches.find((match) => match[2].toLowerCase() === "woff")
+      || matches.find((match) => match[2].toLowerCase() === "woff2")
+      || matches[0];
+    const fontUrl = new URL(preferredMatch[1].trim().replace(/^['"]|['"]$/g, ""), cssUrl).toString();
+
+    return {
+      cssUrl,
+      fontUrl,
+      format: preferredMatch[2].toLowerCase(),
+    };
+  }
+
+  async function loadGoogleFont(family, weight, italic, text) {
+    const opentype = await ensureOpentypeLibrary();
+    const asset = await fetchGoogleFontAsset(family, weight, italic, text);
+    const fontResponse = await fetch(asset.fontUrl, { mode: "cors" });
+    if (!fontResponse.ok) {
+      throw new Error(`Font download failed (${fontResponse.status}).`);
+    }
+
+    let buffer = await fontResponse.arrayBuffer();
+    if (asset.format === "woff2") {
+      const decoder = await ensureWoff2Decoder();
+      const decompressed = decoder.decompress(buffer);
+      if (decompressed instanceof ArrayBuffer) {
+        buffer = decompressed;
+      } else {
+        buffer = decompressed.buffer.slice(
+          decompressed.byteOffset,
+          decompressed.byteOffset + decompressed.byteLength,
+        );
+      }
+    }
+
+    return {
+      font: opentype.parse(buffer),
+      asset,
+    };
+  }
+
+  function formatSvgNumber(value) {
+    return Number.parseFloat(Number(value).toFixed(3)).toString();
+  }
+
+  function buildSvgPathDataFromCommands(commands) {
+    return commands.map((command) => {
+      switch (command.type) {
+        case "M":
+        case "L":
+          return `${command.type}${formatSvgNumber(command.x)} ${formatSvgNumber(command.y)}`;
+        case "C":
+          return `C${formatSvgNumber(command.x1)} ${formatSvgNumber(command.y1)} ${formatSvgNumber(command.x2)} ${formatSvgNumber(command.y2)} ${formatSvgNumber(command.x)} ${formatSvgNumber(command.y)}`;
+        case "Q":
+          return `Q${formatSvgNumber(command.x1)} ${formatSvgNumber(command.y1)} ${formatSvgNumber(command.x)} ${formatSvgNumber(command.y)}`;
+        case "Z":
+          return "Z";
+        default:
+          return "";
+      }
+    }).join("");
+  }
+
+  function measureSvgCommandBounds(commands) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    function includePoint(x, y) {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return;
+      }
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+
+    for (const command of commands) {
+      includePoint(command.x, command.y);
+      includePoint(command.x1, command.y1);
+      includePoint(command.x2, command.y2);
+    }
+
+    if (minX === Infinity) {
+      return null;
+    }
+
+    return { minX, minY, maxX, maxY };
+  }
+
+  function buildGoogleFontSourceName(text, family) {
+    const familySlug = family.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "google-font";
+    const textSlug = text.trim().replace(/\s+/g, "-").replace(/[^a-z0-9_-]+/gi, "").replace(/^-+|-+$/g, "").toLowerCase() || "text";
+    return `${familySlug}-${textSlug.slice(0, 32)}.svg`;
+  }
+
+  async function buildSvgFromGoogleFontText(options) {
+    const {
+      text,
+      family,
+      weight,
+      italic,
+    } = options;
+
+    const normalizedText = text.replace(/\r\n?/g, "\n");
+    const subsetText = normalizedText.replace(/\n/g, "");
+    const { font } = await loadGoogleFont(family, weight, italic, subsetText);
+    const fontSize = 512;
+    const padding = Math.max(32, fontSize * 0.18);
+    const ascender = (font.ascender / Math.max(font.unitsPerEm, 1)) * fontSize;
+    const descender = Math.abs((font.descender / Math.max(font.unitsPerEm, 1)) * fontSize);
+    const lineHeight = Math.max(fontSize * 1.12, ascender + descender + fontSize * 0.16);
+    const lines = normalizedText.split("\n");
+    const lineMetrics = lines.map((line) => ({
+      text: line,
+      width: font.getAdvanceWidth(line || " ", fontSize, { kerning: true }),
+    }));
+    const maxWidth = Math.max(fontSize * 0.25, ...lineMetrics.map((line) => line.width));
+    const commands = [];
+
+    lineMetrics.forEach((line, index) => {
+      const baselineY = padding + ascender + index * lineHeight;
+      const originX = padding + (maxWidth - line.width) / 2;
+      const path = font.getPath(line.text, originX, baselineY, fontSize, {
+        kerning: true,
+        hinting: false,
+      });
+      commands.push(...path.commands);
+    });
+
+    const bounds = measureSvgCommandBounds(commands);
+    if (!bounds) {
+      throw new Error("The selected font did not produce any path outlines for the entered text.");
+    }
+
+    const margin = Math.max(16, fontSize * 0.12);
+    const viewBoxX = Math.floor(bounds.minX - margin);
+    const viewBoxY = Math.floor(bounds.minY - margin);
+    const viewBoxWidth = Math.max(1, Math.ceil((bounds.maxX - bounds.minX) + margin * 2));
+    const viewBoxHeight = Math.max(1, Math.ceil((bounds.maxY - bounds.minY) + margin * 2));
+    const pathData = buildSvgPathDataFromCommands(commands);
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" fill="none" data-mdl-contour-rule="winding"><path d="${pathData}" fill="#000000" fill-rule="nonzero" clip-rule="nonzero" data-mdl-contour-rule="winding"/></svg>`;
   }
 
   function projectSvgContourToSkinLoop(points, skinLayout, skinWidth, skinHeight) {
@@ -4823,36 +5461,43 @@
       skinWidth = 1024,
       skinHeight = 1024,
       modelScale = 64,
+      useContourSkin = false,
+      preferEarcut = false,
     } = options;
 
     const { contours, viewBox } = parseSvgToContours(svgText);
     const classifiedContours = classifyContoursByNesting(contours);
+    const sourceContours = classifiedContours;
+    const sourceViewBox = useContourSkin
+      ? computeContoursViewBox(sourceContours)
+      : viewBox;
+    const earcutFn = preferEarcut ? await ensureEarcutLibrary() : null;
     const bevelActual = (bevelSegments > 0 && bevelWidth > 0) ? bevelWidth : 0;
     if (bevelActual * 2 >= thickness) {
       throw new Error("Bevel width must be less than half the model thickness.");
     }
 
     const capContours = bevelActual > 0
-      ? buildInsetContours(classifiedContours, bevelActual)
-      : classifiedContours;
+      ? buildInsetContours(sourceContours, bevelActual)
+      : sourceContours;
 
-    let geometryContours = classifiedContours;
+    let geometryContours = sourceContours;
     let capTriangulation;
     let importWarning = "";
 
     try {
-      capTriangulation = triangulatePlanarContours(capContours);
+      capTriangulation = triangulatePlanarContours(capContours, earcutFn);
     } catch (error) {
-      const holeContours = classifiedContours.filter((contour) => contour.role === "hole");
+      const holeContours = sourceContours.filter((contour) => contour.role === "hole");
       if (!holeContours.length || !/hole|triangulation/i.test(error.message)) {
         throw error;
       }
 
       // Fallback for complex even-odd SVGs: build the solid outer silhouette
       // and preserve interior cutouts through transparent skin pixels.
-      geometryContours = classifiedContours.filter((contour) => contour.role === "outer");
+      geometryContours = sourceContours.filter((contour) => contour.role === "outer");
       const outerCapContours = capContours.filter((contour) => contour.role === "outer");
-      capTriangulation = triangulatePlanarContours(outerCapContours);
+      capTriangulation = triangulatePlanarContours(outerCapContours, earcutFn);
       importWarning = "Inner SVG cutouts were preserved in the skin as transparent pixels because the contour holes could not be triangulated into solid geometry.";
     }
 
@@ -4884,15 +5529,21 @@
     const numVerts = extrusion.vertexCount;
     const positions = new Float32Array(numVerts * 3);
     for (let i = 0; i < numVerts; i++) {
-      positions[i * 3 + 0] = (pos[i * 3 + 0] - centerX) * scaleFactor;
-      positions[i * 3 + 1] = (pos[i * 3 + 1] - centerY) * scaleFactor;
-      positions[i * 3 + 2] = (pos[i * 3 + 2] - centerZ) * scaleFactor;
+      const srcX = pos[i * 3 + 0];
+      const srcY = pos[i * 3 + 1];
+      const srcZ = pos[i * 3 + 2];
+
+      // Stand imported SVGs upright by default:
+      // SVG X -> model X, extrusion depth -> model Y, SVG Y -> model Z (flipped so "up" stays up).
+      positions[i * 3 + 0] = (srcX - centerX) * scaleFactor;
+      positions[i * 3 + 1] = (srcZ - centerZ) * scaleFactor;
+      positions[i * 3 + 2] = -(srcY - centerY) * scaleFactor;
     }
 
     // Build stVerts with UV mapping: front/back faces get SVG projection,
     // side walls use a dedicated opaque swatch to avoid transparent holes.
     const stVerts = [];
-    const skinLayout = computeSvgSkinLayout(viewBox, skinWidth, skinHeight);
+    const skinLayout = computeSvgSkinLayout(sourceViewBox, skinWidth, skinHeight);
 
     for (let i = 0; i < numVerts; i++) {
       let s;
@@ -4913,7 +5564,7 @@
       });
     }
 
-    const skinOverlayContours = importWarning ? classifiedContours : capContours;
+    const skinOverlayContours = importWarning ? sourceContours : capContours;
     const skinOverlayLoops = buildSvgSkinOverlayLoops(
       skinOverlayContours,
       skinLayout,
@@ -4931,7 +5582,9 @@
     }
 
     // Generate skin
-    const skinPixels = await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA);
+    const skinPixels = useContourSkin
+      ? generateContourSkin(sourceContours, sourceViewBox, skinWidth, skinHeight, state.paletteRGBA)
+      : await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA);
 
     // Compute export packing (scale/origin for 0-255 vertex range)
     const pMin = [Infinity, Infinity, Infinity];
@@ -4994,13 +5647,352 @@
 
   // ── SVG file loading and model activation ───────────────────────────────────
 
-  async function loadSvgText(text, sourceName) {
+  function resolveGoogleFontWeight(family, requestedWeight) {
+    const index = state.gfFontsIndex;
+    if (!index) return requestedWeight;
+    const entry = index.find((f) => f.family.toLowerCase() === family.toLowerCase());
+    if (!entry || !entry.weights.length) return requestedWeight;
+    if (entry.weights.includes(requestedWeight)) return requestedWeight;
+    return entry.weights.reduce((best, w) =>
+      Math.abs(w - requestedWeight) < Math.abs(best - requestedWeight) ? w : best,
+    );
+  }
+
+  async function generateModelFromGoogleFontText() {
+    const text = dom.svgTextContent.value || "";
+    const family = dom.svgFontFamily.value.trim();
+    const rawWeight = parseEditableNumber(dom.svgFontWeight.value, 700);
+    const requestedWeight = clamp(Math.round(rawWeight / 100) * 100, 100, 900);
+    const italic = dom.svgFontItalic.checked;
+
+    if (!family) {
+      dom.svgImportStatus.textContent = "Enter a Google Fonts family name.";
+      return;
+    }
+    if (!text.trim()) {
+      dom.svgImportStatus.textContent = "Enter some text to generate.";
+      return;
+    }
+
+    // Ensure font index is loaded so we can resolve weights
+    await ensureGoogleFontsIndex();
+    const weight = resolveGoogleFontWeight(family, requestedWeight);
+    if (weight !== requestedWeight) {
+      dom.svgFontWeight.value = weight;
+    }
+
+    dom.svgTextGenerate.disabled = true;
+    dom.svgImportGenerate.disabled = true;
+    dom.svgImportStatus.textContent = `Loading ${family} (weight ${weight}) from Google Fonts...`;
+
+    try {
+      const svgText = await buildSvgFromGoogleFontText({
+        text,
+        family,
+        weight,
+        italic,
+      });
+      const sourceName = buildGoogleFontSourceName(text, family);
+      await loadSvgText(svgText, sourceName, {
+        sourceKind: "font",
+        useContourSkin: true,
+      });
+    } catch (error) {
+      console.error(error);
+      dom.svgImportStatus.textContent = `Font generation failed: ${error.message}`;
+      dom.svgImportGenerate.disabled = !state.svgPendingText;
+    } finally {
+      dom.svgTextGenerate.disabled = false;
+    }
+  }
+
+  // ── Google Fonts search ──────────────────────────────────────────────────────
+
+  async function ensureGoogleFontsIndex() {
+    if (state.gfFontsIndex) return state.gfFontsIndex;
+    if (state.gfFontsLoading) {
+      while (state.gfFontsLoading) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return state.gfFontsIndex;
+    }
+
+    state.gfFontsLoading = true;
+    try {
+      const response = await fetch(GOOGLE_FONTS_INDEX_URL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+
+      const list = data.map((entry) => ({
+        family: entry.f,
+        category: entry.c || "",
+        weights: entry.w || [400],
+        terms: `${entry.f} ${entry.c || ""}`.toLowerCase(),
+      }));
+
+      state.gfFontsIndex = list;
+      return list;
+    } catch (error) {
+      console.error("Failed to load Google Fonts index:", error);
+      return null;
+    } finally {
+      state.gfFontsLoading = false;
+    }
+  }
+
+  async function searchGoogleFonts() {
+    const query = dom.svgFontFamily.value.trim().toLowerCase();
+    if (!query) {
+      closeGoogleFontResults();
+      return;
+    }
+
+    const index = await ensureGoogleFontsIndex();
+    if (!index) {
+      closeGoogleFontResults();
+      return;
+    }
+
+    const terms = query.split(/\s+/);
+    const matches = index.filter((font) =>
+      terms.every((term) => font.terms.includes(term)),
+    );
+
+    const maxResults = 30;
+    const shown = matches.slice(0, maxResults);
+
+    if (!shown.length) {
+      closeGoogleFontResults();
+      return;
+    }
+
+    state.gfActiveIndex = -1;
+    const currentWeight = parseInt(dom.svgFontWeight.value, 10) || 700;
+    dom.gfResults.innerHTML = shown.map((font, i) => {
+      const hasWeight = font.weights.includes(currentWeight);
+      const weightHint = hasWeight ? "" : ` <span class="gf-font-weight-hint">${font.weights.join("/")}</span>`;
+      return `<div class="gf-font-item" data-index="${i}" data-family="${font.family}">${font.family}<span class="gf-font-category">${font.category}</span>${weightHint}</div>`;
+    }).join("");
+
+    dom.gfResults.classList.add("is-open");
+  }
+
+  function pickGoogleFont(family) {
+    dom.svgFontFamily.value = family;
+    closeGoogleFontResults();
+
+    // Auto-adjust weight to nearest available for this font
+    const index = state.gfFontsIndex;
+    if (index) {
+      const entry = index.find((f) => f.family === family);
+      if (entry && entry.weights.length) {
+        const currentWeight = parseInt(dom.svgFontWeight.value, 10) || 700;
+        if (!entry.weights.includes(currentWeight)) {
+          const nearest = entry.weights.reduce((best, w) =>
+            Math.abs(w - currentWeight) < Math.abs(best - currentWeight) ? w : best,
+          );
+          dom.svgFontWeight.value = nearest;
+        }
+      }
+    }
+  }
+
+  function closeGoogleFontResults() {
+    dom.gfResults.classList.remove("is-open");
+    dom.gfResults.innerHTML = "";
+    state.gfActiveIndex = -1;
+  }
+
+  function handleGoogleFontKeydown(event) {
+    const items = dom.gfResults.querySelectorAll(".gf-font-item");
+    if (!items.length || !dom.gfResults.classList.contains("is-open")) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      state.gfActiveIndex = Math.min(state.gfActiveIndex + 1, items.length - 1);
+      updateGoogleFontActive(items);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      state.gfActiveIndex = Math.max(state.gfActiveIndex - 1, 0);
+      updateGoogleFontActive(items);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (state.gfActiveIndex >= 0 && state.gfActiveIndex < items.length) {
+        pickGoogleFont(items[state.gfActiveIndex].dataset.family);
+      } else {
+        closeGoogleFontResults();
+      }
+    } else if (event.key === "Escape") {
+      closeGoogleFontResults();
+    }
+  }
+
+  function updateGoogleFontActive(items) {
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.toggle("is-active", i === state.gfActiveIndex);
+    }
+    if (state.gfActiveIndex >= 0 && items[state.gfActiveIndex]) {
+      items[state.gfActiveIndex].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  // ── Font Awesome icon support ───────────────────────────────────────────────
+
+  async function ensureFontAwesomeIndex() {
+    if (state.faIconsIndex) return state.faIconsIndex;
+    if (state.faIconsLoading) {
+      // Wait for an in-flight fetch
+      while (state.faIconsLoading) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return state.faIconsIndex;
+    }
+
+    state.faIconsLoading = true;
+    dom.faResults.dataset.empty = "Loading icon library...";
+    try {
+      const response = await fetch(FONTAWESOME_ICONS_URL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const raw = await response.json();
+
+      // Build a flat searchable index of free icons
+      const index = [];
+      for (const [name, entry] of Object.entries(raw)) {
+        const freeStyles = entry.free;
+        if (!freeStyles || !freeStyles.length) continue;
+
+        for (const style of freeStyles) {
+          const svgData = entry.svg?.[style];
+          if (!svgData?.path) continue;
+
+          const searchTerms = [
+            name,
+            ...(name.split("-")),
+            entry.label || "",
+            ...(entry.search?.terms || []),
+          ].join(" ").toLowerCase();
+
+          index.push({
+            name,
+            style,
+            label: entry.label || name,
+            terms: searchTerms,
+            path: svgData.path,
+            width: svgData.width || 512,
+            height: svgData.height || 512,
+            viewBox: svgData.viewBox
+              ? svgData.viewBox.join(" ")
+              : `0 0 ${svgData.width || 512} ${svgData.height || 512}`,
+          });
+        }
+      }
+
+      state.faIconsIndex = index;
+      dom.faResults.dataset.empty = "Type to search icons.";
+      return index;
+    } catch (error) {
+      console.error("Failed to load Font Awesome metadata:", error);
+      dom.faResults.dataset.empty = "Failed to load icon library.";
+      return null;
+    } finally {
+      state.faIconsLoading = false;
+    }
+  }
+
+  async function searchFontAwesomeIcons() {
+    const query = dom.faSearch.value.trim().toLowerCase();
+    const style = dom.faStyle.value;
+
+    if (!query) {
+      dom.faResults.innerHTML = "";
+      dom.faResults.dataset.empty = "Type to search icons.";
+      return;
+    }
+
+    const index = await ensureFontAwesomeIndex();
+    if (!index) return;
+
+    const terms = query.split(/\s+/);
+    const matches = index.filter((icon) => {
+      if (icon.style !== style) return false;
+      return terms.every((term) => icon.terms.includes(term));
+    });
+
+    const maxResults = 60;
+    const shown = matches.slice(0, maxResults);
+
+    if (!shown.length) {
+      dom.faResults.innerHTML = "";
+      dom.faResults.dataset.empty = `No ${style} icons match "${query}".`;
+      return;
+    }
+
+    dom.faResults.dataset.empty = "";
+    dom.faResults.innerHTML = shown.map((icon) => {
+      const selected = state.faSelectedIcon
+        && state.faSelectedIcon.name === icon.name
+        && state.faSelectedIcon.style === icon.style;
+      return `<div class="fa-icon-cell${selected ? " is-selected" : ""}" data-icon-name="${icon.name}" data-icon-style="${icon.style}" title="${icon.label}"><svg viewBox="${icon.viewBox}"><path d="${icon.path}"/></svg></div>`;
+    }).join("");
+  }
+
+  function selectFontAwesomeIcon(name, style) {
+    const index = state.faIconsIndex;
+    if (!index) return;
+
+    const icon = index.find((entry) => entry.name === name && entry.style === style);
+    if (!icon) return;
+
+    state.faSelectedIcon = icon;
+    dom.faSelectedLabel.textContent = `${icon.label} (${icon.style})`;
+    dom.faGenerate.disabled = false;
+
+    // Update selection highlight
+    for (const cell of dom.faResults.querySelectorAll(".fa-icon-cell")) {
+      cell.classList.toggle(
+        "is-selected",
+        cell.dataset.iconName === name && cell.dataset.iconStyle === style,
+      );
+    }
+
+    // Auto-generate on click
+    generateModelFromFontAwesomeIcon();
+  }
+
+  function buildSvgFromFontAwesomeIcon(icon) {
+    const pathData = Array.isArray(icon.path) ? icon.path.join(" ") : icon.path;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${icon.viewBox}"><path d="${pathData}" fill="#000000" fill-rule="nonzero"/></svg>`;
+  }
+
+  async function generateModelFromFontAwesomeIcon() {
+    const icon = state.faSelectedIcon;
+    if (!icon) return;
+
+    dom.faGenerate.disabled = true;
+    dom.svgImportStatus.textContent = `Generating ${icon.label}...`;
+
+    try {
+      const svgText = buildSvgFromFontAwesomeIcon(icon);
+      const sourceName = `fa-${icon.style}-${icon.name}`;
+      await loadSvgText(svgText, sourceName);
+    } catch (error) {
+      console.error(error);
+      dom.svgImportStatus.textContent = `Icon generation failed: ${error.message}`;
+    } finally {
+      dom.faGenerate.disabled = !state.faSelectedIcon;
+    }
+  }
+
+  async function loadSvgText(text, sourceName, pendingOptions = null) {
     try {
       const doc = new DOMParser().parseFromString(text, "image/svg+xml");
       const svgEl = doc.querySelector("svg");
       if (!svgEl) throw new Error("No <svg> element found");
       state.svgPendingText = text;
       state.svgPendingName = sourceName;
+      state.svgPendingOptions = pendingOptions ? { ...pendingOptions } : null;
       dom.svgImportGenerate.disabled = false;
       dom.svgImportStatus.textContent = `Loaded ${sourceName}. Generating...`;
       dom.svgImportPanel.open = true;
@@ -5008,6 +6000,7 @@
     } catch (error) {
       state.svgPendingText = null;
       state.svgPendingName = "";
+      state.svgPendingOptions = null;
       dom.svgImportGenerate.disabled = true;
       dom.svgImportStatus.textContent = `Failed to load SVG: ${error.message}`;
     }
@@ -5029,6 +6022,8 @@
     dom.svgImportStatus.textContent = "Generating...";
 
     try {
+      const pendingOptions = state.svgPendingOptions ? { ...state.svgPendingOptions } : {};
+
       const options = {
         thickness: parseFloat(dom.svgThickness.value) || 16,
         bevelWidth: parseFloat(dom.svgBevelWidth.value) || 0,
@@ -5036,7 +6031,10 @@
         skinWidth: Math.max(16, Math.min(1024, parseInt(dom.svgSkinWidth.value, 10) || 1024)),
         skinHeight: Math.max(16, Math.min(1024, parseInt(dom.svgSkinHeight.value, 10) || 1024)),
         modelScale: parseFloat(dom.svgModelScale.value) || 64,
+        useContourSkin: !!pendingOptions.useContourSkin,
+        preferEarcut: pendingOptions.sourceKind === "font",
       };
+      state.svgPendingOptions = pendingOptions;
 
       const model = await buildModelFromSvg(state.svgPendingText, options);
       activateGeneratedModel(model, state.svgPendingName);
@@ -5054,6 +6052,7 @@
   function activateGeneratedModel(model, sourceName) {
     model.render = buildRenderData(model);
     model.frameGroups = buildFrameGroups(model);
+    model.importSourceKind = state.svgPendingOptions?.sourceKind || "svg";
 
     const syntheticKey = `svg:${sourceName || "import"}.mdl`;
     state.assets.set(syntheticKey, {
@@ -5092,10 +6091,16 @@
     state.playhead = 0;
     state.manualFrameIndex = 0;
     state.playing = false;
+    if (model.importSourceKind === "font") {
+      state.renderMode = "textured";
+      state.modelOpacity = 1;
+      state.wireframeOverlay = false;
+    }
     updateTimelineRange();
-    resetCamera();
+    resetCamera(model.importSourceKind);
     updatePlaybackControls();
     syncModelDependentPanels();
+    syncDisplayControls();
     updateSkinStatus();
     syncFrameTreeSelection(0);
     state.textureDirty = true;
@@ -6084,12 +7089,18 @@
     render.bounds.radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
   }
 
-  function resetCamera() {
+  function resetCamera(sourceKind = "") {
     if (!state.model) {
       return;
     }
     const bounds = state.model.render.bounds;
     state.camera.target = bounds.center.slice();
+    if (sourceKind === "font") {
+      state.camera.distance = Math.max(bounds.radius * 2.5, 24);
+      state.camera.yaw = 0.1;
+      state.camera.pitch = 0.24;
+      return;
+    }
     state.camera.distance = Math.max(bounds.radius * 2.8, 24);
     state.camera.yaw = -0.8;
     state.camera.pitch = 0.55;
