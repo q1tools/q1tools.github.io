@@ -147,6 +147,7 @@
     skinStatus: document.getElementById("skin-status"),
     propertiesGrid: document.getElementById("properties-grid"),
     saveModelButton: document.getElementById("save-model-button"),
+    saveMapButton: document.getElementById("save-map-button"),
     saveModelStatus: document.getElementById("save-model-status"),
     viewerShell: document.querySelector(".viewer-shell"),
     viewerLayout: document.getElementById("viewer-layout"),
@@ -471,6 +472,9 @@
 
     dom.saveModelButton.addEventListener("click", async () => {
       await saveCurrentModel();
+    });
+    dom.saveMapButton.addEventListener("click", async () => {
+      await saveCurrentModelAsMap();
     });
 
     dom.objToolsApply.addEventListener("click", () => {
@@ -1850,6 +1854,20 @@
       panel.classList.toggle("is-hidden", !hasModel);
       panel.setAttribute("aria-hidden", hasModel ? "false" : "true");
     });
+
+    syncSaveControls();
+  }
+
+  function syncSaveControls() {
+    const hasModel = !!state.model;
+    const canExportMap = canExportModelAsMap(state.model);
+    dom.saveModelButton.disabled = !hasModel;
+    dom.saveMapButton.disabled = !canExportMap;
+    dom.saveMapButton.title = !hasModel
+      ? "Load a model before exporting a .map."
+      : state.model?.mapExportData?.kind === "flat-prism"
+        ? "Export the generated solid as clean Quake .map brushwork."
+        : "Export the current pose as Quake .map brushwork (one brush per triangle).";
   }
 
 
@@ -2425,6 +2443,343 @@
     return bestIndex;
   }
 
+  function canExportModelAsMap(model) {
+    return !!(
+      model &&
+      Number.isInteger(model.numVerts) &&
+      model.numVerts > 0 &&
+      model.poses?.length &&
+      model.triangles?.length
+    );
+  }
+
+  function syncRenderGeometryToModel(model) {
+    if (!model?.render?.originalIndices || !model.poses?.length) {
+      return;
+    }
+
+    const render = model.render;
+    const originalIndices = render.originalIndices;
+    const renderVertexCount = originalIndices.length;
+    if (!renderVertexCount) {
+      return;
+    }
+
+    for (let poseIndex = 0; poseIndex < model.poses.length; poseIndex++) {
+      const renderPositions = render.positionsByPose[poseIndex];
+      const pose = model.poses[poseIndex];
+      if (!renderPositions || !pose?.positions) {
+        continue;
+      }
+
+      const accum = new Float64Array(model.numVerts * 3);
+      const counts = new Uint32Array(model.numVerts);
+      for (let renderIndex = 0; renderIndex < renderVertexCount; renderIndex++) {
+        const originalIndex = originalIndices[renderIndex];
+        const srcOffset = renderIndex * 3;
+        const dstOffset = originalIndex * 3;
+        accum[dstOffset + 0] += renderPositions[srcOffset + 0];
+        accum[dstOffset + 1] += renderPositions[srcOffset + 1];
+        accum[dstOffset + 2] += renderPositions[srcOffset + 2];
+        counts[originalIndex] += 1;
+      }
+
+      for (let vertexIndex = 0; vertexIndex < model.numVerts; vertexIndex++) {
+        const count = counts[vertexIndex];
+        if (!count) {
+          continue;
+        }
+        const offset = vertexIndex * 3;
+        pose.positions[offset + 0] = accum[offset + 0] / count;
+        pose.positions[offset + 1] = accum[offset + 1] / count;
+        pose.positions[offset + 2] = accum[offset + 2] / count;
+      }
+    }
+  }
+
+  function getSuggestedMapFilename(path) {
+    const normalized = normalizePath(path || "model.mdl");
+    const base = normalized.split("/").pop() || "model.mdl";
+    return base.replace(/\.[^.]+$/i, "") + ".map";
+  }
+
+  function getPoseVertex(positions, vertexIndex) {
+    const offset = vertexIndex * 3;
+    return [
+      positions[offset + 0],
+      positions[offset + 1],
+      positions[offset + 2],
+    ];
+  }
+
+  function subtractVec3(a, b) {
+    return [
+      a[0] - b[0],
+      a[1] - b[1],
+      a[2] - b[2],
+    ];
+  }
+
+  function crossVec3(a, b) {
+    return [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+  }
+
+  function dotVec3(a, b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  }
+
+  function addScaledVec3(point, direction, distance) {
+    return [
+      point[0] + direction[0] * distance,
+      point[1] + direction[1] * distance,
+      point[2] + direction[2] * distance,
+    ];
+  }
+
+  function normalizeVec3(vector) {
+    const length = Math.hypot(vector[0], vector[1], vector[2]);
+    if (length <= 1e-8) {
+      return null;
+    }
+    return [
+      vector[0] / length,
+      vector[1] / length,
+      vector[2] / length,
+    ];
+  }
+
+  function computeTriangleArea3D(a, b, c) {
+    const ab = subtractVec3(b, a);
+    const ac = subtractVec3(c, a);
+    const cross = crossVec3(ab, ac);
+    return Math.hypot(cross[0], cross[1], cross[2]) * 0.5;
+  }
+
+  function orientBrushPlaneInward(a, b, c, interiorPoint) {
+    const ab = subtractVec3(b, a);
+    const ac = subtractVec3(c, a);
+    const normal = crossVec3(ab, ac);
+    return dotVec3(normal, subtractVec3(interiorPoint, a)) >= 0
+      ? [a, b, c]
+      : [a, c, b];
+  }
+
+  function formatMapPlane(points, textureName) {
+    const [a, b, c] = points;
+    return `( ${formatNumber(a[0])} ${formatNumber(a[1])} ${formatNumber(a[2])} ) `
+      + `( ${formatNumber(b[0])} ${formatNumber(b[1])} ${formatNumber(b[2])} ) `
+      + `( ${formatNumber(c[0])} ${formatNumber(c[1])} ${formatNumber(c[2])} ) `
+      + `${textureName} 0 0 0 1 1`;
+  }
+
+  function getCurrentMapExportPositions(model) {
+    if (!model?.poses?.length) {
+      return null;
+    }
+
+    if (state.model !== model) {
+      return model.poses[0]?.positions || null;
+    }
+
+    const sample = getCurrentPoseSample();
+    const poseA = model.poses[sample.poseA]?.positions;
+    const poseB = model.poses[sample.poseB]?.positions || poseA;
+    if (!poseA) {
+      return null;
+    }
+
+    if (sample.blend === 0 || sample.poseA === sample.poseB || !state.interpolate) {
+      return poseA;
+    }
+
+    const out = new Float32Array(poseA.length);
+    const invBlend = 1 - sample.blend;
+    for (let i = 0; i < poseA.length; i++) {
+      out[i] = poseA[i] * invBlend + poseB[i] * sample.blend;
+    }
+    return out;
+  }
+
+  function buildMapTextFromBrushBlocks(brushBlocks) {
+    return [
+      "// Game: Quake",
+      "// Format: Standard",
+      "// entity 0",
+      "{",
+      "\"classname\" \"worldspawn\"",
+      ...brushBlocks,
+      "}",
+      "",
+    ].join("\n");
+  }
+
+  function buildFlatPrismBrushLines(frontA, frontB, frontC, backA, backB, backC, textureName) {
+    const centroid = [
+      (frontA[0] + frontB[0] + frontC[0] + backA[0] + backB[0] + backC[0]) / 6,
+      (frontA[1] + frontB[1] + frontC[1] + backA[1] + backB[1] + backC[1]) / 6,
+      (frontA[2] + frontB[2] + frontC[2] + backA[2] + backB[2] + backC[2]) / 6,
+    ];
+
+    return [
+      formatMapPlane(orientBrushPlaneInward(frontA, frontB, frontC, centroid), textureName),
+      formatMapPlane(orientBrushPlaneInward(backA, backB, backC, centroid), textureName),
+      formatMapPlane(orientBrushPlaneInward(frontA, backA, backB, centroid), textureName),
+      formatMapPlane(orientBrushPlaneInward(frontB, backB, backC, centroid), textureName),
+      formatMapPlane(orientBrushPlaneInward(frontC, backC, backA, centroid), textureName),
+    ];
+  }
+
+  function buildGeneratedFlatPrismMapExport(model, positions) {
+    if (!model?.mapExportData || model.mapExportData.kind !== "flat-prism") {
+      throw new Error("Generated MAP export metadata is unavailable.");
+    }
+
+    const { capVertexCount, capTriangleCount } = model.mapExportData;
+    const textureName = model.mapExportData.textureName || "__TB_empty";
+    const brushBlocks = [];
+
+    for (let triIndex = 0; triIndex < capTriangleCount; triIndex++) {
+      const triangle = model.triangles[triIndex];
+      if (!triangle?.vertIndex || triangle.vertIndex.length !== 3) {
+        continue;
+      }
+
+      const [frontAIndex, frontBIndex, frontCIndex] = triangle.vertIndex;
+      if (
+        frontAIndex >= capVertexCount ||
+        frontBIndex >= capVertexCount ||
+        frontCIndex >= capVertexCount
+      ) {
+        throw new Error("Generated cap topology is invalid for MAP export.");
+      }
+
+      const backAIndex = frontAIndex + capVertexCount;
+      const backBIndex = frontBIndex + capVertexCount;
+      const backCIndex = frontCIndex + capVertexCount;
+      if (
+        backAIndex >= model.numVerts ||
+        backBIndex >= model.numVerts ||
+        backCIndex >= model.numVerts
+      ) {
+        throw new Error("Generated back-cap topology is invalid for MAP export.");
+      }
+
+      const frontA = getPoseVertex(positions, frontAIndex);
+      const frontB = getPoseVertex(positions, frontBIndex);
+      const frontC = getPoseVertex(positions, frontCIndex);
+      const backA = getPoseVertex(positions, backAIndex);
+      const backB = getPoseVertex(positions, backBIndex);
+      const backC = getPoseVertex(positions, backCIndex);
+
+      if (
+        computeTriangleArea3D(frontA, frontB, frontC) <= 1e-5 ||
+        computeTriangleArea3D(backA, backB, backC) <= 1e-5
+      ) {
+        continue;
+      }
+
+      const planeLines = buildFlatPrismBrushLines(frontA, frontB, frontC, backA, backB, backC, textureName);
+      brushBlocks.push([
+        `// brush ${brushBlocks.length}`,
+        "{",
+        ...planeLines,
+        "}",
+      ].join("\n"));
+    }
+
+    if (!brushBlocks.length) {
+      throw new Error("No valid solid brushes were produced for MAP export.");
+    }
+
+    return {
+      brushCount: brushBlocks.length,
+      mode: "flat-prism",
+      text: buildMapTextFromBrushBlocks(brushBlocks),
+      textureName,
+    };
+  }
+
+  function getTriangleBrushDepth(model) {
+    const radius = Number.isFinite(model?.render?.bounds?.radius)
+      ? model.render.bounds.radius
+      : (Number.isFinite(model?.boundingRadius) ? model.boundingRadius : 32);
+    return clamp(radius * 0.03, 1, 4);
+  }
+
+  function buildTriangleBrushSoupMapExport(model, positions) {
+    const textureName = "__TB_empty";
+    const brushDepth = getTriangleBrushDepth(model);
+    const brushBlocks = [];
+
+    for (const triangle of model.triangles) {
+      if (!triangle?.vertIndex || triangle.vertIndex.length !== 3) {
+        continue;
+      }
+
+      const [ia, ib, ic] = triangle.vertIndex;
+      if (
+        ia < 0 || ia >= model.numVerts ||
+        ib < 0 || ib >= model.numVerts ||
+        ic < 0 || ic >= model.numVerts
+      ) {
+        continue;
+      }
+
+      const a = getPoseVertex(positions, ia);
+      const b = getPoseVertex(positions, ib);
+      const c = getPoseVertex(positions, ic);
+      const normal = normalizeVec3(crossVec3(subtractVec3(b, a), subtractVec3(c, a)));
+      if (!normal || computeTriangleArea3D(a, b, c) <= 1e-5) {
+        continue;
+      }
+
+      const backA = addScaledVec3(a, normal, -brushDepth);
+      const backB = addScaledVec3(b, normal, -brushDepth);
+      const backC = addScaledVec3(c, normal, -brushDepth);
+      const planeLines = buildFlatPrismBrushLines(a, b, c, backA, backB, backC, textureName);
+
+      brushBlocks.push([
+        `// brush ${brushBlocks.length}`,
+        "{",
+        ...planeLines,
+        "}",
+      ].join("\n"));
+    }
+
+    if (!brushBlocks.length) {
+      throw new Error("No valid triangle brushes were produced for MAP export.");
+    }
+
+    return {
+      brushCount: brushBlocks.length,
+      mode: "triangle-prisms",
+      text: buildMapTextFromBrushBlocks(brushBlocks),
+      textureName,
+      brushDepth,
+    };
+  }
+
+  function buildCurrentModelMapExport(model) {
+    if (!canExportModelAsMap(model)) {
+      throw new Error("No model geometry is available for MAP export.");
+    }
+
+    const positions = getCurrentMapExportPositions(model);
+    if (!positions?.length) {
+      throw new Error("No pose geometry is available for MAP export.");
+    }
+
+    if (model.mapExportData?.kind === "flat-prism") {
+      return buildGeneratedFlatPrismMapExport(model, positions);
+    }
+
+    return buildTriangleBrushSoupMapExport(model, positions);
+  }
+
   async function saveCurrentModel() {
     if (!state.model) {
       return;
@@ -2432,6 +2787,7 @@
 
     try {
       syncPendingSkinSizeDraft();
+      syncRenderGeometryToModel(state.model);
       const bytes = serializeMDL(state.model);
       const suggestedName = getSuggestedModelFilename(state.model.path);
 
@@ -2471,6 +2827,52 @@
     } catch (error) {
       console.error(error);
       setSaveStatus(`Save failed: ${error.message}`);
+    }
+  }
+
+  async function saveCurrentModelAsMap() {
+    if (!state.model) {
+      return;
+    }
+
+    if (!canExportModelAsMap(state.model)) {
+      setSaveStatus("No model geometry is available for MAP export.");
+      return;
+    }
+
+    try {
+      syncRenderGeometryToModel(state.model);
+      const exportData = buildCurrentModelMapExport(state.model);
+      const suggestedName = getSuggestedMapFilename(state.model.path);
+
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [{
+              description: "Quake MAP",
+              accept: {
+                "text/plain": [".map"],
+              },
+            }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(exportData.text);
+          await writable.close();
+          setSaveStatus(`Saved ${suggestedName} (${exportData.brushCount} brushes, texture ${exportData.textureName}).`);
+          return;
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            return;
+          }
+        }
+      }
+
+      downloadBlob(new Blob([exportData.text], { type: "text/plain;charset=utf-8" }), suggestedName);
+      setSaveStatus(`Exported ${suggestedName} (${exportData.brushCount} brushes, texture ${exportData.textureName}).`);
+    } catch (error) {
+      console.error(error);
+      setSaveStatus(`MAP export failed: ${error.message}`);
     }
   }
 
@@ -6091,6 +6493,14 @@
       (pMax[1] - pMin[1]) / 2,
       (pMax[2] - pMin[2]) / 2,
     );
+    const mapExportData = bevelActual === 0
+      ? {
+          kind: "flat-prism",
+          capVertexCount: capTriangulation.vertices.length / 2,
+          capTriangleCount: capTriangulation.indices.length / 3,
+          textureName: "__TB_empty",
+        }
+      : null;
 
     return {
       path: "svg-import.mdl",
@@ -6110,6 +6520,7 @@
       flags: importWarning ? (1 << 14) : 0,
       size: 0,
       importWarning,
+      mapExportData,
       skinOverlayLoops,
       skins: [{
         type: "single",
@@ -6616,7 +7027,9 @@
     updateValidationPanel();
     setSaveStatus(model.importWarning
       ? `SVG model generated with fallback. ${model.importWarning}`
-      : "SVG model generated. Edit properties and save as .mdl.");
+      : canExportModelAsMap(model)
+        ? "SVG model generated. Edit properties and save as .mdl or .map."
+        : "SVG model generated. Edit properties and save as .mdl.");
 
     const defaultFrameGroupIndex = findFirstPlayableFrameGroupIndex(model);
     state.selectedFrameGroupIndex = defaultFrameGroupIndex >= 0 ? defaultFrameGroupIndex : 0;
@@ -7127,6 +7540,7 @@
       indices,
       wireframeIndices,
       uvs,
+      originalIndices,
       positionsByPose,
       normalsByPose,
       bounds,
@@ -7482,6 +7896,7 @@
   }
 
   function finalizeGeometryEdit(message) {
+    syncRenderGeometryToModel(state.model);
     rebuildRenderBounds(state.model.render);
     populateProperties(state.model);
     updateValidationPanel();
