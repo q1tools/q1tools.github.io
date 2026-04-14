@@ -831,7 +831,7 @@
       state.drag.x = event.clientX;
       state.drag.y = event.clientY;
 
-      state.camera.yaw += dx * 0.01;
+      state.camera.yaw -= dx * 0.01;
       state.camera.pitch += dy * 0.01;
       state.camera.pitch = clamp(state.camera.pitch, -1.45, 1.45);
     });
