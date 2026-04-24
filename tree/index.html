@@ -659,16 +659,17 @@ const DATA = {
       const zoomIntensity = 0.0008; // smaller = gentler per scroll
       const minZoom = 0.1;
       const maxZoom = 10.0;
+      zoomRaf = null;
       if (zoomAccum === 0) return;
       const scale = Math.exp(-zoomAccum * zoomIntensity);
       zoom = Math.max(minZoom, Math.min(maxZoom, zoom * scale));
       zoomAccum = 0;
-      zoomRaf = null;
       updateTransform();
     }
 
     treeEl.addEventListener('wheel', (e) => {
       e.preventDefault();
+      if (!e.deltaY) return;
       zoomAccum += e.deltaY;
       if (!zoomRaf) zoomRaf = requestAnimationFrame(applyWheelZoom);
     }, { passive: false });
