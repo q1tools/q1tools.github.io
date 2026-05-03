@@ -1215,18 +1215,48 @@
                 return out;
             }
 
+            // Bytes that render as a blank cell in the conchars set.
+            // We trim these from the leading/trailing edges so names like
+            // "  ·CO·LUNACY" don't show empty padding before/after the glyphs.
+            // The full byte sequence is preserved everywhere else (copy, hex).
+            function isBlankByte(b) {
+                return b === 0x20 || b === 0xA0;
+            }
+
+            function trimBlankEdges(bytes) {
+                var start = 0, end = bytes.length;
+                while (start < end && isBlankByte(bytes[start])) start++;
+                while (end > start && isBlankByte(bytes[end - 1])) end--;
+                return bytes.slice(start, end);
+            }
+
             function buildGlyphRow(bytes, alias) {
                 var wrap = document.createElement('div');
                 wrap.className = 'member-glyphs';
                 wrap.setAttribute('role', 'img');
                 wrap.setAttribute('aria-label', alias || bytesToReadable(bytes) || 'name');
-                for (var i = 0; i < bytes.length; i++) {
+                var visible = trimBlankEdges(bytes);
+                for (var i = 0; i < visible.length; i++) {
                     var img = document.createElement('img');
-                    img.src = GLYPH_PATH + pad3(bytes[i]) + '.gif';
+                    img.src = GLYPH_PATH + pad3(visible[i]) + '.gif';
                     img.alt = '';
                     wrap.appendChild(img);
                 }
                 return wrap;
+            }
+
+            // Build the same string the main editor's Translate field would
+            // hold for these bytes — uses the form's `chr` lookup so copies
+            // match what the page's existing copy icon produces.
+            function bytesToCopyableName(bytes) {
+                var form = document.oqnm;
+                var chrInputs = form ? form.chr : null;
+                var s = '';
+                for (var i = 0; i < bytes.length; i++) {
+                    var b = bytes[i];
+                    s += (chrInputs && chrInputs[b]) ? chrInputs[b].value : String.fromCharCode(b);
+                }
+                return s;
             }
 
             function copyToClip(text, btn) {
@@ -1245,13 +1275,24 @@
 
             function flashCopied(btn) {
                 if (!btn) return;
-                var orig = btn.textContent;
-                btn.textContent = 'copied';
-                btn.classList.add('copied');
-                setTimeout(function () {
-                    btn.textContent = orig;
-                    btn.classList.remove('copied');
-                }, 1200);
+                var icon = btn.querySelector('i');
+                if (icon) {
+                    var origClass = icon.className;
+                    icon.className = 'fa-solid fa-check';
+                    btn.classList.add('copied');
+                    setTimeout(function () {
+                        icon.className = origClass;
+                        btn.classList.remove('copied');
+                    }, 1200);
+                } else {
+                    var orig = btn.textContent;
+                    btn.textContent = 'copied';
+                    btn.classList.add('copied');
+                    setTimeout(function () {
+                        btn.textContent = orig;
+                        btn.classList.remove('copied');
+                    }, 1200);
+                }
             }
 
             function buildMember(member) {
@@ -1288,14 +1329,16 @@
                 var actions = document.createElement('div');
                 actions.className = 'member-actions';
 
-                var hexBtn = document.createElement('button');
-                hexBtn.type = 'button';
-                hexBtn.textContent = 'copy hex';
-                hexBtn.title = 'Copy raw name_hex';
-                hexBtn.addEventListener('click', function () {
-                    copyToClip(member.name_hex.toLowerCase(), hexBtn);
+                var copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'icon-only';
+                copyBtn.title = 'Copy name to clipboard';
+                copyBtn.setAttribute('aria-label', 'Copy name');
+                copyBtn.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
+                copyBtn.addEventListener('click', function () {
+                    copyToClip(bytesToCopyableName(bytes), copyBtn);
                 });
-                actions.appendChild(hexBtn);
+                actions.appendChild(copyBtn);
 
                 li.appendChild(main);
                 li.appendChild(actions);

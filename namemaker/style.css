@@ -408,24 +408,39 @@ input[type="button"] {
 .clan-members {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+@media (max-width: 1024px) {
+    .clan-members {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .clan-members {
+        grid-template-columns: 1fr;
+    }
 }
 
 .clan-members li {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 12px;
-    padding: 10px 18px;
-    border-top: 1px solid #383838;
-}
-
-.clan-members li:first-child {
-    border-top: none;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid #383838;
+    border-radius: 8px;
+    background: #262626;
+    min-width: 0;
 }
 
 .clan-members li:hover {
-    background: #303030;
+    background: #2f2f2f;
+    border-color: #4d4d4d;
 }
 
 .member-main {
@@ -441,33 +456,38 @@ input[type="button"] {
     flex-wrap: wrap;
     gap: 0;
     line-height: 0;
-    padding: 4px 6px;
+    padding: 3px 5px;
     background: #1f1f1f;
     border: 1px solid #3a3a3a;
-    border-radius: 6px;
+    border-radius: 5px;
     width: fit-content;
     max-width: 100%;
 }
 
 .member-glyphs img {
-    width: 18px;
-    height: 18px;
+    width: 13px;
+    height: 13px;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     display: block;
 }
 
 .member-meta {
-    font-size: 9pt;
+    font-size: 8.5pt;
     color: #7b6c4d;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
+    min-width: 0;
 }
 
 .member-meta .member-alias {
     color: #b0b0b0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .member-meta .member-note {
@@ -486,12 +506,27 @@ input[type="button"] {
     background: transparent;
     color: #7b6c4d;
     border: 1px solid #4d4d4d;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 9.5pt;
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 8.5pt;
     font-family: inherit;
     cursor: pointer;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.member-actions button.icon-only {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.member-actions button.icon-only i {
+    font-size: 11pt;
+    color: inherit;
 }
 
 .member-actions button:hover {
