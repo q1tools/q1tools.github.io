@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "updated": "2026-05-03",
+  "format_notes": "name_hex is the raw Quake byte string, each byte as 2 hex digits. Bytes 128-255 render as the colored (gold/bronze) glyphs in the Quake conchars set. Same encoding used by QSS-M's id1/backups/names.json.",
+  "clans": [
+    {
+      "tag": "QSS",
+      "name": "Quake Shockwave Squad",
+      "era": "1996–1999",
+      "notes": "NetQuake-era duel and team clan. Sample entries — open a PR to extend.",
+      "members": [
+        { "name_hex": "9051535391526561706572", "alias": "[QSS]Reaper", "notes": "Founder" },
+        { "name_hex": "905153539153686164", "alias": "[QSS]Shad" },
+        { "name_hex": "9051535391467261676d6572", "alias": "[QSS]Fragmer" }
+      ]
+    },
+    {
+      "tag": "RGR",
+      "name": "Rangers",
+      "era": "1997–2001",
+      "notes": "Classic Team Fortress and NetQuake squad. Bronze angle brackets in-game.",
+      "members": [
+        { "name_hex": "8052616e67657282", "alias": "<Ranger>" },
+        { "name_hex": "80536e6970657282", "alias": "<Sniper>" },
+        { "name_hex": "804d65646963ad303182", "alias": "<Medic-01>" }
+      ]
+    },
+    {
+      "tag": "CA",
+      "name": "Clan Arena Regulars",
+      "era": "ongoing",
+      "notes": "Pickup / tournament players. Community placeholder, contributions welcome.",
+      "members": [
+        { "name_hex": "5161647262797465", "alias": "Qadrbyte" },
+        { "name_hex": "5368616d626c6572", "alias": "Shambler" },
+        { "name_hex": "566f72655f4c6f72645f3939", "alias": "Vore_Lord_99" }
+      ]
+    },
+    {
+      "tag": "CGIB",
+      "name": "CGIB",
+      "members": [
+        { "name_hex": "c3c7c9c2a0a0a0a0c8e1f7da", "alias": "CGIB    HawZ" },
+        { "name_hex": "c3c7c9c2a0a0a0a0c5f8e9ece5", "alias": "CGIB    Exile" },
+        { "name_hex": "c3c7c9c2a0a0a0a0d3e8e1f4f4e5f2", "alias": "CGIB    Shatter" },
+        { "name_hex": "c3c7c9c2a0a0a0a0cbf2f5f3f4f9", "alias": "CGIB    Krusty" },
+        { "name_hex": "c3c7c9c2a0a0a0a0cce1f9e4c2e1e3eb", "alias": "CGIB    LaydBack" }
+      ]
+    },
+    {
+      "tag": "BM",
+      "name": "BM",
+      "members": [
+        { "name_hex": "c2cd85cbc1dac1cd", "alias": "BM·KAZAM" },
+        { "name_hex": "c2cd85c3f2e1e3ebc4efe7", "alias": "BM·CrackDog" },
+        { "name_hex": "c2cd85c1ced4b1cdc1ce", "alias": "BM·ANT1MAN" },
+        { "name_hex": "c2cd85d7e9ece4c2efe1f2", "alias": "BM·WildBoar" },
+        { "name_hex": "c2cd85e4f5e2e9eff5f3", "alias": "BM·dubious" }
+      ]
+    },
+    {
+      "tag": "SOLO",
+      "name": "Unaffiliated / Solo",
+      "era": "various",
+      "notes": "Names that aren't tied to a clan. Useful as inspiration for new players.",
+      "members": [
+        { "name_hex": "67726f6b", "alias": "grok" },
+        { "name_hex": "474942", "alias": "GIB" },
+        { "name_hex": "726f636b657472696465", "alias": "rocketride" },
+        { "name_hex": "d3f4e5e1ecf4e8a0a0a0ccefe3", "alias": "Stealth   Loc" },
+        { "name_hex": "0b5456", "alias": "ψTV" }
+      ]
+    }
+  ]
+}

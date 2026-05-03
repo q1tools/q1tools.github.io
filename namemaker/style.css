@@ -127,6 +127,32 @@ body a:visited {
     text-align: left
 }
 
+.previewSubheading {
+    margin-top: 14px;
+    margin-bottom: 6px;
+    font-size: 9pt;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #7b6c4d;
+}
+
+#ttfPreview {
+    min-height: 56px;
+    max-width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #4d4d4d;
+    border-radius: 12px;
+    background-color: #2b2b2b;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    color: #b8b8b8;
+    font-family: 'q1', sans-serif;
+    font-size: 28px;
+    letter-spacing: 1px;
+    line-height: 1.25;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .pre {
     margin-top: 8px;
 }
@@ -218,5 +244,275 @@ input[type="button"] {
     background-color: #333;
     padding: 10px;
     font-size: 10px;
+}
+
+/* ── Name Directory ───────────────────────────────────────────────── */
+
+#directory {
+    clear: both;
+    text-align: left;
+    margin: 48px 22px 96px 22px;
+    padding-top: 28px;
+    border-top: 1px solid #4a4a4a;
+}
+
+.directory-heading {
+    font-family: 'q1', sans-serif;
+    font-size: 20pt;
+    letter-spacing: 3px;
+    margin: 0 0 6px 0;
+    text-shadow: 3px 4px 2px rgba(0, 0, 0, 0.3), -1px 1px 0px rgba(255, 255, 255, 0.5);
+    opacity: .9;
+}
+
+.directory-tagline {
+    font-size: 10pt;
+    color: #7b6c4d;
+    margin: 0 0 18px 0;
+    max-width: 720px;
+    line-height: 1.5;
+}
+
+.directory-tagline a {
+    color: #875848;
+    border-bottom: 1px dotted #875848;
+}
+
+.directory-tagline code {
+    font-size: 9.5pt;
+    background: #2b2b2b;
+    border: 1px solid #4d4d4d;
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: #b8b8b8;
+}
+
+.directory-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.directory-controls input[type="search"],
+.directory-controls select {
+    background: #2b2b2b;
+    color: #b8b8b8;
+    border: 1px solid #4d4d4d;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11pt;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.directory-controls select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 34px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='none' stroke='%237b6c4d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5l5 5 5-5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 8px;
+}
+
+.directory-controls input[type="search"] {
+    flex: 1 1 280px;
+    min-width: 220px;
+}
+
+.directory-controls input[type="search"]::placeholder {
+    color: #6a6a6a;
+}
+
+.directory-controls input[type="search"]:focus,
+.directory-controls select:focus {
+    border-color: #7b6c4d;
+    box-shadow: 0 0 0 2px rgba(123, 108, 77, 0.25);
+}
+
+.directory-count {
+    font-size: 9.5pt;
+    color: #7b6c4d;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-left: auto;
+}
+
+.directory-list {
+    display: grid;
+    gap: 18px;
+}
+
+.directory-empty {
+    padding: 24px;
+    text-align: center;
+    color: #7b6c4d;
+    font-size: 10.5pt;
+    border: 1px dashed #4d4d4d;
+    border-radius: 12px;
+}
+
+.clan-card {
+    background: #2b2b2b;
+    border: 1px solid #4d4d4d;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+}
+
+.clan-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px 14px;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, #353535 0%, #2e2e2e 100%);
+    border-bottom: 1px solid #404040;
+}
+
+.clan-tag {
+    font-family: 'q1', sans-serif;
+    font-size: 16pt;
+    letter-spacing: 2px;
+    color: #b8b8b8;
+}
+
+.clan-name {
+    font-size: 11pt;
+    color: #939393;
+}
+
+.clan-era {
+    font-size: 9pt;
+    color: #7b6c4d;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid #4d4d4d;
+    border-radius: 999px;
+    padding: 2px 10px;
+    margin-left: auto;
+}
+
+.clan-notes {
+    width: 100%;
+    font-size: 10pt;
+    color: #888;
+    line-height: 1.5;
+    margin: 4px 0 0 0;
+}
+
+.clan-members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.clan-members li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    border-top: 1px solid #383838;
+}
+
+.clan-members li:first-child {
+    border-top: none;
+}
+
+.clan-members li:hover {
+    background: #303030;
+}
+
+.member-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.member-glyphs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    line-height: 0;
+    padding: 4px 6px;
+    background: #1f1f1f;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.member-glyphs img {
+    width: 18px;
+    height: 18px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    display: block;
+}
+
+.member-meta {
+    font-size: 9pt;
+    color: #7b6c4d;
+    letter-spacing: 0.5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.member-meta .member-alias {
+    color: #b0b0b0;
+}
+
+.member-meta .member-note {
+    color: #875848;
+    font-style: italic;
+}
+
+.member-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.member-actions button {
+    background: transparent;
+    color: #7b6c4d;
+    border: 1px solid #4d4d4d;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 9.5pt;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.member-actions button:hover {
+    color: #b8b8b8;
+    border-color: #7b6c4d;
+    background: #353535;
+}
+
+.member-actions button.copied {
+    color: #b8b8b8;
+    border-color: #875848;
+}
+
+.member-actions button.primary {
+    color: #b0b0b0;
+    border-color: #5a5042;
+}
+
+.member-actions button.primary:hover {
+    color: #fff;
+    background: #584c34;
+    border-color: #7b6c4d;
 }
 

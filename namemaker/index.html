@@ -19,6 +19,8 @@
             for (loop = 0; loop < 40; loop++) {
                 document.images[loop + 4].src = "images/chars/quake/" + document.oqnm.code[loop].value + ".gif"
             }
+
+            updateFontPreview();
         }
 
         function buttonClick(num) {
@@ -775,6 +777,10 @@
                             </td>
                         </tr>
                     </table>
+                    <div id="fontPreviewContainer">
+                        <div class="previewSubheading">Quake1.ttf Preview</div>
+                        <div id="ttfPreview" aria-live="polite"></div>
+                    </div>
                 </div>
                 <div id="below_preview">
                     <div id="yourname">
@@ -867,6 +873,17 @@
                     }
                 }
                 return translatedName;
+            }
+
+            function updateFontPreview() {
+                var fontPreview = document.getElementById('ttfPreview');
+
+                if (!fontPreview) {
+                    return;
+                }
+
+                var readableName = translateName(document.oqnm.name.value || '');
+                fontPreview.textContent = readableName || ' ';
             }
 
             // dequake for readable previews uses html escape chars
@@ -1012,6 +1029,7 @@
 
             document.addEventListener('DOMContentLoaded', function() {
                 resetDropZone(); // Reset the drop zone on initial load
+                updateFontPreview();
             });
 
             document.getElementById('previewButton').addEventListener('click', function () {
@@ -1057,6 +1075,7 @@
                 }
 
                 document.oqnm.name.value = nameValue.slice(0, 40);
+                updateFontPreview();
             }
 
             var dropZone = document.getElementById('dropZone');
@@ -1129,8 +1148,313 @@
                 document.images[loop + 4].src = "images/chars/quake/" + document.oqnm.code[loop].value + ".gif"
             }
 
+            updateFontPreview();
+
         </script>
     </form>
+
+    <section id="directory" aria-labelledby="directoryHeading">
+        <h2 id="directoryHeading" class="directory-heading">name directory</h2>
+        <div class="directory-controls">
+            <input id="directorySearch" type="search" placeholder="Search alias, clan tag, or notes&hellip;" autocomplete="off">
+            <select id="directoryClanFilter" aria-label="Filter by clan">
+                <option value="">All clans</option>
+            </select>
+            <span id="directoryCount" class="directory-count">&nbsp;</span>
+        </div>
+        <div id="directoryList" class="directory-list" aria-live="polite">
+            <div class="directory-empty">Loading directory&hellip;</div>
+        </div>
+    </section>
+
+    <script>
+        (function () {
+            'use strict';
+
+            var GLYPH_PATH = 'images/chars/quake/';
+            var listEl     = document.getElementById('directoryList');
+            var searchEl   = document.getElementById('directorySearch');
+            var clanSelEl  = document.getElementById('directoryClanFilter');
+            var countEl    = document.getElementById('directoryCount');
+
+            var clans = [];
+
+            function pad3(n) {
+                n = String(n);
+                return n.length >= 3 ? n : ('00' + n).slice(-3);
+            }
+
+            function decodeHex(hex) {
+                if (typeof hex !== 'string' || hex.length === 0 || (hex.length % 2) !== 0) {
+                    return null;
+                }
+                var bytes = [];
+                for (var i = 0; i < hex.length; i += 2) {
+                    var b = parseInt(hex.substr(i, 2), 16);
+                    if (isNaN(b) || b < 0 || b > 255) {
+                        return null;
+                    }
+                    bytes.push(b);
+                }
+                return bytes;
+            }
+
+            // Best-effort plain-text rendering of Quake bytes for search/aria.
+            function bytesToReadable(bytes) {
+                if (typeof deQuakeMap === 'undefined') return '';
+                var out = '';
+                for (var i = 0; i < bytes.length; i++) {
+                    var token = deQuakeMap[bytes[i]];
+                    if (token === undefined) { continue; }
+                    if (typeof token === 'string' && token.indexOf('&#') === 0) {
+                        var n = parseInt(token.replace(/[^\d]/g, ''), 10);
+                        if (!isNaN(n)) { out += String.fromCharCode(n); continue; }
+                    }
+                    out += token;
+                }
+                return out;
+            }
+
+            function buildGlyphRow(bytes, alias) {
+                var wrap = document.createElement('div');
+                wrap.className = 'member-glyphs';
+                wrap.setAttribute('role', 'img');
+                wrap.setAttribute('aria-label', alias || bytesToReadable(bytes) || 'name');
+                for (var i = 0; i < bytes.length; i++) {
+                    var img = document.createElement('img');
+                    img.src = GLYPH_PATH + pad3(bytes[i]) + '.gif';
+                    img.alt = '';
+                    wrap.appendChild(img);
+                }
+                return wrap;
+            }
+
+            function copyToClip(text, btn) {
+                if (!navigator.clipboard) {
+                    var ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); } catch (e) {}
+                    document.body.removeChild(ta);
+                    flashCopied(btn);
+                    return;
+                }
+                navigator.clipboard.writeText(text).then(function () { flashCopied(btn); });
+            }
+
+            function flashCopied(btn) {
+                if (!btn) return;
+                var orig = btn.textContent;
+                btn.textContent = 'copied';
+                btn.classList.add('copied');
+                setTimeout(function () {
+                    btn.textContent = orig;
+                    btn.classList.remove('copied');
+                }, 1200);
+            }
+
+            function buildMember(member) {
+                var bytes = decodeHex(member.name_hex);
+                if (!bytes) { return null; }
+
+                var li = document.createElement('li');
+
+                var main = document.createElement('div');
+                main.className = 'member-main';
+                main.appendChild(buildGlyphRow(bytes, member.alias));
+
+                var meta = document.createElement('div');
+                meta.className = 'member-meta';
+                if (member.alias) {
+                    var a = document.createElement('span');
+                    a.className = 'member-alias';
+                    a.textContent = member.alias;
+                    meta.appendChild(a);
+                }
+                if (member.notes) {
+                    var n = document.createElement('span');
+                    n.className = 'member-note';
+                    n.textContent = member.notes;
+                    meta.appendChild(n);
+                }
+                if (member.last_seen) {
+                    var s = document.createElement('span');
+                    s.textContent = 'last seen ' + member.last_seen;
+                    meta.appendChild(s);
+                }
+                if (meta.childNodes.length) main.appendChild(meta);
+
+                var actions = document.createElement('div');
+                actions.className = 'member-actions';
+
+                var hexBtn = document.createElement('button');
+                hexBtn.type = 'button';
+                hexBtn.textContent = 'copy hex';
+                hexBtn.title = 'Copy raw name_hex';
+                hexBtn.addEventListener('click', function () {
+                    copyToClip(member.name_hex.toLowerCase(), hexBtn);
+                });
+                actions.appendChild(hexBtn);
+
+                li.appendChild(main);
+                li.appendChild(actions);
+
+                // Keep search-friendly text on the row itself.
+                li._search = [
+                    member.alias || '',
+                    member.notes || '',
+                    member.last_seen || '',
+                    bytesToReadable(bytes)
+                ].join(' ').toLowerCase();
+
+                return li;
+            }
+
+            function buildClanCard(clan) {
+                var card = document.createElement('article');
+                card.className = 'clan-card';
+                card.dataset.tag = clan.tag || '';
+
+                var header = document.createElement('header');
+                header.className = 'clan-card-header';
+
+                var tag = document.createElement('span');
+                tag.className = 'clan-tag';
+                tag.textContent = clan.tag || '—';
+                header.appendChild(tag);
+
+                if (clan.name) {
+                    var nm = document.createElement('span');
+                    nm.className = 'clan-name';
+                    nm.textContent = clan.name;
+                    header.appendChild(nm);
+                }
+                if (clan.era) {
+                    var era = document.createElement('span');
+                    era.className = 'clan-era';
+                    era.textContent = clan.era;
+                    header.appendChild(era);
+                }
+                if (clan.notes) {
+                    var notes = document.createElement('p');
+                    notes.className = 'clan-notes';
+                    notes.textContent = clan.notes;
+                    header.appendChild(notes);
+                }
+                card.appendChild(header);
+
+                var ul = document.createElement('ul');
+                ul.className = 'clan-members';
+                var members = Array.isArray(clan.members) ? clan.members : [];
+                for (var i = 0; i < members.length; i++) {
+                    var li = buildMember(members[i]);
+                    if (li) ul.appendChild(li);
+                }
+                card.appendChild(ul);
+
+                card._search = [
+                    clan.tag || '',
+                    clan.name || '',
+                    clan.era || '',
+                    clan.notes || ''
+                ].join(' ').toLowerCase();
+
+                return card;
+            }
+
+            function applyFilter() {
+                var q = (searchEl.value || '').trim().toLowerCase();
+                var clanFilter = clanSelEl.value || '';
+                var visibleNames = 0;
+                var visibleClans = 0;
+
+                var cards = listEl.querySelectorAll('.clan-card');
+                cards.forEach(function (card) {
+                    var clanTag = card.dataset.tag || '';
+                    if (clanFilter && clanTag !== clanFilter) {
+                        card.style.display = 'none';
+                        return;
+                    }
+
+                    var clanMatch = !q || card._search.indexOf(q) !== -1;
+                    var memberMatches = 0;
+
+                    var lis = card.querySelectorAll('.clan-members li');
+                    lis.forEach(function (li) {
+                        var match = clanMatch || !q || (li._search && li._search.indexOf(q) !== -1);
+                        li.style.display = match ? '' : 'none';
+                        if (match) memberMatches++;
+                    });
+
+                    if (memberMatches > 0) {
+                        card.style.display = '';
+                        visibleClans++;
+                        visibleNames += memberMatches;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                countEl.textContent = visibleNames + ' name' + (visibleNames === 1 ? '' : 's')
+                    + ' · ' + visibleClans + ' clan' + (visibleClans === 1 ? '' : 's');
+            }
+
+            function renderError(msg) {
+                listEl.innerHTML = '';
+                var div = document.createElement('div');
+                div.className = 'directory-empty';
+                div.textContent = msg;
+                listEl.appendChild(div);
+                countEl.textContent = '';
+            }
+
+            function render() {
+                listEl.innerHTML = '';
+                if (!clans.length) {
+                    renderError('No clans in directory yet.');
+                    return;
+                }
+                var frag = document.createDocumentFragment();
+                for (var i = 0; i < clans.length; i++) {
+                    frag.appendChild(buildClanCard(clans[i]));
+                }
+                listEl.appendChild(frag);
+                applyFilter();
+            }
+
+            function populateClanFilter() {
+                var seen = {};
+                clans.forEach(function (c) {
+                    if (c && c.tag && !seen[c.tag]) {
+                        seen[c.tag] = true;
+                        var opt = document.createElement('option');
+                        opt.value = c.tag;
+                        opt.textContent = c.tag + (c.name ? ' — ' + c.name : '');
+                        clanSelEl.appendChild(opt);
+                    }
+                });
+            }
+
+            searchEl.addEventListener('input', applyFilter);
+            clanSelEl.addEventListener('change', applyFilter);
+
+            fetch('names.json', { cache: 'no-cache' })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function (data) {
+                    clans = Array.isArray(data && data.clans) ? data.clans : [];
+                    populateClanFilter();
+                    render();
+                })
+                .catch(function (err) {
+                    console.error('Directory load failed:', err);
+                    renderError('Could not load names.json — open this page from a web server (file:// blocks fetch).');
+                });
+        })();
+    </script>
 </div>
 <div id="footer">
     Created by <span class="bronze">w</span>ood<span class="bronze">s</span> &nbsp;&nbsp;| &nbsp;&nbsp;<a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
