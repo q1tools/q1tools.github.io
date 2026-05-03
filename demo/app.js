@@ -1890,7 +1890,7 @@
             '</section>',
             renderSaveAsSection(item, index),
             '<section class="subsection">',
-            '<div class="subsection-head"><h3 class="subsection-title">Players</h3></div>',
+            '<div class="subsection-head"><h3 class="subsection-title">Players</h3>' + (data.players.length ? '<button type="button" class="txt-export-button" data-export="players" data-demo-index="' + index + '" title="Save as .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M4.5 7 8 10.5 11.5 7"/><path d="M2.5 12.5v1.5h11v-1.5"/></svg></button>' : '') + '</div>',
             '<div class="player-grid">' + renderPlayerSection(data) + '</div>',
             '</section>',
             matchStats ? [
@@ -3369,6 +3369,18 @@
                         return '[' + timeStr + '] ' + prefix + entry.speaker + ': ' + entry.message;
                     });
                     fileName = baseName + '_chat.txt';
+                } else if (exportType === 'players') {
+                    lines = ['name\tname_hex'];
+                    data.players.forEach(function (player) {
+                        var codes = Array.isArray(player.nameCodes) ? player.nameCodes : [];
+                        if (!codes.length) { return; }
+                        var dequaked = decodePlayerName(codes, player.name || '');
+                        var hex = codes.map(function (b) {
+                            return ('0' + (b & 0xff).toString(16)).slice(-2);
+                        }).join('');
+                        lines.push(dequaked + '\t' + hex);
+                    });
+                    fileName = baseName + '_players.txt';
                 } else {
                     var happenings = collectServerHappenings(data);
                     lines = happenings.map(function (entry) {
