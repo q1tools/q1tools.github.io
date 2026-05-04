@@ -1231,6 +1231,85 @@
                 return out;
             }
 
+            function normalizeDirectorySortText(text) {
+                text = String(text || '').toLowerCase();
+                if (text.normalize) {
+                    text = text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+                }
+                return text;
+            }
+
+            function directorySortKey(text) {
+                text = normalizeDirectorySortText(text);
+                // Sort from the first readable letter, ignoring leading name
+                // decoration like -, -=, [, ·, <·, <, ], and (1).
+                var firstLetter = text.search(/[a-z]/);
+                return firstLetter === -1 ? text.trim() : text.slice(firstLetter).trim();
+            }
+
+            function memberReadableName(member) {
+                var bytes = member ? decodeHex(member.name_hex) : null;
+                if (!bytes) return member && member.alias ? member.alias : '';
+                return bytesToReadable(bytes.slice(0, directoryNameLength));
+            }
+
+            function compareSortText(a, b) {
+                if (a < b) return -1;
+                if (a > b) return 1;
+                return 0;
+            }
+
+            function sortMembersByReadableName(members) {
+                var keyed = [];
+                for (var i = 0; i < members.length; i++) {
+                    var readable = memberReadableName(members[i]);
+                    keyed.push({
+                        member: members[i],
+                        index: i,
+                        key: directorySortKey(readable),
+                        readable: normalizeDirectorySortText(readable)
+                    });
+                }
+
+                keyed.sort(function (a, b) {
+                    return compareSortText(a.key, b.key) ||
+                        compareSortText(a.readable, b.readable) ||
+                        (a.index - b.index);
+                });
+
+                return keyed.map(function (entry) {
+                    return entry.member;
+                });
+            }
+
+            function memberReadableKey(member) {
+                return normalizeDirectorySortText(memberReadableName(member))
+                    .trim();
+            }
+
+            function duplicateMemberKey(member) {
+                return memberReadableKey(member).replace(/^\(1\)\s*/, '');
+            }
+
+            function hideDuplicateMembers(members) {
+                var hasUnnumbered = Object.create(null);
+                for (var i = 0; i < members.length; i++) {
+                    var readable = memberReadableKey(members[i]);
+                    var key = duplicateMemberKey(members[i]);
+                    if (key && readable === key) hasUnnumbered[key] = true;
+                }
+
+                var seen = Object.create(null);
+                return members.filter(function (member) {
+                    var key = duplicateMemberKey(member);
+                    var readable = memberReadableKey(member);
+                    if (!key || seen[key]) return false;
+                    if (hasUnnumbered[key] && readable !== key) return false;
+                    seen[key] = true;
+                    return true;
+                });
+            }
+
             function bytesContainAfk(bytes) {
                 return bytesToReadable(bytes).toLowerCase().indexOf('afk') !== -1;
             }
@@ -1415,7 +1494,8 @@
 
                 var ul = document.createElement('ul');
                 ul.className = 'clan-members';
-                var members = Array.isArray(clan.members) ? clan.members : [];
+                var members = Array.isArray(clan.members) ?
+                    hideDuplicateMembers(sortMembersByReadableName(clan.members)) : [];
                 for (var i = 0; i < members.length; i++) {
                     var li = buildMember(members[i]);
                     if (li) ul.appendChild(li);
