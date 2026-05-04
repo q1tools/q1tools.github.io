@@ -14,6 +14,8 @@
 
 <body>
     <script>
+        var MAX_NAME_LENGTH = 15;
+
         function updateName() {
 
             for (loop = 0; loop < 40; loop++) {
@@ -29,7 +31,7 @@
             lngth = oldname.length;
             newchar = document.oqnm.chr[num].value;
 
-            if (lngth < 40) {
+            if (lngth < MAX_NAME_LENGTH) {
 
                 document.oqnm.name.value = oldname + newchar;
 
@@ -60,9 +62,10 @@
         function addSpace() {
 
             oldname = document.oqnm.name.value;
-            document.oqnm.name.value = oldname + ' ';
-
-            updateName();
+            if (oldname.length < MAX_NAME_LENGTH) {
+                document.oqnm.name.value = oldname + ' ';
+                updateName();
+            }
         }
 
         function backSpace() {
@@ -785,7 +788,7 @@
                 <div id="below_preview">
                     <div id="yourname">
                         Translate<br>
-                        <input id="converted" type="text" name="name">
+                        <input id="converted" type="text" name="name" maxlength="15">
                         <input type="button" value="&#xf021;" class="input-button fa" id="previewButton" title="Translate Reload">
                         <input type="button" value="&#xf0c5;" class="input-button fa" onclick="copyToClipboard();" title="Copy">
                     </div>
@@ -815,8 +818,8 @@
             });
 
             function saveName() {
-                var quakename = document.oqnm.name.value;
-                var dequakename = translateName(document.oqnm.name.value);
+                var quakename = document.oqnm.name.value.slice(0, MAX_NAME_LENGTH);
+                var dequakename = translateName(quakename);
                 var formattedName = `// dequake readable preview\n// ${dequakename}\n\nname "${quakename}"`;
                 var filename = document.getElementById('filename').value;
 
@@ -1047,6 +1050,7 @@
                     })
                     .filter(line => line.length > 0)
                     .join('\n');
+                const cappedNameValue = nameValue.replace(/\r?\n/g, '').slice(0, MAX_NAME_LENGTH);
 
                 // Reset the name input and character codes
                 document.oqnm.name.value = '';
@@ -1059,10 +1063,8 @@
                 }
 
                 // Update images and hidden inputs with processed content
-                for (let i = 0, j = 0; i < nameValue.length && j < 40; i++) {
-                    const char = nameValue[i];
-                    if (char === '\n') continue;
-
+                for (let i = 0, j = 0; i < cappedNameValue.length && j < MAX_NAME_LENGTH; i++) {
+                    const char = cappedNameValue[i];
                     if (map.hasOwnProperty(char)) {
                         const asciiValue = map[char];
                         const formattedCharCode = asciiValue.toString().padStart(3, '0');
@@ -1074,7 +1076,7 @@
                     }
                 }
 
-                document.oqnm.name.value = nameValue.slice(0, 40);
+                document.oqnm.name.value = cappedNameValue;
                 updateFontPreview();
             }
 
@@ -1156,10 +1158,7 @@
     <section id="directory" aria-labelledby="directoryHeading">
         <h2 id="directoryHeading" class="directory-heading">name directory</h2>
         <div class="directory-controls">
-            <input id="directorySearch" type="search" placeholder="Search alias, clan tag, or notes&hellip;" autocomplete="off">
-            <select id="directoryClanFilter" aria-label="Filter by clan">
-                <option value="">All clans</option>
-            </select>
+            <input id="directorySearch" type="search" placeholder="Search alias or notes&hellip;" autocomplete="off">
             <label class="directory-toggle" title="Hide names that are pure white ASCII text">
                 <input id="directorySpecialOnly" type="checkbox" checked>
                 <span>special only</span>
@@ -1178,9 +1177,9 @@
             var GLYPH_PATH = 'images/chars/quake/';
             var listEl     = document.getElementById('directoryList');
             var searchEl   = document.getElementById('directorySearch');
-            var clanSelEl  = document.getElementById('directoryClanFilter');
             var specialEl  = document.getElementById('directorySpecialOnly');
             var countEl    = document.getElementById('directoryCount');
+            var directoryNameLength = typeof MAX_NAME_LENGTH === 'number' ? MAX_NAME_LENGTH : 15;
 
             // A name is "special" if any byte is a colored glyph (>= 0x80)
             // or a non-space conchars icon (< 0x20, not 0x20). Pure 0x20-0x7E
@@ -1232,12 +1231,17 @@
                 return out;
             }
 
+            function bytesContainAfk(bytes) {
+                return bytesToReadable(bytes).toLowerCase().indexOf('afk') !== -1;
+            }
+
             // Bytes that render as a blank cell in the conchars set.
             // We trim these from the leading/trailing edges so names like
             // "  ·CO·LUNACY" don't show empty padding before/after the glyphs.
             // The full byte sequence is preserved everywhere else (copy, hex).
             function isBlankByte(b) {
-                return b === 0x20 || b === 0xA0;
+                var readable = bytesToReadable([b]);
+                return readable.length > 0 && readable.trim() === '';
             }
 
             function trimBlankEdges(bytes) {
@@ -1252,7 +1256,7 @@
                 wrap.className = 'member-glyphs';
                 wrap.setAttribute('role', 'img');
                 wrap.setAttribute('aria-label', alias || bytesToReadable(bytes) || 'name');
-                var visible = trimBlankEdges(bytes);
+                var visible = trimBlankEdges(bytes.slice(0, directoryNameLength));
                 for (var i = 0; i < visible.length; i++) {
                     var img = document.createElement('img');
                     img.src = GLYPH_PATH + pad3(visible[i]) + '.gif';
@@ -1315,12 +1319,16 @@
             function buildMember(member) {
                 var bytes = decodeHex(member.name_hex);
                 if (!bytes) { return null; }
+                if (bytesContainAfk(bytes)) { return null; }
+
+                // Display, copy, search, and special-only filtering all use only visible bytes.
+                var cappedBytes = bytes.slice(0, directoryNameLength);
 
                 var li = document.createElement('li');
 
                 var main = document.createElement('div');
                 main.className = 'member-main';
-                main.appendChild(buildGlyphRow(bytes, member.alias));
+                main.appendChild(buildGlyphRow(cappedBytes, member.alias));
 
                 var meta = document.createElement('div');
                 meta.className = 'member-meta';
@@ -1353,7 +1361,7 @@
                 copyBtn.setAttribute('aria-label', 'Copy name');
                 copyBtn.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
                 copyBtn.addEventListener('click', function () {
-                    copyToClip(bytesToCopyableName(bytes), copyBtn);
+                    copyToClip(bytesToCopyableName(cappedBytes), copyBtn);
                 });
                 actions.appendChild(copyBtn);
 
@@ -1365,9 +1373,9 @@
                     member.alias || '',
                     member.notes || '',
                     member.last_seen || '',
-                    bytesToReadable(bytes)
+                    bytesToReadable(cappedBytes)
                 ].join(' ').toLowerCase();
-                li._special = isSpecialBytes(bytes);
+                li._special = isSpecialBytes(cappedBytes);
 
                 return li;
             }
@@ -1414,37 +1422,21 @@
                 }
                 card.appendChild(ul);
 
-                card._search = [
-                    clan.tag || '',
-                    clan.name || '',
-                    clan.era || '',
-                    clan.notes || ''
-                ].join(' ').toLowerCase();
-
                 return card;
             }
 
             function applyFilter() {
                 var q = (searchEl.value || '').trim().toLowerCase();
-                var clanFilter = clanSelEl.value || '';
                 var specialOnly = !!(specialEl && specialEl.checked);
                 var visibleNames = 0;
-                var visibleClans = 0;
 
                 var cards = listEl.querySelectorAll('.clan-card');
                 cards.forEach(function (card) {
-                    var clanTag = card.dataset.tag || '';
-                    if (clanFilter && clanTag !== clanFilter) {
-                        card.style.display = 'none';
-                        return;
-                    }
-
-                    var clanMatch = !q || card._search.indexOf(q) !== -1;
                     var memberMatches = 0;
 
                     var lis = card.querySelectorAll('.clan-members li');
                     lis.forEach(function (li) {
-                        var match = clanMatch || !q || (li._search && li._search.indexOf(q) !== -1);
+                        var match = !q || (li._search && li._search.indexOf(q) !== -1);
                         if (match && specialOnly && !li._special) match = false;
                         li.style.display = match ? '' : 'none';
                         if (match) memberMatches++;
@@ -1452,15 +1444,13 @@
 
                     if (memberMatches > 0) {
                         card.style.display = '';
-                        visibleClans++;
                         visibleNames += memberMatches;
                     } else {
                         card.style.display = 'none';
                     }
                 });
 
-                countEl.textContent = visibleNames + ' name' + (visibleNames === 1 ? '' : 's')
-                    + ' · ' + visibleClans + ' clan' + (visibleClans === 1 ? '' : 's');
+                countEl.textContent = visibleNames + ' name' + (visibleNames === 1 ? '' : 's');
             }
 
             function renderError(msg) {
@@ -1486,21 +1476,7 @@
                 applyFilter();
             }
 
-            function populateClanFilter() {
-                var seen = {};
-                clans.forEach(function (c) {
-                    if (c && c.tag && !seen[c.tag]) {
-                        seen[c.tag] = true;
-                        var opt = document.createElement('option');
-                        opt.value = c.tag;
-                        opt.textContent = c.tag + (c.name ? ' — ' + c.name : '');
-                        clanSelEl.appendChild(opt);
-                    }
-                });
-            }
-
             searchEl.addEventListener('input', applyFilter);
-            clanSelEl.addEventListener('change', applyFilter);
             if (specialEl) specialEl.addEventListener('change', applyFilter);
 
             fetch('names.json', { cache: 'no-cache' })
@@ -1510,7 +1486,6 @@
                 })
                 .then(function (data) {
                     clans = Array.isArray(data && data.clans) ? data.clans : [];
-                    populateClanFilter();
                     render();
                 })
                 .catch(function (err) {
