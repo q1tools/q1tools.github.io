@@ -510,7 +510,7 @@ input[type="button"] {
 }
 
 .member-meta .member-alias {
-    color: #b8b8b8;
+    color: #6a6a6a;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
