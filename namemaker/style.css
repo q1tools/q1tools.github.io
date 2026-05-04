@@ -260,7 +260,7 @@ input[type="button"] {
     font-family: 'q1', sans-serif;
     font-size: 20pt;
     letter-spacing: 3px;
-    margin: 0 0 6px 0;
+    margin: 0 0 24px 0;
     text-shadow: 3px 4px 2px rgba(0, 0, 0, 0.3), -1px 1px 0px rgba(255, 255, 255, 0.5);
     opacity: .9;
 }
@@ -332,6 +332,33 @@ input[type="button"] {
 .directory-controls select:focus {
     border-color: #7b6c4d;
     box-shadow: 0 0 0 2px rgba(123, 108, 77, 0.25);
+}
+
+.directory-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid #4d4d4d;
+    border-radius: 8px;
+    background: #2b2b2b;
+    color: #b8b8b8;
+    font-size: 10pt;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.directory-toggle:hover {
+    border-color: #7b6c4d;
+}
+
+.directory-toggle input[type="checkbox"] {
+    accent-color: #7b6c4d;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
 }
 
 .directory-count {
@@ -465,15 +492,15 @@ input[type="button"] {
 }
 
 .member-glyphs img {
-    width: 13px;
-    height: 13px;
+    width: 18px;
+    height: 18px;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     display: block;
 }
 
 .member-meta {
-    font-size: 8.5pt;
+    font-size: 9.5pt;
     color: #7b6c4d;
     letter-spacing: 0.3px;
     display: flex;

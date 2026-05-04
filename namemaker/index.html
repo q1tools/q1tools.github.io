@@ -1160,6 +1160,10 @@
             <select id="directoryClanFilter" aria-label="Filter by clan">
                 <option value="">All clans</option>
             </select>
+            <label class="directory-toggle" title="Hide names that are pure white ASCII text">
+                <input id="directorySpecialOnly" type="checkbox" checked>
+                <span>special only</span>
+            </label>
             <span id="directoryCount" class="directory-count">&nbsp;</span>
         </div>
         <div id="directoryList" class="directory-list" aria-live="polite">
@@ -1175,7 +1179,20 @@
             var listEl     = document.getElementById('directoryList');
             var searchEl   = document.getElementById('directorySearch');
             var clanSelEl  = document.getElementById('directoryClanFilter');
+            var specialEl  = document.getElementById('directorySpecialOnly');
             var countEl    = document.getElementById('directoryCount');
+
+            // A name is "special" if any byte is a colored glyph (>= 0x80)
+            // or a non-space conchars icon (< 0x20, not 0x20). Pure 0x20-0x7E
+            // names render as plain white ASCII text.
+            function isSpecialBytes(bytes) {
+                for (var i = 0; i < bytes.length; i++) {
+                    var b = bytes[i];
+                    if (b >= 0x80) return true;
+                    if (b < 0x20) return true;
+                }
+                return false;
+            }
 
             var clans = [];
 
@@ -1350,6 +1367,7 @@
                     member.last_seen || '',
                     bytesToReadable(bytes)
                 ].join(' ').toLowerCase();
+                li._special = isSpecialBytes(bytes);
 
                 return li;
             }
@@ -1409,6 +1427,7 @@
             function applyFilter() {
                 var q = (searchEl.value || '').trim().toLowerCase();
                 var clanFilter = clanSelEl.value || '';
+                var specialOnly = !!(specialEl && specialEl.checked);
                 var visibleNames = 0;
                 var visibleClans = 0;
 
@@ -1426,6 +1445,7 @@
                     var lis = card.querySelectorAll('.clan-members li');
                     lis.forEach(function (li) {
                         var match = clanMatch || !q || (li._search && li._search.indexOf(q) !== -1);
+                        if (match && specialOnly && !li._special) match = false;
                         li.style.display = match ? '' : 'none';
                         if (match) memberMatches++;
                     });
@@ -1481,6 +1501,7 @@
 
             searchEl.addEventListener('input', applyFilter);
             clanSelEl.addEventListener('change', applyFilter);
+            if (specialEl) specialEl.addEventListener('change', applyFilter);
 
             fetch('names.json', { cache: 'no-cache' })
                 .then(function (r) {
