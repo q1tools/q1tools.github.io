@@ -2943,10 +2943,6 @@
           "alias": "RASTACAM"
         },
         {
-          "name_hex": "4c696e6472694c",
-          "alias": "LINDRIL"
-        },
-        {
           "name_hex": "4f6273657276657233",
           "alias": "OBSERVER3"
         },
@@ -3047,10 +3043,6 @@
           "alias": "CLUB·POST"
         },
         {
-          "name_hex": "4c696e6472696c",
-          "alias": "LINDRIL"
-        },
-        {
           "name_hex": "447275205433",
           "alias": "DRU T3"
         },
@@ -3101,10 +3093,6 @@
         {
           "name_hex": "d516856261746368",
           "alias": "U4·BATCH"
-        },
-        {
-          "name_hex": "d5969c67617465",
-          "alias": "U4·GATE"
         },
         {
           "name_hex": "f092ecf9ee2020209d48617630639f",
@@ -16398,6 +16386,26 @@
         {
           "name_hex": "44435f53756a6f79",
           "alias": "DC_SUJOY"
+        },
+        {
+          "name_hex": "43c7c9c220202020c84157da",
+          "alias": "CGIB    HAWZ"
+        },
+        {
+          "name_hex": "43c7c9c220202020c5d8494cc5",
+          "alias": "CGIB    EXILE"
+        },
+        {
+          "name_hex": "515456",
+          "alias": "QTV"
+        },
+        {
+          "name_hex": "43c7c9c220202020cbd2d5535459",
+          "alias": "CGIB    KRUSTY"
+        },
+        {
+          "name_hex": "c2cd9cd7494c44c24f41d2",
+          "alias": "BM·WILDBOAR"
         }
       ]
     }

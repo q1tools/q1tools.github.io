@@ -1180,6 +1180,31 @@
             var specialEl  = document.getElementById('directorySpecialOnly');
             var countEl    = document.getElementById('directoryCount');
             var directoryNameLength = typeof MAX_NAME_LENGTH === 'number' ? MAX_NAME_LENGTH : 15;
+            var directoryVisibleExtensions = Object.create(null);
+            var knownVisibleExtensions = {
+                'tasty·furburge': 'r',
+                'tasty·pussylip': 's',
+                'tasty·cuntjuic': 'e',
+                'tasty·vaginald': 'i',
+                'tasty·vaginaho': 'l',
+                'tasty·vaginasl': 'a',
+                'tasty·pussyjui': 'c',
+                'tasty·meatjuic': 'e',
+                'r00k         a': 'f',
+                'r00k        af': 'k',
+                'r00k        ob': 's',
+                'r00k       ·af': 'k'
+            };
+            var hiddenWhiteWords = [
+                'smokin',
+                'need1',
+                'bored',
+                'faggot',
+                'eating',
+                'lunch',
+                'idling',
+                'observer'
+            ];
 
             // A name is "special" if any byte is a colored glyph (>= 0x80)
             // or a non-space conchars icon (< 0x20, not 0x20). Pure 0x20-0x7E
@@ -1250,7 +1275,7 @@
             function memberReadableName(member) {
                 var bytes = member ? decodeHex(member.name_hex) : null;
                 if (!bytes) return member && member.alias ? member.alias : '';
-                return bytesToReadable(bytes.slice(0, directoryNameLength));
+                return bytesToReadable(visibleDirectoryBytes(bytes));
             }
 
             function compareSortText(a, b) {
@@ -1291,6 +1316,23 @@
                 return memberReadableKey(member).replace(/^\(1\)\s*/, '');
             }
 
+            function duplicateVisualKey(member) {
+                var bytes = member ? decodeHex(member.name_hex) : null;
+                if (!bytes) return '';
+
+                var visible = visibleDirectoryBytes(bytes);
+                var parts = [];
+                for (var i = 0; i < visible.length; i++) {
+                    var readable = normalizeDirectorySortText(bytesToReadable([visible[i]]));
+                    if (/[a-z]/.test(readable)) {
+                        parts.push('b' + visible[i]);
+                    } else {
+                        parts.push('c' + readable);
+                    }
+                }
+                return parts.join('|');
+            }
+
             function hideDuplicateMembers(members) {
                 var hasUnnumbered = Object.create(null);
                 for (var i = 0; i < members.length; i++) {
@@ -1299,19 +1341,39 @@
                     if (key && readable === key) hasUnnumbered[key] = true;
                 }
 
-                var seen = Object.create(null);
+                var seenVisual = Object.create(null);
                 return members.filter(function (member) {
+                    var visualKey = duplicateVisualKey(member);
                     var key = duplicateMemberKey(member);
                     var readable = memberReadableKey(member);
-                    if (!key || seen[key]) return false;
+                    if (!key || !visualKey || seenVisual[visualKey]) return false;
                     if (hasUnnumbered[key] && readable !== key) return false;
-                    seen[key] = true;
+                    seenVisual[visualKey] = true;
                     return true;
                 });
             }
 
             function bytesContainAfk(bytes) {
                 return bytesToReadable(bytes).toLowerCase().indexOf('afk') !== -1;
+            }
+
+            function whiteAsciiText(bytes) {
+                var out = '';
+                for (var i = 0; i < bytes.length; i++) {
+                    var b = bytes[i];
+                    out += (b >= 0x20 && b <= 0x7e) ? String.fromCharCode(b) : ' ';
+                }
+                return out.toLowerCase();
+            }
+
+            function bytesContainHiddenWhiteWord(bytes) {
+                var text = whiteAsciiText(bytes);
+                for (var i = 0; i < hiddenWhiteWords.length; i++) {
+                    if (text.indexOf(hiddenWhiteWords[i]) !== -1) {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             // Bytes that render as a blank cell in the conchars set.
@@ -1330,8 +1392,74 @@
                 return bytes.slice(start, end);
             }
 
-            function visibleDirectoryBytes(bytes) {
+            function baseVisibleDirectoryBytes(bytes) {
                 return trimBlankEdges(bytes).slice(0, directoryNameLength);
+            }
+
+            function coloredByteForReadableChar(ch, referenceBytes) {
+                if (!ch) return null;
+                var code = ch.charCodeAt(0);
+                var hasColoredPrintable = false;
+                for (var i = 0; i < referenceBytes.length; i++) {
+                    if (referenceBytes[i] >= 0x80) {
+                        hasColoredPrintable = true;
+                        break;
+                    }
+                }
+                if (hasColoredPrintable && code >= 0x20 && code <= 0x7e) {
+                    return code + 0x80;
+                }
+                return code >= 0 && code <= 255 ? code : null;
+            }
+
+            function visibleDirectoryBytes(bytes) {
+                var visible = baseVisibleDirectoryBytes(bytes);
+                if (visible.length !== directoryNameLength - 1) {
+                    return visible;
+                }
+
+                var key = normalizeDirectorySortText(bytesToReadable(visible)).trim();
+                var extension = directoryVisibleExtensions[key] || knownVisibleExtensions[key];
+                var b = coloredByteForReadableChar(extension, visible);
+                if (b === null) {
+                    return visible;
+                }
+                return visible.concat([b]).slice(0, directoryNameLength);
+            }
+
+            function buildVisibleExtensionMap(sourceClans) {
+                var extensions = Object.create(null);
+                for (var i = 0; i < sourceClans.length; i++) {
+                    var members = Array.isArray(sourceClans[i].members) ? sourceClans[i].members : [];
+                    for (var j = 0; j < members.length; j++) {
+                        var bytes = decodeHex(members[j].name_hex);
+                        if (!bytes) continue;
+
+                        var visible = baseVisibleDirectoryBytes(bytes);
+                        if (visible.length < directoryNameLength) continue;
+
+                        var readable = bytesToReadable(visible);
+                        var key = normalizeDirectorySortText(readable).trim();
+                        if (key.length < directoryNameLength) continue;
+
+                        var prefix = key.slice(0, directoryNameLength - 1);
+                        if (!extensions[prefix]) {
+                            extensions[prefix] = readable.charAt(directoryNameLength - 1);
+                        }
+                    }
+                }
+                return extensions;
+            }
+
+            function displayAliasForMember(member, visibleBytes) {
+                var alias = member.alias || '';
+                var readable = bytesToReadable(visibleBytes);
+                var aliasKey = normalizeDirectorySortText(alias).trim();
+                var readableKey = normalizeDirectorySortText(readable).trim();
+                if (aliasKey && readableKey.indexOf(aliasKey) === 0 && readableKey.length > aliasKey.length) {
+                    return readable;
+                }
+                return alias;
             }
 
             function buildGlyphRow(bytes, alias) {
@@ -1402,23 +1530,25 @@
             function buildMember(member) {
                 var bytes = decodeHex(member.name_hex);
                 if (!bytes) { return null; }
-                if (bytesContainAfk(bytes)) { return null; }
 
                 // Display, copy, search, and special-only filtering all use the same visible bytes.
                 var visibleBytes = visibleDirectoryBytes(bytes);
+                if (bytesContainAfk(visibleBytes)) { return null; }
+                if (bytesContainHiddenWhiteWord(visibleBytes)) { return null; }
+                var displayAlias = displayAliasForMember(member, visibleBytes);
 
                 var li = document.createElement('li');
 
                 var main = document.createElement('div');
                 main.className = 'member-main';
-                main.appendChild(buildGlyphRow(visibleBytes, member.alias));
+                main.appendChild(buildGlyphRow(visibleBytes, displayAlias));
 
                 var meta = document.createElement('div');
                 meta.className = 'member-meta';
-                if (member.alias) {
+                if (displayAlias) {
                     var a = document.createElement('span');
                     a.className = 'member-alias';
-                    a.textContent = member.alias;
+                    a.textContent = displayAlias;
                     meta.appendChild(a);
                 }
                 if (member.notes) {
@@ -1453,7 +1583,7 @@
 
                 // Keep search-friendly text on the row itself.
                 li._search = [
-                    member.alias || '',
+                    displayAlias || '',
                     member.notes || '',
                     member.last_seen || '',
                     bytesToReadable(visibleBytes)
@@ -1548,6 +1678,7 @@
 
             function render() {
                 listEl.innerHTML = '';
+                directoryVisibleExtensions = buildVisibleExtensionMap(clans);
                 if (!clans.length) {
                     renderError('No clans in directory yet.');
                     return;
