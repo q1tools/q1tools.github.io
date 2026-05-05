@@ -2422,9 +2422,11 @@
             ].join('');
         });
 
+        var exportButton = '<button type="button" class="txt-export-button folder-roster-export-button" title="Save as .txt" aria-label="Export players list as .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M4.5 7 8 10.5 11.5 7"/><path d="M2.5 12.5v1.5h11v-1.5"/></svg></button>';
+
         return [
             '<details class="section-disclosure subsection subsection-collapsible" open>',
-            '<summary><div class="disclosure-summary"><span class="disclosure-meta">Players (' + roster.length + ')</span></div></summary>',
+            '<summary><div class="disclosure-summary disclosure-summary-with-action"><span class="disclosure-meta">Players (' + roster.length + ')</span>' + exportButton + '</div></summary>',
             '<div class="disclosure-body">',
             sortButtons,
             '<div class="player-grid folder-roster-grid">' + cards.join('') + '</div>',
@@ -2832,8 +2834,31 @@
         ].join('');
 
         bindFolderSortControls();
+        bindFolderPlayerExport(analysis.playerRoster);
         bindFolderChatExport(analysis.chatLog);
         folderAnalysisPanel.hidden = false;
+    }
+
+    function bindFolderPlayerExport(roster) {
+        var button = folderAnalysisContent.querySelector('.folder-roster-export-button');
+        if (!button || !roster || !roster.length) { return; }
+
+        button.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var lines = ['name\tname_hex'];
+            roster.forEach(function (player) {
+                var codes = Array.isArray(player.nameCodes) ? player.nameCodes : [];
+                if (!codes.length) { return; }
+                var dequaked = decodePlayerName(codes, player.displayName || '');
+                var hex = codes.map(function (b) {
+                    return ('0' + (b & 0xff).toString(16)).slice(-2);
+                }).join('');
+                lines.push(dequaked + '\t' + hex);
+            });
+            if (lines.length <= 1) { return; }
+            triggerDownload(new TextEncoder().encode(lines.join('\n')), 'players.txt');
+        });
     }
 
     function bindFolderSortControls() {

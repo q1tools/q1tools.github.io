@@ -151,6 +151,13 @@
     user-select: none;
 }
 
+.disclosure-summary-with-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .section-disclosure[open] .disclosure-summary {
     margin-bottom: 0;
 }
