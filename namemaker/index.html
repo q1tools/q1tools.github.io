@@ -1330,12 +1330,16 @@
                 return bytes.slice(start, end);
             }
 
+            function visibleDirectoryBytes(bytes) {
+                return trimBlankEdges(bytes).slice(0, directoryNameLength);
+            }
+
             function buildGlyphRow(bytes, alias) {
                 var wrap = document.createElement('div');
                 wrap.className = 'member-glyphs';
                 wrap.setAttribute('role', 'img');
                 wrap.setAttribute('aria-label', alias || bytesToReadable(bytes) || 'name');
-                var visible = trimBlankEdges(bytes.slice(0, directoryNameLength));
+                var visible = visibleDirectoryBytes(bytes);
                 for (var i = 0; i < visible.length; i++) {
                     var img = document.createElement('img');
                     img.src = GLYPH_PATH + pad3(visible[i]) + '.gif';
@@ -1400,14 +1404,14 @@
                 if (!bytes) { return null; }
                 if (bytesContainAfk(bytes)) { return null; }
 
-                // Display, copy, search, and special-only filtering all use only visible bytes.
-                var cappedBytes = bytes.slice(0, directoryNameLength);
+                // Display, copy, search, and special-only filtering all use the same visible bytes.
+                var visibleBytes = visibleDirectoryBytes(bytes);
 
                 var li = document.createElement('li');
 
                 var main = document.createElement('div');
                 main.className = 'member-main';
-                main.appendChild(buildGlyphRow(cappedBytes, member.alias));
+                main.appendChild(buildGlyphRow(visibleBytes, member.alias));
 
                 var meta = document.createElement('div');
                 meta.className = 'member-meta';
@@ -1440,7 +1444,7 @@
                 copyBtn.setAttribute('aria-label', 'Copy name');
                 copyBtn.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
                 copyBtn.addEventListener('click', function () {
-                    copyToClip(bytesToCopyableName(cappedBytes), copyBtn);
+                    copyToClip(bytesToCopyableName(visibleBytes), copyBtn);
                 });
                 actions.appendChild(copyBtn);
 
@@ -1452,9 +1456,9 @@
                     member.alias || '',
                     member.notes || '',
                     member.last_seen || '',
-                    bytesToReadable(cappedBytes)
+                    bytesToReadable(visibleBytes)
                 ].join(' ').toLowerCase();
-                li._special = isSpecialBytes(cappedBytes);
+                li._special = isSpecialBytes(visibleBytes);
 
                 return li;
             }
