@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/jschardet@2.1.1/dist/jschardet.min.js"></script>
+    <script src="quake-name-generator.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=.6">
 </head>
 
@@ -793,6 +794,18 @@
                         <input type="button" value="&#xf0c5;" class="input-button fa" onclick="copyToClipboard();" title="Copy">
                     </div>
 
+                    <div id="hexname">
+                        Hex<br>
+                        <input id="hexField" type="text" name="hex" autocomplete="off" spellcheck="false">
+                        <input type="button" value="&#xf021;" class="input-button fa" id="hexButton" title="Load from Hex">
+                        <input type="button" value="&#xf0c5;" class="input-button fa" onclick="copyHexToClipboard();" title="Copy">
+                    </div>
+
+                    <div id="randomContainer">
+                        <input type="button" id="randomButton" class="input-button fa" value="&#xf522;" title="Random Name" onclick="generateRandomName();">
+                        <span class="random-label">Random</span>
+                    </div>
+
                     <div id="saveContainer">
                         <input type="text" id="filename" placeholder="Enter file name" value="QuakeName.txt">
                         <input type="button" id="saveButton" class="input-button fa" value="&#xf019;" onclick="saveName();">
@@ -887,6 +900,162 @@
 
                 var readableName = translateName(document.oqnm.name.value || '');
                 fontPreview.textContent = readableName || ' ';
+                updateHexField();
+            }
+
+            function nameToHex(name) {
+                var hex = '';
+                for (var i = 0; i < name.length; i++) {
+                    var c = name.charAt(i);
+                    var code = Object.prototype.hasOwnProperty.call(map, c) ? map[c] : (c.charCodeAt(0) & 0xff);
+                    hex += code.toString(16).padStart(2, '0');
+                }
+                return hex;
+            }
+
+            function updateHexField() {
+                var hexField = document.getElementById('hexField');
+                if (!hexField) return;
+                if (document.activeElement === hexField) return; // don't clobber user typing
+                hexField.value = nameToHex(document.oqnm.name.value || '');
+            }
+
+            // Reverse of `map`: byte code -> unicode char (for hex -> name).
+            // Built lazily because `map` is defined later in this script block.
+            var codeToChar = null;
+            function getCodeToChar() {
+                if (codeToChar) return codeToChar;
+                codeToChar = {};
+                for (var key in map) {
+                    if (!Object.prototype.hasOwnProperty.call(map, key)) continue;
+                    if (key.indexOf('disabled') !== -1) continue;
+                    codeToChar[map[key]] = key;
+                }
+                return codeToChar;
+            }
+
+            function loadFromHex(hexInput) {
+                var clean = (hexInput || '').replace(/\s+/g, '').toLowerCase();
+                if (clean.length === 0) return;
+                if (!/^[0-9a-f]+$/.test(clean) || (clean.length % 2) !== 0) {
+                    alert('Hex must be an even-length string of 0-9 and a-f.');
+                    return;
+                }
+
+                var bytes = [];
+                for (var i = 0; i < clean.length && bytes.length < MAX_NAME_LENGTH; i += 2) {
+                    bytes.push(parseInt(clean.substr(i, 2), 16));
+                }
+
+                for (var k = 0; k < 40; k++) {
+                    document.oqnm.code[k].value = '032';
+                    document.images[k + 4].src = 'images/chars/quake/032.gif';
+                }
+
+                var c2c = getCodeToChar();
+                var nameStr = '';
+                for (var j = 0; j < bytes.length; j++) {
+                    var b = bytes[j];
+                    var ch = Object.prototype.hasOwnProperty.call(c2c, b) ? c2c[b] : String.fromCharCode(b);
+                    nameStr += ch;
+                    var codeStr = b.toString().padStart(3, '0');
+                    document.oqnm.code[j].value = codeStr;
+                    document.images[j + 4].src = 'images/chars/quake/' + codeStr + '.gif';
+                }
+
+                document.oqnm.name.value = nameStr;
+                updateFontPreview();
+            }
+
+            function copyHexToClipboard() {
+                var hexField = document.getElementById('hexField');
+                if (!hexField || !hexField.value) {
+                    console.error('No hex to copy');
+                    return;
+                }
+                navigator.clipboard.writeText(hexField.value)
+                    .catch(function (err) { console.error('Failed to copy hex:', err); });
+            }
+
+            // Random name generator — mixes pregenerated entries from
+            // pregenerated-names.json with on-the-fly output from the
+            // QuakeNameGenerator module. Any candidate whose bracketed
+            // clan-tag-looking token collides with the names.json
+            // directory is rejected, and any candidate without at least
+            // one high-byte is rejected (no plain-white names).
+            var BRACKET_TAG_RE = /[\[<{(]\s*([A-Za-z0-9_!.\-·]{1,8})\s*[\]>})]/g;
+            var PREGENERATED_PROBABILITY = 0.30;
+
+            function clanTagsCollide(previewStr) {
+                var taken = (window && window.__existingClanTags) || null;
+                if (!taken || !taken.size) return false;
+                BRACKET_TAG_RE.lastIndex = 0;
+                var m;
+                while ((m = BRACKET_TAG_RE.exec(previewStr)) !== null) {
+                    if (taken.has(m[1].toUpperCase())) return true;
+                }
+                return false;
+            }
+
+            function bytesHaveHigh(bytes) {
+                for (var i = 0; i < bytes.length; i++) {
+                    if (bytes[i] >= 128) return true;
+                }
+                return false;
+            }
+
+            function hexToBytesLocal(hex) {
+                var bytes = [];
+                for (var i = 0; i < hex.length; i += 2) {
+                    bytes.push(parseInt(hex.substr(i, 2), 16));
+                }
+                return bytes;
+            }
+
+            function pickPregenerated() {
+                var list = (window && window.__pregeneratedNames) || null;
+                if (!Array.isArray(list) || !list.length) return null;
+                // Try up to N times to find one that doesn't collide with an existing clan tag
+                // and has at least one high byte.
+                for (var i = 0; i < 25; i++) {
+                    var entry = list[Math.floor(Math.random() * list.length)];
+                    if (!entry || !entry.name_hex) continue;
+                    var preview = entry.preview_approx || '';
+                    if (clanTagsCollide(preview)) continue;
+                    var bytes = hexToBytesLocal(entry.name_hex);
+                    if (!bytesHaveHigh(bytes)) continue;
+                    return entry;
+                }
+                return null;
+            }
+
+            function generateRandomName() {
+                if (typeof QuakeNameGenerator === 'undefined') {
+                    console.error('QuakeNameGenerator not loaded.');
+                    return;
+                }
+
+                if (Math.random() < PREGENERATED_PROBABILITY) {
+                    var pre = pickPregenerated();
+                    if (pre) {
+                        loadFromHex(pre.name_hex);
+                        return;
+                    }
+                }
+
+                var opts = { maxBytes: MAX_NAME_LENGTH, minBytes: 4 };
+                var result = null;
+                for (var i = 0; i < 60; i++) {
+                    var candidate = QuakeNameGenerator.generateName(opts);
+                    if (!bytesHaveHigh(candidate.bytes)) continue;       // never plain-white
+                    if (clanTagsCollide(candidate.preview_approx)) continue; // never reuse existing clan
+                    result = candidate;
+                    break;
+                }
+
+                if (!result) result = QuakeNameGenerator.generateName(opts);
+
+                loadFromHex(result.name_hex);
             }
 
             // dequake for readable previews uses html escape chars
@@ -1039,6 +1208,19 @@
                 var nameValue = document.getElementById('converted').value; // Get the value from the 'converted' input field
                 updateNamePreview(nameValue); // Update the preview with this value
                 resetDropZone();
+            });
+
+            document.getElementById('hexButton').addEventListener('click', function () {
+                loadFromHex(document.getElementById('hexField').value);
+                resetDropZone();
+            });
+
+            document.getElementById('hexField').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    loadFromHex(this.value);
+                    resetDropZone();
+                }
             });
 
             function updateNamePreview(content) {
@@ -1702,11 +1884,48 @@
                 .then(function (data) {
                     clans = Array.isArray(data && data.clans) ? data.clans : [];
                     render();
+                    collectExistingClanTags(data);
                 })
                 .catch(function (err) {
                     console.error('Directory load failed:', err);
                     renderError('Could not load names.json — open this page from a web server (file:// blocks fetch).');
                 });
+
+            // Pregenerated names — mixed into the random-name generator pool.
+            fetch('pregenerated-names.json', { cache: 'no-cache' })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(function (data) {
+                    if (Array.isArray(data)) window.__pregeneratedNames = data;
+                })
+                .catch(function (err) {
+                    console.warn('Pregenerated names load failed (random will use generator only):', err);
+                });
+
+            // Populate window.__existingClanTags (uppercased) so the random name
+            // generator can avoid clan tags already used in the directory.
+            function collectExistingClanTags(data) {
+                var set = new Set();
+                var clansArr = (data && data.clans) || [];
+                var bracketRe = /[\[<]\s*([A-Za-z0-9_!.\-]{1,8})\s*[\]>]/g;
+                for (var i = 0; i < clansArr.length; i++) {
+                    var c = clansArr[i];
+                    if (c.tag) set.add(String(c.tag).toUpperCase());
+                    var members = Array.isArray(c.members) ? c.members : [];
+                    for (var j = 0; j < members.length; j++) {
+                        var alias = members[j] && members[j].alias;
+                        if (!alias) continue;
+                        var m;
+                        bracketRe.lastIndex = 0;
+                        while ((m = bracketRe.exec(alias)) !== null) {
+                            set.add(m[1].toUpperCase());
+                        }
+                    }
+                }
+                window.__existingClanTags = set;
+            }
         })();
     </script>
 </div>
