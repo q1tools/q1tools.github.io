@@ -20,7 +20,7 @@
         function updateName() {
 
             for (loop = 0; loop < 40; loop++) {
-                document.images[loop + 4].src = "images/chars/quake/" + document.oqnm.code[loop].value + ".gif"
+                document.images[loop + 1].src = "images/chars/quake/" + document.oqnm.code[loop].value + ".gif"
             }
 
             updateFontPreview();
@@ -717,15 +717,9 @@
                     </map>
                 </div>
                 <div id="controls">
-                    <a href="index.html" onClick="resetName();">
-                        <img src="images/start_over.png" alt="reset" class="controls-margin">
-                    </a>
-                    <a href="index.html#bottom" onClick="addSpace();">
-                        <img src="images/add_space.png" alt="add space" class="controls-margin">
-                    </a>
-                    <a href="index.html#bottom" onClick="backSpace();">
-                        <img src="images/backspace.png" alt="backspace">
-                    </a>
+                    <a href="javascript:void(0)" onClick="resetName(); return false;" class="controls-btn" title="Start over">clear</a>
+                    <a href="javascript:void(0)" onClick="addSpace(); return false;" class="controls-btn" title="Add space">space</a>
+                    <a href="javascript:void(0)" onClick="backSpace(); return false;" class="controls-btn" title="Backspace">back</a>
                 </div>
             </div>
             <div id="right_fields">
@@ -782,15 +776,15 @@
                         </tr>
                     </table>
                     <div id="fontPreviewContainer">
-                        <div class="previewSubheading">Quake1.ttf Preview</div>
+                        <div class="previewSubheading"><a href="Quake1.ttf" download class="ttf-download" title="Download Quake1.ttf">Quake1.ttf</a> Preview</div>
                         <div id="ttfPreview" aria-live="polite"></div>
                     </div>
                 </div>
                 <div id="below_preview">
                     <div id="yourname">
-                        Translate<br>
+                        ASCII Characters<br>
                         <input id="converted" type="text" name="name" maxlength="15">
-                        <input type="button" value="&#xf021;" class="input-button fa" id="previewButton" title="Translate Reload">
+                        <input type="button" value="&#xf021;" class="input-button fa" id="previewButton" title="ASCII Characters Reload">
                         <input type="button" value="&#xf0c5;" class="input-button fa" onclick="copyToClipboard();" title="Copy">
                     </div>
 
@@ -901,6 +895,17 @@
                 var readableName = translateName(document.oqnm.name.value || '');
                 fontPreview.textContent = readableName || ' ';
                 updateHexField();
+                updateFilenameField(readableName);
+            }
+
+            function updateFilenameField(readableName) {
+                var input = document.getElementById('filename');
+                if (!input) return;
+                if (document.activeElement === input) return; // user is editing it
+                var sanitized = (readableName || '')
+                    .replace(/[^A-Za-z0-9._-]+/g, '_') // file-system-safe
+                    .replace(/^_+|_+$/g, '');
+                input.value = (sanitized || 'QuakeName') + '.txt';
             }
 
             function nameToHex(name) {
@@ -949,7 +954,7 @@
 
                 for (var k = 0; k < 40; k++) {
                     document.oqnm.code[k].value = '032';
-                    document.images[k + 4].src = 'images/chars/quake/032.gif';
+                    document.images[k + 1].src = 'images/chars/quake/032.gif';
                 }
 
                 var c2c = getCodeToChar();
@@ -960,7 +965,7 @@
                     nameStr += ch;
                     var codeStr = b.toString().padStart(3, '0');
                     document.oqnm.code[j].value = codeStr;
-                    document.images[j + 4].src = 'images/chars/quake/' + codeStr + '.gif';
+                    document.images[j + 1].src = 'images/chars/quake/' + codeStr + '.gif';
                 }
 
                 document.oqnm.name.value = nameStr;
@@ -1241,7 +1246,7 @@
 
                 for (let i = 0; i < 40; i++) {
                     codeInputs[i].value = '032';
-                    imageElements[i + 4].src = "images/chars/quake/032.gif";
+                    imageElements[i + 1].src = "images/chars/quake/032.gif";
                 }
 
                 // Update images and hidden inputs with processed content
@@ -1251,7 +1256,7 @@
                         const asciiValue = map[char];
                         const formattedCharCode = asciiValue.toString().padStart(3, '0');
                         codeInputs[j].value = formattedCharCode;
-                        imageElements[j + 4].src = `images/chars/quake/${formattedCharCode}.gif`;
+                        imageElements[j + 1].src = `images/chars/quake/${formattedCharCode}.gif`;
                         j++;
                     } else {
                         console.error(`Character '${char}' not found in map`);
@@ -1323,14 +1328,27 @@
                 }
             }
 
-            // RESET ALL OF THE FIELDS
+            // RESET ALL OF THE FIELDS, then seed the preview with a default
+            // plain-white "player" name.
 
             document.oqnm.name.value = '';
 
             for (loop = 0; loop < 40; loop++) {
                 document.oqnm.code[loop].value = '032';
-                document.images[loop + 4].src = "images/chars/quake/" + document.oqnm.code[loop].value + ".gif"
+                document.images[loop + 1].src = "images/chars/quake/" + document.oqnm.code[loop].value + ".gif"
             }
+
+            (function seedDefaultName() {
+                var defaultBytes = [112, 108, 97, 121, 101, 114]; // "player" (plain ASCII)
+                document.oqnm.name.value = '';
+                for (var i = 0; i < defaultBytes.length; i++) {
+                    var b = defaultBytes[i];
+                    var code = b.toString().padStart(3, '0');
+                    document.oqnm.code[i].value = code;
+                    document.images[i + 1].src = 'images/chars/quake/' + code + '.gif';
+                    document.oqnm.name.value += String.fromCharCode(b);
+                }
+            })();
 
             updateFontPreview();
 
