@@ -21,8 +21,22 @@
     border-color: rgba(143, 215, 168, 0.78);
 }
 
-.pak1-status {
+.package-status {
     color: #b6d8bb;
+}
+
+.demo-player-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.demo-player-frame {
+    display: block;
+    width: 100%;
+    min-height: 640px;
+    height: min(760px, calc(100vh - 120px));
+    border: 0;
+    background: #0b0c0c;
 }
 
 .hero #quakefontheader {

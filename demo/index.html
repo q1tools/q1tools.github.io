@@ -7,12 +7,12 @@
     <link rel="icon" type="image/png" href="demo.png">
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="../sav/style.css">
-    <link rel="stylesheet" href="style.css?v=20260506e">
+    <link rel="stylesheet" href="style.css?v=20260507a">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
     <script defer src="dzip.js?v=20260321b"></script>
     <script defer src="parser.js?v=20260321b"></script>
-    <script defer src="app.js?v=20260506d"></script>
+    <script defer src="app.js?v=20260507a"></script>
 </head>
 <body>
     <main class="page">
@@ -31,9 +31,9 @@
 
             <div id="demoPlayerDropZone" class="drop-zone demo-player-drop-zone" tabindex="0" role="button" aria-controls="demoPlayerInput">
                 <strong>Drop a .dem file here to play it</strong>
-                <small>or click to choose a .dem or pak1.pak from your computer</small>
-                <small>for e3/e4 or dm1-dm6 demos, drop pak1.pak here first</small>
-                <small id="pak1Status" class="pak1-status">pak1.pak not loaded</small>
+                <small>or click to choose a .dem or .pak from your computer</small>
+                <small>drop .pak files here first for demos whose maps are inside them</small>
+                <small id="packageStatus" class="package-status">No extra .pak files loaded</small>
             </div>
             <input id="demoPlayerInput" type="file" accept=".dem,.DEM,.pak,.PAK,application/octet-stream" multiple hidden>
 
@@ -43,6 +43,10 @@
             </div>
 
             <ul id="warnings" class="warnings" hidden></ul>
+        </section>
+
+        <section id="demoPlayerPanel" class="panel demo-player-panel" hidden>
+            <iframe id="demoPlayerFrame" class="demo-player-frame" title="Demo playback"></iframe>
         </section>
 
         <section id="summaryPanel" class="panel" hidden>

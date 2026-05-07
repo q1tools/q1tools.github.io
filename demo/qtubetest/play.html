@@ -268,6 +268,21 @@
         .filter(Boolean);
     }
 
+    function parseMaybeJsonArray(value) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      if (!value) {
+        return [];
+      }
+      try {
+        var parsed = JSON.parse(String(value));
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
     function asciiArrayBuffer(text) {
       var bytes = new Uint8Array(text.length);
       for (var i = 0; i < text.length; i++) {
@@ -343,12 +358,70 @@
       return PAK1_REQUIRED_MAP_PATTERN.test(clean);
     }
 
+    function normalizePackageDescriptor(packageValue) {
+      if (!packageValue || typeof packageValue !== "object") {
+        return null;
+      }
+
+      var source = cleanValue(packageValue.source || packageValue.src || packageValue.url || packageValue.href || packageValue.path);
+      var file = sanitizeVirtualFileName(packageValue.file || packageValue.name || source || "maps.pak", "maps.pak");
+      var maps = [];
+      var seenMaps = {};
+
+      if (!source) {
+        return null;
+      }
+      if (!/\.p(?:ak|k3)$/i.test(file)) {
+        file += ".pak";
+      }
+
+      splitList(packageValue.maps).concat(splitList(packageValue.map)).forEach(function(mapValue) {
+        var fileName = fileNameFromValue(mapValue);
+        if (fileName && !/\.(bsp|lit)$/i.test(fileName)) {
+          fileName += ".bsp";
+        }
+        var key = fileName.toLowerCase();
+        if (key && !seenMaps[key]) {
+          maps.push(fileName);
+          seenMaps[key] = true;
+        }
+      });
+
+      return {
+        file: file,
+        source: sourceForRelativeValue(source),
+        maps: maps,
+        providesPak1Maps: !!packageValue.providesPak1Maps || /^pak1\.pak$/i.test(file)
+      };
+    }
+
+    function packageProvidesMap(packageInfo, mapFile) {
+      var base = fileNameFromValue(mapFile).replace(/\.(?:bsp|lit)$/i, "").toLowerCase();
+      if (!base) {
+        return false;
+      }
+      if (packageInfo.providesPak1Maps && PAK1_REQUIRED_MAP_PATTERN.test(base)) {
+        return true;
+      }
+      return packageInfo.maps.some(function(map) {
+        return fileNameFromValue(map).replace(/\.(?:bsp|lit)$/i, "").toLowerCase() === base;
+      });
+    }
+
+    function packagesProvideMap(packages, mapFile) {
+      return packages.some(function(packageInfo) {
+        return packageProvidesMap(packageInfo, mapFile);
+      });
+    }
+
     function normalizeDemoSpec(spec, fallbackName) {
       var source = cleanValue(spec.source || spec.src || spec.url || spec.href || spec.path);
       var file = sanitizeVirtualFileName(spec.file || source || fallbackName, "demo.dem");
       var pak1Source = cleanValue(spec.pak1Source || spec.pak1 || spec.pak1Url || spec.pak1_url);
       var maps = [];
       var seenMaps = {};
+      var packages = [];
+      var seenPackages = {};
 
       if (source && !/\.(dem|mvd|qwd|qwz|dz)$/i.test(file)) {
         file += ".dem";
@@ -366,12 +439,34 @@
         }
       });
 
+      parseMaybeJsonArray(spec.packages).forEach(function(packageValue) {
+        var packageInfo = normalizePackageDescriptor(packageValue);
+        if (!packageInfo) {
+          return;
+        }
+        var key = packageInfo.file.toLowerCase();
+        if (!seenPackages[key]) {
+          packages.push(packageInfo);
+          seenPackages[key] = true;
+        }
+      });
+
+      if (pak1Source && !seenPackages["pak1.pak"]) {
+        packages.push({
+          file: sanitizeVirtualFileName(spec.pak1File || "pak1.pak", "pak1.pak"),
+          source: sourceForRelativeValue(pak1Source),
+          maps: [],
+          providesPak1Maps: true
+        });
+      }
+
       return {
         title: cleanValue(spec.title || spec.name || spec.label) || file,
         file: file,
         source: sourceForRelativeValue(source || ("id1/" + file)),
         pak1Source: pak1Source ? sourceForRelativeValue(pak1Source) : "",
         pak1File: pak1Source ? sanitizeVirtualFileName(spec.pak1File || "pak1.pak", "pak1.pak") : "",
+        packages: packages,
         maps: maps
       };
     }
@@ -388,6 +483,7 @@
         title: params.get("title") || params.get("name") || "",
         pak1Source: params.get("pak1Source") || params.get("pak1") || "",
         pak1File: params.get("pak1File") || "",
+        packages: params.get("packages") || "",
         maps: params.get("maps") || "",
         map: params.get("map") || ""
       }, source);
@@ -576,12 +672,12 @@
           throw error;
         });
       }
-      if (selectedDemo.pak1Source) {
-        files["id1/pak1.pak"] = selectedDemo.pak1Source;
-      }
+      selectedDemo.packages.forEach(function(packageInfo) {
+        files["id1/" + packageInfo.file] = packageInfo.source;
+      });
       files["id1/" + selectedDemo.file] = selectedDemo.source;
       selectedDemo.maps.forEach(function(map) {
-        if (selectedDemo.pak1Source && mapFileNeedsPak1(map.file)) {
+        if (packagesProvideMap(selectedDemo.packages, map.file)) {
           return;
         }
         files["id1/maps/" + map.file] = map.source;

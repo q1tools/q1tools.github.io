@@ -18,9 +18,11 @@
     const resultsPanel = document.getElementById('resultsPanel');
     const folderInput = document.getElementById('folderInput');
     const folderLink = document.getElementById('folderLink');
-    const pak1Status = document.getElementById('pak1Status');
+    const packageStatus = document.getElementById('packageStatus');
     const demoPlayerDropZone = document.getElementById('demoPlayerDropZone');
     const demoPlayerInput = document.getElementById('demoPlayerInput');
+    const demoPlayerPanel = document.getElementById('demoPlayerPanel');
+    const demoPlayerFrame = document.getElementById('demoPlayerFrame');
     const folderAnalysisPanel = document.getElementById('folderAnalysisPanel');
     const folderAnalysisContent = document.getElementById('folderAnalysisContent');
     const captimePanel = document.getElementById('captimePanel');
@@ -48,7 +50,7 @@
 
     let parsedFiles = [];
     let folderMode = false;
-    let playerPak1 = null;
+    let playerPackages = [];
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -3623,14 +3625,6 @@
         };
     }
 
-    function openPendingPlayerWindow() {
-        try {
-            return window.open('about:blank', 'q1tools-demo-player', 'width=760,height=760,resizable=yes,scrollbars=yes');
-        } catch (_error) {
-            return null;
-        }
-    }
-
     function buildPlayerLaunchUrl(spec) {
         var key = DEMO_PLAYER_STORAGE_PREFIX + Date.now() + '-' + Math.random().toString(36).slice(2);
         try {
@@ -3650,35 +3644,22 @@
             if (spec.pak1File) {
                 params.set('pak1File', spec.pak1File);
             }
+            if (spec.packages && spec.packages.length) {
+                params.set('packages', JSON.stringify(spec.packages));
+            }
             return DEMO_PLAYER_URL + '?' + params.toString();
         }
     }
 
-    function closePendingPlayerWindow(playerWindow) {
-        try {
-            if (playerWindow && !playerWindow.closed) {
-                playerWindow.close();
-            }
-        } catch (_error) {
-            // Best effort cleanup for blocked preflight launches.
-        }
-    }
-
-    function navigatePlayerWindow(playerWindow, url) {
-        if (playerWindow && !playerWindow.closed) {
-            playerWindow.location.replace(url);
-            playerWindow.opener = null;
-            playerWindow.focus();
-            return true;
+    function navigateEmbeddedPlayer(url) {
+        if (!demoPlayerPanel || !demoPlayerFrame) {
+            return false;
         }
 
-        var opened = window.open(url, 'q1tools-demo-player', 'width=760,height=760,resizable=yes,scrollbars=yes');
-        if (opened) {
-            opened.opener = null;
-            opened.focus();
-            return true;
-        }
-        return false;
+        demoPlayerPanel.hidden = false;
+        demoPlayerFrame.src = url;
+        demoPlayerPanel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        return true;
     }
 
     function normalizeMapBaseName(value) {
@@ -3706,41 +3687,181 @@
         return required;
     }
 
-    function updatePak1Status() {
-        if (!pak1Status) {
+    function readUint32LE(bytes, offset) {
+        return (bytes[offset] |
+            (bytes[offset + 1] << 8) |
+            (bytes[offset + 2] << 16) |
+            (bytes[offset + 3] << 24)) >>> 0;
+    }
+
+    function readPakName(bytes, offset) {
+        var end = offset;
+        while (end < offset + 56 && bytes[end] !== 0) {
+            end += 1;
+        }
+
+        var text = '';
+        for (var i = offset; i < end; i++) {
+            text += String.fromCharCode(bytes[i]);
+        }
+        return text.replace(/\\/g, '/');
+    }
+
+    function officialPak1Maps() {
+        var maps = [];
+        for (var e3 = 1; e3 <= 7; e3++) {
+            maps.push('e3m' + e3 + '.bsp');
+        }
+        for (var e4 = 1; e4 <= 8; e4++) {
+            maps.push('e4m' + e4 + '.bsp');
+        }
+        for (var dm = 1; dm <= 6; dm++) {
+            maps.push('dm' + dm + '.bsp');
+        }
+        return maps;
+    }
+
+    function uniqueMapFiles(maps) {
+        var seen = {};
+        var result = [];
+
+        maps.forEach(function (map) {
+            var base = normalizeMapBaseName(map);
+            if (!base || seen[base]) {
+                return;
+            }
+            result.push(base + '.bsp');
+            seen[base] = true;
+        });
+
+        return result;
+    }
+
+    async function inspectPakMaps(file) {
+        var buffer = await file.arrayBuffer();
+        var bytes = new Uint8Array(buffer);
+        if (bytes.length < 12 ||
+            bytes[0] !== 80 ||
+            bytes[1] !== 65 ||
+            bytes[2] !== 67 ||
+            bytes[3] !== 75) {
+            throw new Error('not a Quake PAK file');
+        }
+
+        var directoryOffset = readUint32LE(bytes, 4);
+        var directoryLength = readUint32LE(bytes, 8);
+        if (directoryLength % 64 !== 0 || directoryOffset + directoryLength > bytes.length) {
+            throw new Error('PAK directory is corrupt');
+        }
+
+        var maps = [];
+        for (var offset = directoryOffset; offset < directoryOffset + directoryLength; offset += 64) {
+            var entryName = readPakName(bytes, offset);
+            var match = entryName.match(/^maps\/([^/]+\.(?:bsp|lit))$/i);
+            if (match) {
+                maps.push(match[1]);
+            }
+        }
+        return uniqueMapFiles(maps);
+    }
+
+    async function buildPlayerPackageFromFile(file) {
+        var maps = [];
+        var warnings = [];
+        var providesPak1Maps = /^pak1\.pak$/i.test(file.name || '');
+
+        try {
+            maps = await inspectPakMaps(file);
+        } catch (error) {
+            warnings.push('Loaded "' + file.name + '", but could not inspect its map list: ' + (error && error.message ? error.message : String(error)) + '.');
+        }
+
+        if (providesPak1Maps) {
+            maps = uniqueMapFiles(maps.concat(officialPak1Maps()));
+        } else if (!maps.length && !warnings.length) {
+            warnings.push('Loaded "' + file.name + '", but it does not list any maps.');
+        }
+
+        return {
+            package: {
+                file: file.name || 'maps.pak',
+                source: URL.createObjectURL(file),
+                size: file.size,
+                maps: maps,
+                providesPak1Maps: providesPak1Maps
+            },
+            warnings: warnings
+        };
+    }
+
+    function setPlayerPackage(pkg) {
+        var key = String(pkg.file || '').toLowerCase();
+        var replaced = false;
+
+        playerPackages = playerPackages.map(function (existing) {
+            if (String(existing.file || '').toLowerCase() !== key) {
+                return existing;
+            }
+            if (existing.source) {
+                URL.revokeObjectURL(existing.source);
+            }
+            replaced = true;
+            return pkg;
+        });
+
+        if (!replaced) {
+            playerPackages.push(pkg);
+        }
+        updatePackageStatus();
+    }
+
+    function packageProvidesMap(pkg, mapName) {
+        var base = normalizeMapBaseName(mapName);
+        if (!base) {
+            return false;
+        }
+        if (pkg.providesPak1Maps && PAK1_REQUIRED_MAP_PATTERN.test(base)) {
+            return true;
+        }
+        return (pkg.maps || []).some(function (map) {
+            return normalizeMapBaseName(map) === base;
+        });
+    }
+
+    function loadedPackageProvidesMap(mapName) {
+        return playerPackages.some(function (pkg) {
+            return packageProvidesMap(pkg, mapName);
+        });
+    }
+
+    function updatePackageStatus() {
+        if (!packageStatus) {
             return;
         }
 
-        if (playerPak1) {
-            pak1Status.textContent = 'Loaded ' + playerPak1.name + ' (' + formatBytes(playerPak1.size) + ')';
+        if (playerPackages.length) {
+            packageStatus.textContent = 'Loaded ' + playerPackages.map(function (pkg) {
+                return pkg.file;
+            }).join(', ');
             if (demoPlayerDropZone) {
                 demoPlayerDropZone.classList.add('loaded');
             }
         } else {
-            pak1Status.textContent = 'pak1.pak not loaded';
+            packageStatus.textContent = 'No extra .pak files loaded';
             if (demoPlayerDropZone) {
                 demoPlayerDropZone.classList.remove('loaded');
             }
         }
     }
 
-    function setPlayerPak1File(file) {
-        if (playerPak1 && playerPak1.source) {
-            URL.revokeObjectURL(playerPak1.source);
-        }
-
-        playerPak1 = {
-            name: file.name || 'pak1.pak',
-            size: file.size,
-            lastModified: file.lastModified,
-            source: URL.createObjectURL(file)
-        };
-        updatePak1Status();
-    }
-
-    function filesIncludeDemoLaunch(fileList) {
-        return Array.from(fileList || []).some(function (file) {
-            return /\.(?:dem|deml)$/i.test(file.name || '');
+    function packageLaunchDescriptors() {
+        return playerPackages.map(function (pkg) {
+            return {
+                file: pkg.file,
+                source: pkg.source,
+                maps: pkg.maps || [],
+                providesPak1Maps: !!pkg.providesPak1Maps
+            };
         });
     }
 
@@ -3786,7 +3907,7 @@
         };
     }
 
-    async function handleDemoPlayerFiles(fileList, playerWindow) {
+    async function handleDemoPlayerFiles(fileList) {
         var files = Array.from(fileList || []);
         var demoFiles = files.filter(function (file) {
             return /\.dem$/i.test(file.name || '');
@@ -3794,19 +3915,21 @@
         var demlFiles = files.filter(function (file) {
             return /\.deml$/i.test(file.name || '');
         });
-        var pak1Files = files.filter(function (file) {
-            return /^pak1\.pak$/i.test(file.name || '');
+        var packageFiles = files.filter(function (file) {
+            return /\.pak$/i.test(file.name || '');
         });
         var spec;
         var launchUrl;
         var warnings = [];
 
-        if (pak1Files.length) {
-            setPlayerPak1File(pak1Files[0]);
-            warnings.push('Loaded "' + pak1Files[0].name + '" for registered-map playback.');
-            if (pak1Files.length > 1) {
-                warnings.push('Ignored ' + (pak1Files.length - 1) + ' additional pak1.pak file' + (pak1Files.length === 2 ? '' : 's') + '.');
+        for (var packageIndex = 0; packageIndex < packageFiles.length; packageIndex++) {
+            var packageResult = await buildPlayerPackageFromFile(packageFiles[packageIndex]);
+            setPlayerPackage(packageResult.package);
+            warnings.push('Loaded "' + packageResult.package.file + '" for demo playback.');
+            if (packageResult.package.maps.length) {
+                warnings.push('Found ' + packageResult.package.maps.length + ' map' + (packageResult.package.maps.length === 1 ? '' : 's') + ' in "' + packageResult.package.file + '".');
             }
+            warnings = warnings.concat(packageResult.warnings);
         }
 
         if (demoFiles.length) {
@@ -3831,10 +3954,9 @@
                 warnings.push('No map was listed in the .deml file. The player will try to resolve the map from the demo stream.');
             }
         } else {
-            closePendingPlayerWindow(playerWindow);
-            if (pak1Files.length) {
+            if (packageFiles.length) {
                 setWarnings(warnings);
-                setStatus('Loaded pak1.pak for e3/e4 and dm1-dm6 demos.', 'success');
+                setStatus('Loaded ' + packageFiles.length + ' package file' + (packageFiles.length === 1 ? '' : 's') + ' for demo playback.', 'success');
             } else {
                 setWarnings(['No .dem file was provided.']);
                 setStatus('No demo was loaded.', 'error');
@@ -3843,29 +3965,32 @@
         }
 
         var pak1Maps = mapsRequiringPak1(spec.maps);
-        if (pak1Maps.length && !playerPak1) {
-            closePendingPlayerWindow(playerWindow);
+        var missingPak1Maps = pak1Maps.filter(function (map) {
+            return !loadedPackageProvidesMap(map);
+        });
+        if (missingPak1Maps.length) {
             setWarnings(warnings.concat([
-                'This demo uses ' + pak1Maps.join(', ') + ', which needs pak1.pak. Drop pak1.pak first, then drop the .dem again.'
+                'This demo uses ' + missingPak1Maps.join(', ') + ', which needs pak1.pak or another package containing those maps. Drop the .pak here first, then drop the .dem again.'
             ]));
-            setStatus('pak1.pak is required before playing this demo.', 'error');
+            setStatus('A package containing the registered maps is required before playing this demo.', 'error');
             return;
         }
-        if (pak1Maps.length && playerPak1) {
-            spec.pak1Source = playerPak1.source;
-            spec.pak1File = playerPak1.name;
-            warnings.push('Using loaded pak1.pak for ' + pak1Maps.join(', ') + '.');
+        if (playerPackages.length) {
+            spec.packages = packageLaunchDescriptors();
+        }
+        if (pak1Maps.length) {
+            warnings.push('Using loaded package maps for ' + pak1Maps.join(', ') + '.');
         }
 
         launchUrl = buildPlayerLaunchUrl(spec);
-        if (!navigatePlayerWindow(playerWindow, launchUrl)) {
-            setWarnings(warnings.concat(['The browser blocked the demo player popup. Allow popups for this site and drop the .dem again.']));
+        if (!navigateEmbeddedPlayer(launchUrl)) {
+            setWarnings(warnings.concat(['The embedded demo player could not be opened.']));
             setStatus('Unable to open the demo player.', 'error');
             return;
         }
 
         setWarnings(warnings);
-        setStatus('Opening ' + spec.title + ' in the demo player.', 'success');
+        setStatus('Opening ' + spec.title + ' in the embedded demo player.', 'success');
     }
 
     async function collectAcceptedInputs(fileList) {
@@ -4214,8 +4339,7 @@
 
         demoPlayerDropZone.addEventListener('drop', function (event) {
             if (!event.dataTransfer || !event.dataTransfer.files) { return; }
-            var playerWindow = filesIncludeDemoLaunch(event.dataTransfer.files) ? openPendingPlayerWindow() : null;
-            handleDemoPlayerFiles(event.dataTransfer.files, playerWindow).catch(function (error) {
+            handleDemoPlayerFiles(event.dataTransfer.files).catch(function (error) {
                 setWarnings([error && error.message ? error.message : String(error)]);
                 setStatus('Failed to load the demo player.', 'error');
             });
@@ -4233,8 +4357,7 @@
 
     if (demoPlayerInput) {
         demoPlayerInput.addEventListener('change', function (event) {
-            var playerWindow = filesIncludeDemoLaunch(event.target.files) ? openPendingPlayerWindow() : null;
-            handleDemoPlayerFiles(event.target.files, playerWindow).catch(function (error) {
+            handleDemoPlayerFiles(event.target.files).catch(function (error) {
                 setWarnings([error && error.message ? error.message : String(error)]);
                 setStatus('Failed to load the demo player.', 'error');
             }).finally(function () {
@@ -4266,7 +4389,7 @@
     bindDropZone();
     bindDemoPlayerDropZone();
     reset();
-    updatePak1Status();
+    updatePackageStatus();
 
     document.addEventListener('dblclick', function (e) {
         var strip = e.target.closest('.preview-strip');
