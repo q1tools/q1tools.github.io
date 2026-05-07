@@ -225,11 +225,11 @@
     var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
     var playbackTimeElement = document.getElementById("playback-time");
     var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
-    var ENGINE_CONTROL_KEYS = {
-      back: { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
-      pause: { key: "t", code: "KeyT", keyCode: 84 },
-      play: { key: "d", code: "KeyD", keyCode: 68 },
-      forward: { key: "ArrowRight", code: "ArrowRight", keyCode: 39 }
+    var ENGINE_CONTROL_COMMANDS = {
+      back: "demo_jump -2",
+      pause: "demo_setspeed 0",
+      play: "demo_setspeed 100",
+      forward: "demo_jump +2"
     };
     var demoConfig = [
       "cl_maxfps_slop 0",
@@ -591,29 +591,23 @@
       });
     }
 
-    function sendEngineKey(keyInfo) {
-      if (!keyInfo) {
+    function focusCanvas() {
+      try {
+        canvas.focus({ preventScroll: true });
+      } catch (_error) {
+        canvas.focus();
+      }
+    }
+
+    function sendEngineCommand(command) {
+      if (!command) {
         return;
       }
 
-      canvas.focus();
-      ["keydown", "keyup"].forEach(function(type) {
-        var event = new KeyboardEvent(type, {
-          key: keyInfo.key,
-          code: keyInfo.code,
-          keyCode: keyInfo.keyCode,
-          which: keyInfo.keyCode,
-          bubbles: true,
-          cancelable: true
-        });
-        try {
-          Object.defineProperty(event, "keyCode", { get: function() { return keyInfo.keyCode; } });
-          Object.defineProperty(event, "which", { get: function() { return keyInfo.keyCode; } });
-        } catch (_error) {
-          // Some browsers already apply keyCode/which from KeyboardEventInit.
-        }
-        document.dispatchEvent(event);
-      });
+      focusCanvas();
+      if (typeof FTEC !== "undefined" && FTEC && typeof FTEC.cbufadd === "function") {
+        FTEC.cbufadd(command + "\n");
+      }
     }
 
     function formatClock(seconds) {
@@ -643,9 +637,19 @@
       window.setTimeout(updatePlaybackTime, 250);
     }
 
+    function stopControlEvent(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     controlButtons.forEach(function(button) {
-      button.addEventListener("click", function() {
-        sendEngineKey(ENGINE_CONTROL_KEYS[button.getAttribute("data-player-control")]);
+      ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
+        button.addEventListener(type, stopControlEvent);
+      });
+
+      button.addEventListener("click", function(event) {
+        stopControlEvent(event);
+        sendEngineCommand(ENGINE_CONTROL_COMMANDS[button.getAttribute("data-player-control")]);
       });
     });
 
@@ -658,6 +662,8 @@
       var files = {
         "default.fmf": "default.fmf",
         "id1/demo.cfg": asciiArrayBuffer(demoConfig),
+        "qw/fte.cfg": asciiArrayBuffer(demoConfig),
+        "ctf/fte.cfg": asciiArrayBuffer(demoConfig),
         "id1/data.pk3": "qw/data.pk3",
         "id1/ctf.pk3": "../../paks/ctf.pk3",
         "id1/ra.pk3": "../../paks/ra.pk3",
