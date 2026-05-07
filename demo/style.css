@@ -2,7 +2,6 @@
     margin-bottom: 18px;
 }
 
-.pak1-drop-zone,
 .demo-player-drop-zone {
     margin-top: 14px;
     min-height: 0;
@@ -13,13 +12,12 @@
         linear-gradient(180deg, rgba(27, 39, 33, 0.94), rgba(22, 23, 21, 0.96));
 }
 
-.pak1-drop-zone.active,
 .demo-player-drop-zone.active {
     border-color: #8fd7a8;
     box-shadow: 0 0 0 3px rgba(143, 215, 168, 0.12);
 }
 
-.pak1-drop-zone.loaded {
+.demo-player-drop-zone.loaded {
     border-color: rgba(143, 215, 168, 0.78);
 }
 

@@ -96,6 +96,48 @@
       font-size: 13px;
     }
 
+    .controls {
+      width: var(--player-width, 640px);
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .controls button {
+      appearance: none;
+      min-width: 64px;
+      border: 1px solid #705948;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #6f4f3d, #4f3a2f);
+      color: #f2e2d0;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+    }
+
+    .controls button:hover:not(:disabled),
+    .controls button:focus-visible:not(:disabled) {
+      border-color: #d39a68;
+      transform: translateY(-1px);
+    }
+
+    .controls button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .playback-time {
+      min-width: 58px;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      text-align: right;
+    }
+
     #progress {
       width: 100%;
       height: 8px;
@@ -140,7 +182,15 @@
     </div>
 
     <div class="viewport">
-      <canvas class="emscripten" id="canvas" width="640" height="480" oncontextmenu="event.preventDefault()"></canvas>
+      <canvas class="emscripten" id="canvas" width="640" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+    </div>
+
+    <div class="controls" aria-label="Playback controls">
+      <button type="button" data-player-control="back" disabled>-2s</button>
+      <button type="button" data-player-control="pause" disabled>Pause</button>
+      <button type="button" data-player-control="play" disabled>Play</button>
+      <button type="button" data-player-control="forward" disabled>+2s</button>
+      <span id="playback-time" class="playback-time">--:--</span>
     </div>
 
     <div class="statusbar">
@@ -172,7 +222,23 @@
     var errorElement = document.getElementById("error");
     var canvas = document.getElementById("canvas");
     var sizeElement = document.querySelector(".size");
+    var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
+    var playbackTimeElement = document.getElementById("playback-time");
     var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
+    var ENGINE_CONTROL_KEYS = {
+      back: { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
+      pause: { key: "t", code: "KeyT", keyCode: 84 },
+      play: { key: "d", code: "KeyD", keyCode: 68 },
+      forward: { key: "ArrowRight", code: "ArrowRight", keyCode: 39 }
+    };
+    var demoConfig = [
+      "cl_maxfps_slop 0",
+      "bind d \"demo_setspeed 100\"",
+      "bind t \"demo_setspeed 0\"",
+      "bind leftarrow \"demo_jump -2\"",
+      "bind rightarrow \"demo_jump +2\"",
+      "alias f_specmapend \"demo_setspeed 0\""
+    ].join("\n") + "\n";
 
     function cleanValue(value) {
       return String(value || "").trim().replace(/^["']|["']$/g, "").trim();
@@ -200,6 +266,14 @@
         .split(/[\n,;]/)
         .map(cleanValue)
         .filter(Boolean);
+    }
+
+    function asciiArrayBuffer(text) {
+      var bytes = new Uint8Array(text.length);
+      for (var i = 0; i < text.length; i++) {
+        bytes[i] = text.charCodeAt(i) & 255;
+      }
+      return bytes.buffer;
     }
 
     function sanitizeVirtualFileName(value, fallback) {
@@ -369,11 +443,12 @@
       var shellStyle = getComputedStyle(document.querySelector(".shell"));
       var verticalPadding = parseFloat(shellStyle.paddingTop) + parseFloat(shellStyle.paddingBottom);
       var topbarHeight = document.querySelector(".topbar").getBoundingClientRect().height;
+      var controlsHeight = document.querySelector(".controls").getBoundingClientRect().height;
       var statusHeight = document.querySelector(".statusbar").getBoundingClientRect().height;
       var gap = parseFloat(shellStyle.gap) || 0;
-      var reservedHeight = verticalPadding + topbarHeight + statusHeight + gap * 2;
-      var maxWidth = Math.max(320, window.innerWidth - 40);
-      var maxHeight = Math.max(240, window.innerHeight - reservedHeight);
+      var reservedHeight = verticalPadding + topbarHeight + controlsHeight + statusHeight + gap * 3;
+      var maxWidth = Math.max(280, window.innerWidth - 40);
+      var maxHeight = Math.max(180, window.innerHeight - reservedHeight);
       var width = Math.min(maxWidth, maxHeight * 4 / 3);
       var height = width * 3 / 4;
 
@@ -414,6 +489,70 @@
       statusElement.hidden = text.length === 0;
     }
 
+    function setPlaybackControlsEnabled(enabled) {
+      controlButtons.forEach(function(button) {
+        button.disabled = !enabled;
+      });
+    }
+
+    function sendEngineKey(keyInfo) {
+      if (!keyInfo) {
+        return;
+      }
+
+      canvas.focus();
+      ["keydown", "keyup"].forEach(function(type) {
+        var event = new KeyboardEvent(type, {
+          key: keyInfo.key,
+          code: keyInfo.code,
+          keyCode: keyInfo.keyCode,
+          which: keyInfo.keyCode,
+          bubbles: true,
+          cancelable: true
+        });
+        try {
+          Object.defineProperty(event, "keyCode", { get: function() { return keyInfo.keyCode; } });
+          Object.defineProperty(event, "which", { get: function() { return keyInfo.keyCode; } });
+        } catch (_error) {
+          // Some browsers already apply keyCode/which from KeyboardEventInit.
+        }
+        document.dispatchEvent(event);
+      });
+    }
+
+    function formatClock(seconds) {
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        return "--:--";
+      }
+
+      var rounded = Math.floor(seconds);
+      var minutes = Math.floor(rounded / 60);
+      var remainder = rounded % 60;
+      return minutes + ":" + String(remainder).padStart(2, "0");
+    }
+
+    function updatePlaybackTime() {
+      if (!playbackTimeElement) {
+        return;
+      }
+
+      try {
+        if (typeof Module !== "undefined" && Module && typeof Module.getDemoTime === "function") {
+          playbackTimeElement.textContent = formatClock(Number(Module.getDemoTime()));
+        }
+      } catch (_error) {
+        // The engine can briefly expose Module before demo state is ready.
+      }
+
+      window.setTimeout(updatePlaybackTime, 250);
+    }
+
+    controlButtons.forEach(function(button) {
+      button.addEventListener("click", function() {
+        sendEngineKey(ENGINE_CONTROL_KEYS[button.getAttribute("data-player-control")]);
+      });
+    });
+
     if (!selectedDemo) {
       showError("Unknown demo: " + selectedName);
     } else {
@@ -422,6 +561,7 @@
 
       var files = {
         "default.fmf": "default.fmf",
+        "id1/demo.cfg": asciiArrayBuffer(demoConfig),
         "id1/data.pk3": "qw/data.pk3",
         "id1/ctf.pk3": "../../paks/ctf.pk3",
         "id1/ra.pk3": "../../paks/ra.pk3",
@@ -483,6 +623,8 @@
               showError("Unable to initialise the FTE runtime.");
             } else {
               fitPlayerToWindow();
+              setPlaybackControlsEnabled(true);
+              updatePlaybackTime();
               setStatus("");
             }
           }

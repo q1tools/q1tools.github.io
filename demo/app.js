@@ -18,8 +18,6 @@
     const resultsPanel = document.getElementById('resultsPanel');
     const folderInput = document.getElementById('folderInput');
     const folderLink = document.getElementById('folderLink');
-    const pak1DropZone = document.getElementById('pak1DropZone');
-    const pak1Input = document.getElementById('pak1Input');
     const pak1Status = document.getElementById('pak1Status');
     const demoPlayerDropZone = document.getElementById('demoPlayerDropZone');
     const demoPlayerInput = document.getElementById('demoPlayerInput');
@@ -3627,7 +3625,7 @@
 
     function openPendingPlayerWindow() {
         try {
-            return window.open('about:blank', 'q1tools-demo-player', 'width=704,height=620,resizable=yes,scrollbars=yes');
+            return window.open('about:blank', 'q1tools-demo-player', 'width=760,height=760,resizable=yes,scrollbars=yes');
         } catch (_error) {
             return null;
         }
@@ -3674,7 +3672,7 @@
             return true;
         }
 
-        var opened = window.open(url, 'q1tools-demo-player', 'width=704,height=620,resizable=yes,scrollbars=yes');
+        var opened = window.open(url, 'q1tools-demo-player', 'width=760,height=760,resizable=yes,scrollbars=yes');
         if (opened) {
             opened.opener = null;
             opened.focus();
@@ -3715,13 +3713,13 @@
 
         if (playerPak1) {
             pak1Status.textContent = 'Loaded ' + playerPak1.name + ' (' + formatBytes(playerPak1.size) + ')';
-            if (pak1DropZone) {
-                pak1DropZone.classList.add('loaded');
+            if (demoPlayerDropZone) {
+                demoPlayerDropZone.classList.add('loaded');
             }
         } else {
             pak1Status.textContent = 'pak1.pak not loaded';
-            if (pak1DropZone) {
-                pak1DropZone.classList.remove('loaded');
+            if (demoPlayerDropZone) {
+                demoPlayerDropZone.classList.remove('loaded');
             }
         }
     }
@@ -3740,25 +3738,10 @@
         updatePak1Status();
     }
 
-    function handlePak1Files(fileList) {
-        var files = Array.from(fileList || []);
-        var pak1File = files.find(function (file) {
-            return /^pak1\.pak$/i.test(file.name || '');
+    function filesIncludeDemoLaunch(fileList) {
+        return Array.from(fileList || []).some(function (file) {
+            return /\.(?:dem|deml)$/i.test(file.name || '');
         });
-        var warnings = [];
-
-        if (!pak1File) {
-            setWarnings(['No pak1.pak file was provided.']);
-            setStatus('Drop a file named pak1.pak.', 'error');
-            return;
-        }
-
-        setPlayerPak1File(pak1File);
-        if (files.length > 1) {
-            warnings.push('Loaded "' + pak1File.name + '" and ignored ' + (files.length - 1) + ' additional file' + (files.length === 2 ? '' : 's') + '.');
-        }
-        setWarnings(warnings);
-        setStatus('Loaded pak1.pak for e3/e4 and dm1-dm6 demos.', 'success');
     }
 
     async function buildDemoPlayerSpecFromFile(file) {
@@ -4194,47 +4177,6 @@
         });
     }
 
-    function bindPak1DropZone() {
-        if (!pak1DropZone || !pak1Input) {
-            return;
-        }
-
-        const setActive = function (active) {
-            pak1DropZone.classList.toggle('active', active);
-        };
-
-        pak1DropZone.addEventListener('click', function () {
-            pak1Input.click();
-        });
-
-        pak1DropZone.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                pak1Input.click();
-            }
-        });
-
-        ['dragenter', 'dragover'].forEach(function (eventName) {
-            pak1DropZone.addEventListener(eventName, function (event) {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = 'copy';
-                setActive(true);
-            });
-        });
-
-        ['dragleave', 'drop'].forEach(function (eventName) {
-            pak1DropZone.addEventListener(eventName, function (event) {
-                event.preventDefault();
-                setActive(false);
-            });
-        });
-
-        pak1DropZone.addEventListener('drop', function (event) {
-            if (!event.dataTransfer || !event.dataTransfer.files) { return; }
-            handlePak1Files(event.dataTransfer.files);
-        });
-    }
-
     function bindDemoPlayerDropZone() {
         if (!demoPlayerDropZone || !demoPlayerInput) {
             return;
@@ -4272,7 +4214,7 @@
 
         demoPlayerDropZone.addEventListener('drop', function (event) {
             if (!event.dataTransfer || !event.dataTransfer.files) { return; }
-            var playerWindow = openPendingPlayerWindow();
+            var playerWindow = filesIncludeDemoLaunch(event.dataTransfer.files) ? openPendingPlayerWindow() : null;
             handleDemoPlayerFiles(event.dataTransfer.files, playerWindow).catch(function (error) {
                 setWarnings([error && error.message ? error.message : String(error)]);
                 setStatus('Failed to load the demo player.', 'error');
@@ -4291,20 +4233,13 @@
 
     if (demoPlayerInput) {
         demoPlayerInput.addEventListener('change', function (event) {
-            var playerWindow = openPendingPlayerWindow();
+            var playerWindow = filesIncludeDemoLaunch(event.target.files) ? openPendingPlayerWindow() : null;
             handleDemoPlayerFiles(event.target.files, playerWindow).catch(function (error) {
                 setWarnings([error && error.message ? error.message : String(error)]);
                 setStatus('Failed to load the demo player.', 'error');
             }).finally(function () {
                 demoPlayerInput.value = '';
             });
-        });
-    }
-
-    if (pak1Input) {
-        pak1Input.addEventListener('change', function (event) {
-            handlePak1Files(event.target.files);
-            pak1Input.value = '';
         });
     }
 
@@ -4329,7 +4264,6 @@
     }
 
     bindDropZone();
-    bindPak1DropZone();
     bindDemoPlayerDropZone();
     reset();
     updatePak1Status();
