@@ -12,7 +12,8 @@
       --text: #edf2ee;
       --muted: #a9b4b0;
       --border: #2d2f2f;
-      --accent: #66d9c1;
+      --accent: #d48f52;
+      --accent-track: #2f241f;
     }
 
     * {
@@ -99,6 +100,25 @@
       width: 100%;
       height: 8px;
       accent-color: var(--accent);
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent-track);
+      overflow: hidden;
+    }
+
+    #progress::-webkit-progress-bar {
+      background: var(--accent-track);
+      border-radius: 999px;
+    }
+
+    #progress::-webkit-progress-value {
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    #progress::-moz-progress-bar {
+      background: var(--accent);
+      border-radius: 999px;
     }
 
     .error {
@@ -130,6 +150,8 @@
     <div id="error" class="error" hidden></div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <script src="quake106.js?v=20260506a"></script>
   <script>
     var DEMOS = {
       "castlev2_05-05-2026-200214_dm.dem": {
@@ -150,6 +172,7 @@
     var errorElement = document.getElementById("error");
     var canvas = document.getElementById("canvas");
     var sizeElement = document.querySelector(".size");
+    var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
 
     function cleanValue(value) {
       return String(value || "").trim().replace(/^["']|["']$/g, "").trim();
@@ -241,9 +264,15 @@
       };
     }
 
+    function mapFileNeedsPak1(file) {
+      var clean = fileNameFromValue(file).replace(/\.(?:bsp|lit)$/i, "").toLowerCase();
+      return PAK1_REQUIRED_MAP_PATTERN.test(clean);
+    }
+
     function normalizeDemoSpec(spec, fallbackName) {
       var source = cleanValue(spec.source || spec.src || spec.url || spec.href || spec.path);
       var file = sanitizeVirtualFileName(spec.file || source || fallbackName, "demo.dem");
+      var pak1Source = cleanValue(spec.pak1Source || spec.pak1 || spec.pak1Url || spec.pak1_url);
       var maps = [];
       var seenMaps = {};
 
@@ -267,6 +296,8 @@
         title: cleanValue(spec.title || spec.name || spec.label) || file,
         file: file,
         source: sourceForRelativeValue(source || ("id1/" + file)),
+        pak1Source: pak1Source ? sourceForRelativeValue(pak1Source) : "",
+        pak1File: pak1Source ? sanitizeVirtualFileName(spec.pak1File || "pak1.pak", "pak1.pak") : "",
         maps: maps
       };
     }
@@ -281,6 +312,8 @@
         source: source,
         file: params.get("file") || "",
         title: params.get("title") || params.get("name") || "",
+        pak1Source: params.get("pak1Source") || params.get("pak1") || "",
+        pak1File: params.get("pak1File") || "",
         maps: params.get("maps") || "",
         map: params.get("map") || ""
       }, source);
@@ -390,10 +423,27 @@
       var files = {
         "default.fmf": "default.fmf",
         "id1/data.pk3": "qw/data.pk3",
+        "id1/ctf.pk3": "../../paks/ctf.pk3",
+        "id1/ra.pk3": "../../paks/ra.pk3",
         "id1/fragfile.dat": "id1/fragfile.dat"
       };
+      if (window.Quake106Shareware && typeof window.Quake106Shareware.extractPak0 === "function") {
+        files["id1/pak0.pak"] = window.Quake106Shareware.extractPak0({
+          setStatus: setStatus
+        }).catch(function(error) {
+          var message = error && error.message ? error.message : String(error);
+          showError("Unable to prepare pak0.pak from quake106.zip: " + message);
+          throw error;
+        });
+      }
+      if (selectedDemo.pak1Source) {
+        files["id1/pak1.pak"] = selectedDemo.pak1Source;
+      }
       files["id1/" + selectedDemo.file] = selectedDemo.source;
       selectedDemo.maps.forEach(function(map) {
+        if (selectedDemo.pak1Source && mapFileNeedsPak1(map.file)) {
+          return;
+        }
         files["id1/maps/" + map.file] = map.source;
         if (map.file.toLowerCase() !== map.file) {
           files["id1/maps/" + map.file.toLowerCase()] = map.source;

@@ -7,12 +7,12 @@
     <link rel="icon" type="image/png" href="demo.png">
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="../sav/style.css">
-    <link rel="stylesheet" href="style.css?v=20260506c">
+    <link rel="stylesheet" href="style.css?v=20260506d">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
     <script defer src="dzip.js?v=20260321b"></script>
     <script defer src="parser.js?v=20260321b"></script>
-    <script defer src="app.js?v=20260506b"></script>
+    <script defer src="app.js?v=20260506c"></script>
 </head>
 <body>
     <main class="page">
@@ -28,6 +28,13 @@
             </div>
             <input id="fileInput" type="file" accept=".dem,.DEM,.dz,.DZ,application/octet-stream" multiple hidden>
             <input id="folderInput" type="file" webkitdirectory directory hidden>
+
+            <div id="pak1DropZone" class="drop-zone pak1-drop-zone" tabindex="0" role="button" aria-controls="pak1Input">
+                <strong>Drop pak1.pak here for e3/e4 or dm1-dm6 demos</strong>
+                <small>or click to choose it from your computer</small>
+                <small id="pak1Status" class="pak1-status">pak1.pak not loaded</small>
+            </div>
+            <input id="pak1Input" type="file" accept=".pak,.PAK,application/octet-stream" hidden>
 
             <div id="demoPlayerDropZone" class="drop-zone demo-player-drop-zone" tabindex="0" role="button" aria-controls="demoPlayerInput">
                 <strong>Drop a .dem file here to play it</strong>

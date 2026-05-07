@@ -18,6 +18,9 @@
     const resultsPanel = document.getElementById('resultsPanel');
     const folderInput = document.getElementById('folderInput');
     const folderLink = document.getElementById('folderLink');
+    const pak1DropZone = document.getElementById('pak1DropZone');
+    const pak1Input = document.getElementById('pak1Input');
+    const pak1Status = document.getElementById('pak1Status');
     const demoPlayerDropZone = document.getElementById('demoPlayerDropZone');
     const demoPlayerInput = document.getElementById('demoPlayerInput');
     const folderAnalysisPanel = document.getElementById('folderAnalysisPanel');
@@ -26,6 +29,7 @@
     const captimeContent = document.getElementById('captimeContent');
     const DEMO_PLAYER_URL = 'qtubetest/play.html';
     const DEMO_PLAYER_STORAGE_PREFIX = 'q1tools-demo-player:';
+    const PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
         [123, 123, 123],
@@ -46,6 +50,7 @@
 
     let parsedFiles = [];
     let folderMode = false;
+    let playerPak1 = null;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -3641,7 +3646,23 @@
             if (spec.maps.length) {
                 params.set('maps', spec.maps.join(','));
             }
+            if (spec.pak1Source) {
+                params.set('pak1Source', spec.pak1Source);
+            }
+            if (spec.pak1File) {
+                params.set('pak1File', spec.pak1File);
+            }
             return DEMO_PLAYER_URL + '?' + params.toString();
+        }
+    }
+
+    function closePendingPlayerWindow(playerWindow) {
+        try {
+            if (playerWindow && !playerWindow.closed) {
+                playerWindow.close();
+            }
+        } catch (_error) {
+            // Best effort cleanup for blocked preflight launches.
         }
     }
 
@@ -3660,6 +3681,84 @@
             return true;
         }
         return false;
+    }
+
+    function normalizeMapBaseName(value) {
+        return cleanDemlValue(value)
+            .replace(/\\/g, '/')
+            .split(/[?#]/)[0]
+            .split('/')
+            .pop()
+            .replace(/\.(?:bsp|lit)$/i, '')
+            .toLowerCase();
+    }
+
+    function mapsRequiringPak1(maps) {
+        var required = [];
+        var seen = {};
+
+        (Array.isArray(maps) ? maps : splitDemlList(maps)).forEach(function (map) {
+            var key = normalizeMapBaseName(map);
+            if (key && PAK1_REQUIRED_MAP_PATTERN.test(key) && !seen[key]) {
+                required.push(key);
+                seen[key] = true;
+            }
+        });
+
+        return required;
+    }
+
+    function updatePak1Status() {
+        if (!pak1Status) {
+            return;
+        }
+
+        if (playerPak1) {
+            pak1Status.textContent = 'Loaded ' + playerPak1.name + ' (' + formatBytes(playerPak1.size) + ')';
+            if (pak1DropZone) {
+                pak1DropZone.classList.add('loaded');
+            }
+        } else {
+            pak1Status.textContent = 'pak1.pak not loaded';
+            if (pak1DropZone) {
+                pak1DropZone.classList.remove('loaded');
+            }
+        }
+    }
+
+    function setPlayerPak1File(file) {
+        if (playerPak1 && playerPak1.source) {
+            URL.revokeObjectURL(playerPak1.source);
+        }
+
+        playerPak1 = {
+            name: file.name || 'pak1.pak',
+            size: file.size,
+            lastModified: file.lastModified,
+            source: URL.createObjectURL(file)
+        };
+        updatePak1Status();
+    }
+
+    function handlePak1Files(fileList) {
+        var files = Array.from(fileList || []);
+        var pak1File = files.find(function (file) {
+            return /^pak1\.pak$/i.test(file.name || '');
+        });
+        var warnings = [];
+
+        if (!pak1File) {
+            setWarnings(['No pak1.pak file was provided.']);
+            setStatus('Drop a file named pak1.pak.', 'error');
+            return;
+        }
+
+        setPlayerPak1File(pak1File);
+        if (files.length > 1) {
+            warnings.push('Loaded "' + pak1File.name + '" and ignored ' + (files.length - 1) + ' additional file' + (files.length === 2 ? '' : 's') + '.');
+        }
+        setWarnings(warnings);
+        setStatus('Loaded pak1.pak for e3/e4 and dm1-dm6 demos.', 'success');
     }
 
     async function buildDemoPlayerSpecFromFile(file) {
@@ -3712,9 +3811,20 @@
         var demlFiles = files.filter(function (file) {
             return /\.deml$/i.test(file.name || '');
         });
+        var pak1Files = files.filter(function (file) {
+            return /^pak1\.pak$/i.test(file.name || '');
+        });
         var spec;
         var launchUrl;
         var warnings = [];
+
+        if (pak1Files.length) {
+            setPlayerPak1File(pak1Files[0]);
+            warnings.push('Loaded "' + pak1Files[0].name + '" for registered-map playback.');
+            if (pak1Files.length > 1) {
+                warnings.push('Ignored ' + (pak1Files.length - 1) + ' additional pak1.pak file' + (pak1Files.length === 2 ? '' : 's') + '.');
+            }
+        }
 
         if (demoFiles.length) {
             setStatus('Preparing ' + demoFiles[0].name + ' for playback...');
@@ -3738,9 +3848,30 @@
                 warnings.push('No map was listed in the .deml file. The player will try to resolve the map from the demo stream.');
             }
         } else {
-            setWarnings(['No .dem file was provided.']);
-            setStatus('No demo was loaded.', 'error');
+            closePendingPlayerWindow(playerWindow);
+            if (pak1Files.length) {
+                setWarnings(warnings);
+                setStatus('Loaded pak1.pak for e3/e4 and dm1-dm6 demos.', 'success');
+            } else {
+                setWarnings(['No .dem file was provided.']);
+                setStatus('No demo was loaded.', 'error');
+            }
             return;
+        }
+
+        var pak1Maps = mapsRequiringPak1(spec.maps);
+        if (pak1Maps.length && !playerPak1) {
+            closePendingPlayerWindow(playerWindow);
+            setWarnings(warnings.concat([
+                'This demo uses ' + pak1Maps.join(', ') + ', which needs pak1.pak. Drop pak1.pak first, then drop the .dem again.'
+            ]));
+            setStatus('pak1.pak is required before playing this demo.', 'error');
+            return;
+        }
+        if (pak1Maps.length && playerPak1) {
+            spec.pak1Source = playerPak1.source;
+            spec.pak1File = playerPak1.name;
+            warnings.push('Using loaded pak1.pak for ' + pak1Maps.join(', ') + '.');
         }
 
         launchUrl = buildPlayerLaunchUrl(spec);
@@ -4063,6 +4194,47 @@
         });
     }
 
+    function bindPak1DropZone() {
+        if (!pak1DropZone || !pak1Input) {
+            return;
+        }
+
+        const setActive = function (active) {
+            pak1DropZone.classList.toggle('active', active);
+        };
+
+        pak1DropZone.addEventListener('click', function () {
+            pak1Input.click();
+        });
+
+        pak1DropZone.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                pak1Input.click();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(function (eventName) {
+            pak1DropZone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                setActive(true);
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function (eventName) {
+            pak1DropZone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                setActive(false);
+            });
+        });
+
+        pak1DropZone.addEventListener('drop', function (event) {
+            if (!event.dataTransfer || !event.dataTransfer.files) { return; }
+            handlePak1Files(event.dataTransfer.files);
+        });
+    }
+
     function bindDemoPlayerDropZone() {
         if (!demoPlayerDropZone || !demoPlayerInput) {
             return;
@@ -4129,6 +4301,13 @@
         });
     }
 
+    if (pak1Input) {
+        pak1Input.addEventListener('change', function (event) {
+            handlePak1Files(event.target.files);
+            pak1Input.value = '';
+        });
+    }
+
     folderLink.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -4150,8 +4329,10 @@
     }
 
     bindDropZone();
+    bindPak1DropZone();
     bindDemoPlayerDropZone();
     reset();
+    updatePak1Status();
 
     document.addEventListener('dblclick', function (e) {
         var strip = e.target.closest('.preview-strip');
