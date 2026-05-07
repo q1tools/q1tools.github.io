@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FTE Demo Player</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c0c;
+      --text: #edf2ee;
+      --muted: #a9b4b0;
+      --border: #2d2f2f;
+      --accent: #66d9c1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 22px 20px 24px;
+    }
+
+    .topbar {
+      width: var(--player-width, 640px);
+      max-width: 100%;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      min-width: 0;
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .size {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    .viewport {
+      width: var(--player-width, 640px);
+      height: var(--player-height, 480px);
+      max-width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #000;
+      outline: 1px solid var(--border);
+    }
+
+    canvas.emscripten {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      aspect-ratio: 4 / 3;
+      border: 0;
+      margin: 0;
+      padding: 0;
+      background: #000;
+    }
+
+    .statusbar {
+      width: var(--player-width, 640px);
+      max-width: 100%;
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    #progress {
+      width: 100%;
+      height: 8px;
+      accent-color: var(--accent);
+    }
+
+    .error {
+      width: 640px;
+      max-width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #754640;
+      border-radius: 6px;
+      background: #21100f;
+      color: #ffd5cd;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <h1 id="demo-title">FTE Demo Player</h1>
+      <div class="size">640x480</div>
+    </div>
+
+    <div class="viewport">
+      <canvas class="emscripten" id="canvas" width="640" height="480" oncontextmenu="event.preventDefault()"></canvas>
+    </div>
+
+    <div class="statusbar">
+      <div id="status">Preparing player...</div>
+      <progress value="0" max="100" id="progress" hidden></progress>
+    </div>
+    <div id="error" class="error" hidden></div>
+  </main>
+
+  <script>
+    var DEMOS = {
+      "castlev2_05-05-2026-200214_dm.dem": {
+        title: "castlev2_05-05-2026-200214_dm.dem",
+        file: "castlev2_05-05-2026-200214_dm.dem",
+        map: "castlev2.bsp"
+      },
+      "ztndm3_05-05-2026-211054_dm.dem": {
+        title: "ztndm3_05-05-2026-211054_dm.dem",
+        file: "ztndm3_05-05-2026-211054_dm.dem",
+        map: "ztndm3.bsp"
+      }
+    };
+
+    var params = new URLSearchParams(window.location.search);
+    var statusElement = document.getElementById("status");
+    var progressElement = document.getElementById("progress");
+    var errorElement = document.getElementById("error");
+    var canvas = document.getElementById("canvas");
+    var sizeElement = document.querySelector(".size");
+
+    function cleanValue(value) {
+      return String(value || "").trim().replace(/^["']|["']$/g, "").trim();
+    }
+
+    function decodePathSegment(value) {
+      try {
+        return decodeURIComponent(value);
+      } catch (_error) {
+        return value;
+      }
+    }
+
+    function fileNameFromValue(value) {
+      var clean = cleanValue(value).split(/[?#]/)[0].replace(/\\/g, "/");
+      var parts = clean.split("/");
+      return decodePathSegment(parts[parts.length - 1] || "");
+    }
+
+    function splitList(value) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      return String(value || "")
+        .split(/[\n,;]/)
+        .map(cleanValue)
+        .filter(Boolean);
+    }
+
+    function sanitizeVirtualFileName(value, fallback) {
+      var name = fileNameFromValue(value) || fallback;
+      return name.replace(/[\\/]/g, "_").replace(/[^a-z0-9._()[\]+ -]/gi, "_");
+    }
+
+    function sourceForRelativeValue(value) {
+      var clean = cleanValue(value).replace(/\\/g, "/");
+      if (/^(https?:|data:|blob:)/i.test(clean) || clean.charAt(0) === "/") {
+        return clean;
+      }
+      return clean;
+    }
+
+    function sourceForMap(mapValue, fallbackFile) {
+      var clean = cleanValue(mapValue).replace(/\\/g, "/");
+      if (/^(https?:|data:|blob:)/i.test(clean) || clean.charAt(0) === "/") {
+        return clean;
+      }
+
+      if (/^(?:\.\.\/|\.\/)?maps\//i.test(clean)) {
+        return clean
+          .replace(/^\.\.\/maps\//i, "../../maps/")
+          .replace(/^\.\//, "../../")
+          .replace(/^maps\//i, "../../maps/");
+      }
+
+      if (/^id1\/maps\//i.test(clean)) {
+        return clean;
+      }
+
+      var fileName = fallbackFile || fileNameFromValue(clean);
+      var folder = (fileName.charAt(0) || "_").toUpperCase();
+      return "../../maps/" + encodeURIComponent(folder) + "/" + encodeURIComponent(fileName);
+    }
+
+    function normalizeMapDescriptor(mapValue) {
+      var raw = mapValue;
+      var source = "";
+      var file = "";
+
+      if (raw && typeof raw === "object") {
+        source = cleanValue(raw.source || raw.src || raw.url || raw.href || raw.path);
+        file = cleanValue(raw.file || raw.name || raw.map || raw.bsp || raw.mapName || raw.map_name);
+        raw = file || source;
+      }
+
+      file = file || fileNameFromValue(raw);
+      file = file.replace(/^maps\//i, "").replace(/^id1\/maps\//i, "");
+      file = fileNameFromValue(file);
+      if (file && !/\.(bsp|lit)$/i.test(file)) {
+        file += ".bsp";
+      }
+      if (!file) {
+        return null;
+      }
+
+      return {
+        file: file,
+        source: sourceForMap(source || raw, file)
+      };
+    }
+
+    function normalizeDemoSpec(spec, fallbackName) {
+      var source = cleanValue(spec.source || spec.src || spec.url || spec.href || spec.path);
+      var file = sanitizeVirtualFileName(spec.file || source || fallbackName, "demo.dem");
+      var maps = [];
+      var seenMaps = {};
+
+      if (source && !/\.(dem|mvd|qwd|qwz|dz)$/i.test(file)) {
+        file += ".dem";
+      }
+
+      splitList(spec.maps).concat(splitList(spec.map)).forEach(function(mapValue) {
+        var map = normalizeMapDescriptor(mapValue);
+        if (!map) {
+          return;
+        }
+        var key = map.file.toLowerCase();
+        if (!seenMaps[key]) {
+          maps.push(map);
+          seenMaps[key] = true;
+        }
+      });
+
+      return {
+        title: cleanValue(spec.title || spec.name || spec.label) || file,
+        file: file,
+        source: sourceForRelativeValue(source || ("id1/" + file)),
+        maps: maps
+      };
+    }
+
+    function specFromQuery() {
+      var source = params.get("source") || params.get("src") || params.get("url");
+      if (!source) {
+        return null;
+      }
+
+      return normalizeDemoSpec({
+        source: source,
+        file: params.get("file") || "",
+        title: params.get("title") || params.get("name") || "",
+        maps: params.get("maps") || "",
+        map: params.get("map") || ""
+      }, source);
+    }
+
+    function specFromSession() {
+      var launchKey = params.get("launch");
+      if (!launchKey) {
+        return null;
+      }
+
+      try {
+        var text = window.localStorage.getItem(launchKey);
+        if (!text) {
+          return null;
+        }
+        window.localStorage.removeItem(launchKey);
+        return normalizeDemoSpec(JSON.parse(text), launchKey);
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function selectedBuiltInSpec() {
+      var selectedName = params.get("demo") || "castlev2_05-05-2026-200214_dm.dem";
+      var demo = DEMOS[selectedName];
+      if (!demo) {
+        return null;
+      }
+
+      return normalizeDemoSpec({
+        title: demo.title,
+        file: demo.file,
+        source: "id1/" + demo.file,
+        map: demo.map
+      }, selectedName);
+    }
+
+    var selectedName = params.get("demo") || params.get("source") || params.get("launch") || "castlev2_05-05-2026-200214_dm.dem";
+    var selectedDemo = specFromSession() || specFromQuery() || selectedBuiltInSpec();
+
+    function requestEngineResize() {
+      if (typeof window.onresize !== "function") {
+        return;
+      }
+
+      requestAnimationFrame(function() {
+        window.onresize();
+      });
+    }
+
+    function fitPlayerToWindow() {
+      var shellStyle = getComputedStyle(document.querySelector(".shell"));
+      var verticalPadding = parseFloat(shellStyle.paddingTop) + parseFloat(shellStyle.paddingBottom);
+      var topbarHeight = document.querySelector(".topbar").getBoundingClientRect().height;
+      var statusHeight = document.querySelector(".statusbar").getBoundingClientRect().height;
+      var gap = parseFloat(shellStyle.gap) || 0;
+      var reservedHeight = verticalPadding + topbarHeight + statusHeight + gap * 2;
+      var maxWidth = Math.max(320, window.innerWidth - 40);
+      var maxHeight = Math.max(240, window.innerHeight - reservedHeight);
+      var width = Math.min(maxWidth, maxHeight * 4 / 3);
+      var height = width * 3 / 4;
+
+      document.documentElement.style.setProperty("--player-width", Math.floor(width) + "px");
+      document.documentElement.style.setProperty("--player-height", Math.floor(height) + "px");
+      sizeElement.textContent = Math.floor(width) + "x" + Math.floor(height);
+      requestEngineResize();
+    }
+
+    window.addEventListener("resize", fitPlayerToWindow);
+    fitPlayerToWindow();
+
+    function showError(message) {
+      statusElement.hidden = true;
+      progressElement.hidden = true;
+      errorElement.textContent = message;
+      errorElement.hidden = false;
+    }
+
+    function setStatus(text) {
+      if (setStatus.interval) {
+        clearInterval(setStatus.interval);
+      }
+
+      var match = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+      if (match) {
+        text = match[1].trim();
+        progressElement.value = parseInt(match[2], 10) * 100;
+        progressElement.max = parseInt(match[4], 10) * 100;
+        progressElement.hidden = false;
+      } else {
+        progressElement.value = 0;
+        progressElement.max = 100;
+        progressElement.hidden = true;
+      }
+
+      statusElement.textContent = text;
+      statusElement.hidden = text.length === 0;
+    }
+
+    if (!selectedDemo) {
+      showError("Unknown demo: " + selectedName);
+    } else {
+      document.title = selectedDemo.title + " - FTE Demo Player";
+      document.getElementById("demo-title").textContent = selectedDemo.title;
+
+      var files = {
+        "default.fmf": "default.fmf",
+        "id1/data.pk3": "qw/data.pk3",
+        "id1/fragfile.dat": "id1/fragfile.dat"
+      };
+      files["id1/" + selectedDemo.file] = selectedDemo.source;
+      selectedDemo.maps.forEach(function(map) {
+        files["id1/maps/" + map.file] = map.source;
+        if (map.file.toLowerCase() !== map.file) {
+          files["id1/maps/" + map.file.toLowerCase()] = map.source;
+        }
+      });
+
+      var Module = {
+        arguments: [
+          "-nohome",
+          "-width", "640",
+          "-height", "480",
+          "+set", "vid_fullscreen", "0",
+          "+set", "vid_width", "640",
+          "+set", "vid_height", "480",
+          "+set", "gl_font", "graybugs",
+          "+set", "snd_samplebits", "32",
+          "+set", "volume", "0.05",
+          "+playdemo", selectedDemo.file
+        ],
+        files: files,
+        canvas: canvas,
+        print: function(message) {
+          console.log(message);
+        },
+        printErr: function(message) {
+          console.warn(message);
+        },
+        setStatus: setStatus,
+        totalDependencies: 0,
+        monitorRunDependencies: function(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          setStatus(left ? "Preparing... (" + (this.totalDependencies - left) + "/" + this.totalDependencies + ")" : "All downloads complete.");
+        },
+        postRun: [
+          function() {
+            if (Module.sched === undefined) {
+              showError("Unable to initialise the FTE runtime.");
+            } else {
+              fitPlayerToWindow();
+              setStatus("");
+            }
+          }
+        ]
+      };
+
+      setStatus("Downloading...");
+      var script = document.createElement("script");
+      script.src = "ftewebgl.js";
+      script.type = "text/javascript";
+      script.charset = "utf-8";
+      script.addEventListener("error", function() {
+        showError("Unable to download ftewebgl.js.");
+      });
+      document.head.appendChild(script);
+    }
+  </script>
+</body>
+</html>

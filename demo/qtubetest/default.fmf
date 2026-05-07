@@ -1,0 +1,8 @@
+FTEManifestVer 1
+GAME quake
+protocolname "none"
+basegame id1
+disablehomedir 1
+
++set gl_font graybugs
++exec demo.cfg

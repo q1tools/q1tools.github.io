@@ -18,10 +18,14 @@
     const resultsPanel = document.getElementById('resultsPanel');
     const folderInput = document.getElementById('folderInput');
     const folderLink = document.getElementById('folderLink');
+    const demoPlayerDropZone = document.getElementById('demoPlayerDropZone');
+    const demoPlayerInput = document.getElementById('demoPlayerInput');
     const folderAnalysisPanel = document.getElementById('folderAnalysisPanel');
     const folderAnalysisContent = document.getElementById('folderAnalysisContent');
     const captimePanel = document.getElementById('captimePanel');
     const captimeContent = document.getElementById('captimeContent');
+    const DEMO_PLAYER_URL = 'qtubetest/play.html';
+    const DEMO_PLAYER_STORAGE_PREFIX = 'q1tools-demo-player:';
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
         [123, 123, 123],
@@ -3421,6 +3425,335 @@
         });
     }
 
+    function cleanDemlValue(value) {
+        return String(value || '')
+            .trim()
+            .replace(/^["']|["']$/g, '')
+            .trim();
+    }
+
+    function splitDemlList(value) {
+        if (Array.isArray(value)) {
+            return value;
+        }
+
+        return String(value || '')
+            .split(/[\n,;]/)
+            .map(cleanDemlValue)
+            .filter(Boolean);
+    }
+
+    function fileNameFromPath(value) {
+        var clean = String(value || '').split(/[?#]/)[0].replace(/\\/g, '/');
+        var parts = clean.split('/');
+        try {
+            return cleanDemlValue(decodeURIComponent(parts[parts.length - 1] || ''));
+        } catch (_error) {
+            return cleanDemlValue(parts[parts.length - 1] || '');
+        }
+    }
+
+    function inferMapFromDemoSource(source) {
+        var fileName = fileNameFromPath(source).replace(/\.(dem|mvd|qwd|qwz|dz)$/i, '');
+        var bracketMatch = fileName.match(/\[([a-z0-9_+.-]+)\]/i);
+        if (bracketMatch) {
+            return bracketMatch[1];
+        }
+
+        var prefixMatch = fileName.match(/^([a-z0-9_+.-]+?)(?:_\d{2}-\d{2}-\d{4}|_\d{8}|-\d{8}|_\d{6}|-\d{6})/i);
+        return prefixMatch ? prefixMatch[1] : '';
+    }
+
+    function firstDemlCommandArgument(text) {
+        var match = String(text || '').match(/\+?playdemo\s+("[^"]+"|'[^']+'|[^\s]+)/i);
+        return match ? cleanDemlValue(match[1]) : '';
+    }
+
+    function firstDemoLikeReference(text) {
+        var value = String(text || '');
+        var urlMatch = value.match(/https?:\/\/[^\s"'<>]+/i);
+        if (urlMatch) {
+            return cleanDemlValue(urlMatch[0]);
+        }
+
+        var fileMatch = value.match(/[^\s"'<>]+\.(?:dem|mvd|qwd|qwz|dz)\b/i);
+        return fileMatch ? cleanDemlValue(fileMatch[0]) : '';
+    }
+
+    function resolveDemlSource(source) {
+        if (/^(https?:|data:|blob:)/i.test(source) || /^[a-z]:[\\/]/i.test(source)) {
+            return source;
+        }
+
+        try {
+            return new URL(source, window.location.href).href;
+        } catch (_error) {
+            return source;
+        }
+    }
+
+    function pickDemlValue(source, keys) {
+        if (!source || typeof source !== 'object') {
+            return '';
+        }
+
+        for (var i = 0; i < keys.length; i++) {
+            if (Object.prototype.hasOwnProperty.call(source, keys[i]) && source[keys[i]] != null) {
+                return source[keys[i]];
+            }
+        }
+        return '';
+    }
+
+    function parseJsonDeml(text) {
+        var parsed;
+        try {
+            parsed = JSON.parse(text);
+        } catch (_error) {
+            return null;
+        }
+
+        var root = Array.isArray(parsed) ? parsed[0] : parsed;
+        if (typeof root === 'string') {
+            return { source: cleanDemlValue(root), maps: [] };
+        }
+        if (!root || typeof root !== 'object') {
+            return null;
+        }
+
+        var nestedDemo = root.demo && typeof root.demo === 'object' ? root.demo : null;
+        var sourceKeys = ['source', 'src', 'url', 'href', 'file', 'path', 'demo', 'demoUrl', 'demo_url', 'download', 'downloadUrl'];
+        var mapKeys = ['map', 'mapName', 'map_name', 'level', 'bsp'];
+        var mapsKeys = ['maps', 'mapList', 'map_list', 'bsps'];
+        var titleKeys = ['title', 'name', 'label'];
+        var source = pickDemlValue(root, sourceKeys);
+        if (source && typeof source === 'object') {
+            source = '';
+        }
+        source = source || pickDemlValue(nestedDemo, sourceKeys);
+        var maps = [];
+
+        splitDemlList(pickDemlValue(root, mapsKeys)).forEach(function (map) { maps.push(map); });
+        splitDemlList(pickDemlValue(root, mapKeys)).forEach(function (map) { maps.push(map); });
+        if (nestedDemo) {
+            splitDemlList(pickDemlValue(nestedDemo, mapsKeys)).forEach(function (map) { maps.push(map); });
+            splitDemlList(pickDemlValue(nestedDemo, mapKeys)).forEach(function (map) { maps.push(map); });
+        }
+
+        return {
+            source: cleanDemlValue(source),
+            title: cleanDemlValue(pickDemlValue(root, titleKeys) || pickDemlValue(nestedDemo, titleKeys)),
+            maps: maps
+        };
+    }
+
+    function parsePlainDeml(text) {
+        var lines = String(text || '').split(/\r?\n/);
+        var fields = {};
+        var maps = [];
+
+        lines.forEach(function (line) {
+            var trimmed = line.trim();
+            var keyValueMatch;
+            if (!trimmed || /^#|^\/\//.test(trimmed)) {
+                return;
+            }
+
+            var commandArgument = firstDemlCommandArgument(trimmed);
+            if (commandArgument && !fields.source) {
+                fields.source = commandArgument;
+            }
+
+            keyValueMatch = trimmed.match(/^([a-z][a-z0-9_.-]*)\s*(?:=|:)\s*(.+)$/i);
+            if (!keyValueMatch) {
+                return;
+            }
+
+            var key = keyValueMatch[1].toLowerCase();
+            var value = cleanDemlValue(keyValueMatch[2]);
+            if (/^(source|src|url|href|file|path|demo|dem|mvd|download|downloadurl|demo_url|demo-url)$/.test(key)) {
+                fields.source = fields.source || value;
+            } else if (/^(map|mapname|map_name|level|bsp)$/.test(key)) {
+                maps.push(value);
+            } else if (/^(maps|maplist|map_list|bsps)$/.test(key)) {
+                splitDemlList(value).forEach(function (map) { maps.push(map); });
+            } else if (/^(title|name|label)$/.test(key)) {
+                fields.title = fields.title || value;
+            }
+        });
+
+        fields.source = fields.source || firstDemoLikeReference(text);
+        fields.maps = maps;
+        return fields;
+    }
+
+    function parseDemlText(text, fallbackName) {
+        var spec = parseJsonDeml(text) || parsePlainDeml(text);
+        var source = cleanDemlValue(spec && spec.source);
+        var maps = [];
+        var seenMaps = {};
+
+        splitDemlList(spec && spec.maps).forEach(function (map) {
+            var key = String(map).toLowerCase();
+            if (key && !seenMaps[key]) {
+                maps.push(map);
+                seenMaps[key] = true;
+            }
+        });
+
+        if (!source) {
+            throw new Error('The .deml file did not include a demo URL or file reference.');
+        }
+
+        if (!maps.length) {
+            var inferredMap = inferMapFromDemoSource(source);
+            if (inferredMap) {
+                maps.push(inferredMap);
+            }
+        }
+
+        return {
+            source: resolveDemlSource(source),
+            file: fileNameFromPath(source) || fileNameFromPath(fallbackName) || 'demo.dem',
+            title: cleanDemlValue(spec && spec.title) || fileNameFromPath(source) || fileNameFromPath(fallbackName) || 'Demo',
+            maps: maps
+        };
+    }
+
+    function openPendingPlayerWindow() {
+        try {
+            return window.open('about:blank', 'q1tools-demo-player', 'width=704,height=620,resizable=yes,scrollbars=yes');
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    function buildPlayerLaunchUrl(spec) {
+        var key = DEMO_PLAYER_STORAGE_PREFIX + Date.now() + '-' + Math.random().toString(36).slice(2);
+        try {
+            window.localStorage.setItem(key, JSON.stringify(spec));
+            return DEMO_PLAYER_URL + '?launch=' + encodeURIComponent(key);
+        } catch (_error) {
+            var params = new URLSearchParams();
+            params.set('source', spec.source);
+            params.set('file', spec.file);
+            params.set('title', spec.title);
+            if (spec.maps.length) {
+                params.set('maps', spec.maps.join(','));
+            }
+            return DEMO_PLAYER_URL + '?' + params.toString();
+        }
+    }
+
+    function navigatePlayerWindow(playerWindow, url) {
+        if (playerWindow && !playerWindow.closed) {
+            playerWindow.location.replace(url);
+            playerWindow.opener = null;
+            playerWindow.focus();
+            return true;
+        }
+
+        var opened = window.open(url, 'q1tools-demo-player', 'width=704,height=620,resizable=yes,scrollbars=yes');
+        if (opened) {
+            opened.opener = null;
+            opened.focus();
+            return true;
+        }
+        return false;
+    }
+
+    async function buildDemoPlayerSpecFromFile(file) {
+        var buffer = await file.arrayBuffer();
+        var maps = [];
+        var seenMaps = {};
+        var warnings = [];
+
+        try {
+            var data = parserApi.parseDemoBuffer(buffer, {
+                name: file.name,
+                size: file.size,
+                lastModified: file.lastModified
+            });
+            data.maps.forEach(function (map) {
+                var mapName = cleanDemlValue(map.mapName || '');
+                var key = mapName.toLowerCase();
+                if (key && !seenMaps[key]) {
+                    maps.push(mapName);
+                    seenMaps[key] = true;
+                }
+            });
+        } catch (error) {
+            warnings.push('Could not read map names from "' + file.name + '": ' + (error && error.message ? error.message : String(error)));
+        }
+
+        if (!maps.length) {
+            var inferredMap = inferMapFromDemoSource(file.name);
+            if (inferredMap) {
+                maps.push(inferredMap);
+            }
+        }
+
+        return {
+            spec: {
+                source: URL.createObjectURL(new Blob([buffer], { type: 'application/octet-stream' })),
+                file: file.name,
+                title: file.name,
+                maps: maps
+            },
+            warnings: warnings
+        };
+    }
+
+    async function handleDemoPlayerFiles(fileList, playerWindow) {
+        var files = Array.from(fileList || []);
+        var demoFiles = files.filter(function (file) {
+            return /\.dem$/i.test(file.name || '');
+        });
+        var demlFiles = files.filter(function (file) {
+            return /\.deml$/i.test(file.name || '');
+        });
+        var spec;
+        var launchUrl;
+        var warnings = [];
+
+        if (demoFiles.length) {
+            setStatus('Preparing ' + demoFiles[0].name + ' for playback...');
+            var demoResult = await buildDemoPlayerSpecFromFile(demoFiles[0]);
+            spec = demoResult.spec;
+            warnings = warnings.concat(demoResult.warnings);
+            if (demoFiles.length > 1) {
+                warnings.push('Loaded "' + demoFiles[0].name + '" and ignored ' + (demoFiles.length - 1) + ' additional .dem file' + (demoFiles.length === 2 ? '' : 's') + '.');
+            }
+            if (!spec.maps.length) {
+                warnings.push('No map was decoded from the demo. The player will try to resolve the map from the demo stream.');
+            }
+        } else if (demlFiles.length) {
+            setStatus('Reading ' + demlFiles[0].name + '...');
+            var text = await demlFiles[0].text();
+            spec = parseDemlText(text, demlFiles[0].name);
+            if (demlFiles.length > 1) {
+                warnings.push('Loaded "' + demlFiles[0].name + '" and ignored ' + (demlFiles.length - 1) + ' additional .deml file' + (demlFiles.length === 2 ? '' : 's') + '.');
+            }
+            if (!spec.maps.length) {
+                warnings.push('No map was listed in the .deml file. The player will try to resolve the map from the demo stream.');
+            }
+        } else {
+            setWarnings(['No .dem file was provided.']);
+            setStatus('No demo was loaded.', 'error');
+            return;
+        }
+
+        launchUrl = buildPlayerLaunchUrl(spec);
+        if (!navigatePlayerWindow(playerWindow, launchUrl)) {
+            setWarnings(warnings.concat(['The browser blocked the demo player popup. Allow popups for this site and drop the .dem again.']));
+            setStatus('Unable to open the demo player.', 'error');
+            return;
+        }
+
+        setWarnings(warnings);
+        setStatus('Opening ' + spec.title + ' in the demo player.', 'success');
+    }
+
     async function collectAcceptedInputs(fileList) {
         const warnings = [];
         const accepted = [];
@@ -3730,6 +4063,51 @@
         });
     }
 
+    function bindDemoPlayerDropZone() {
+        if (!demoPlayerDropZone || !demoPlayerInput) {
+            return;
+        }
+
+        const setActive = function (active) {
+            demoPlayerDropZone.classList.toggle('active', active);
+        };
+
+        demoPlayerDropZone.addEventListener('click', function () {
+            demoPlayerInput.click();
+        });
+
+        demoPlayerDropZone.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                demoPlayerInput.click();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(function (eventName) {
+            demoPlayerDropZone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                setActive(true);
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function (eventName) {
+            demoPlayerDropZone.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                setActive(false);
+            });
+        });
+
+        demoPlayerDropZone.addEventListener('drop', function (event) {
+            if (!event.dataTransfer || !event.dataTransfer.files) { return; }
+            var playerWindow = openPendingPlayerWindow();
+            handleDemoPlayerFiles(event.dataTransfer.files, playerWindow).catch(function (error) {
+                setWarnings([error && error.message ? error.message : String(error)]);
+                setStatus('Failed to load the demo player.', 'error');
+            });
+        });
+    }
+
     clearButton.addEventListener('click', reset);
     fileInput.addEventListener('change', function (event) {
         handleFiles(event.target.files).catch(function (error) {
@@ -3738,6 +4116,18 @@
             renderResults([]);
         });
     });
+
+    if (demoPlayerInput) {
+        demoPlayerInput.addEventListener('change', function (event) {
+            var playerWindow = openPendingPlayerWindow();
+            handleDemoPlayerFiles(event.target.files, playerWindow).catch(function (error) {
+                setWarnings([error && error.message ? error.message : String(error)]);
+                setStatus('Failed to load the demo player.', 'error');
+            }).finally(function () {
+                demoPlayerInput.value = '';
+            });
+        });
+    }
 
     folderLink.addEventListener('click', function (e) {
         e.preventDefault();
@@ -3760,6 +4150,7 @@
     }
 
     bindDropZone();
+    bindDemoPlayerDropZone();
     reset();
 
     document.addEventListener('dblclick', function (e) {
