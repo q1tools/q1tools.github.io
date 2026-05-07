@@ -3854,8 +3854,17 @@
         }
     }
 
-    function packageLaunchDescriptors() {
-        return playerPackages.map(function (pkg) {
+    function packageLaunchDescriptors(maps) {
+        var requestedMaps = Array.isArray(maps) ? maps : splitDemlList(maps);
+        var packages = requestedMaps.length
+            ? playerPackages.filter(function (pkg) {
+                return requestedMaps.some(function (map) {
+                    return packageProvidesMap(pkg, map);
+                });
+            })
+            : playerPackages;
+
+        return packages.map(function (pkg) {
             return {
                 file: pkg.file,
                 source: pkg.source,
@@ -3976,7 +3985,7 @@
             return;
         }
         if (playerPackages.length) {
-            spec.packages = packageLaunchDescriptors();
+            spec.packages = packageLaunchDescriptors(spec.maps);
         }
         if (pak1Maps.length) {
             warnings.push('Using loaded package maps for ' + pak1Maps.join(', ') + '.');

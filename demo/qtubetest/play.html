@@ -231,6 +231,32 @@
       play: "demo_setspeed 100",
       forward: "demo_jump +2"
     };
+    var BUILT_IN_PACKAGES = [
+      {
+        file: "ctf.pk3",
+        source: "../../paks/ctf.pk3",
+        maps: [
+          "ctf1.bsp", "ctf2.bsp", "ctf3.bsp", "ctf4.bsp", "ctf5.bsp", "ctf6.bsp", "ctf7.bsp", "ctf8.bsp", "ctfstart.bsp",
+          "ctf2m1.bsp", "ctf2m2.bsp", "ctf2m3.bsp", "ctf2m4.bsp", "ctf2m5.bsp", "ctf2m6.bsp", "ctf2m7.bsp", "ctf2m8.bsp",
+          "ctf3m1.bsp", "ctf3m2.bsp", "ctf3m3.bsp", "ctf3m4.bsp", "ctf3m5.bsp", "ctf3m6.bsp", "ctf3m7.bsp", "ctf3m8.bsp", "ctf3m9.bsp"
+        ],
+        providesPak1Maps: false
+      },
+      {
+        file: "ra.pk3",
+        source: "../../paks/ra.pk3",
+        maps: [
+          "23ar-a.bsp", "2pyramid.bsp", "2towers.bsp", "arendm1a.bsp", "arenarg2.bsp", "arenarg4.bsp", "arenarg5.bsp",
+          "arenarg6.bsp", "arenax.bsp", "arenazap.bsp", "arenrg3a.bsp", "arma4.bsp", "barena1.bsp", "basarena.bsp",
+          "bbarena2.bsp", "bunmoo3.bsp", "bunski.bsp", "chamber1.bsp", "crandome.bsp", "dm2arena.bsp", "dom2_1ra.bsp",
+          "egyptra.bsp", "football.bsp", "gear8.bsp", "gearpr0n.bsp", "gnurena.bsp", "hill20.bsp", "iarena2.bsp",
+          "id3.bsp", "lowgrav.bsp", "marena2.bsp", "marena3.bsp", "marena4.bsp", "mayan1.bsp", "nilsrar3.bsp",
+          "pen2.bsp", "pitarena.bsp", "ptucket.bsp", "ra_funkf.bsp", "rarena3.bsp", "rgarden.bsp", "soyarena.bsp",
+          "terrain2.bsp", "uarena1.bsp", "unholy.bsp", "xarena3.bsp", "yard1.bsp"
+        ],
+        providesPak1Maps: false
+      }
+    ];
     var demoConfig = [
       "cl_maxfps_slop 0",
       "bind d \"demo_setspeed 100\"",
@@ -414,6 +440,24 @@
       });
     }
 
+    function packagesNeededForMaps(packages, maps) {
+      if (!maps.length) {
+        return packages.slice();
+      }
+
+      return packages.filter(function(packageInfo) {
+        return maps.some(function(map) {
+          return packageProvidesMap(packageInfo, map.file || map);
+        });
+      });
+    }
+
+    function builtInPackagesForMap(mapFile) {
+      return BUILT_IN_PACKAGES.filter(function(packageInfo) {
+        return packageProvidesMap(packageInfo, mapFile);
+      });
+    }
+
     function normalizeDemoSpec(spec, fallbackName) {
       var source = cleanValue(spec.source || spec.src || spec.url || spec.href || spec.path);
       var file = sanitizeVirtualFileName(spec.file || source || fallbackName, "demo.dem");
@@ -591,6 +635,116 @@
       });
     }
 
+    function sourceLooksImmediate(source) {
+      return /^(?:blob:|data:)/i.test(cleanValue(source));
+    }
+
+    function sourceExists(source) {
+      var clean = cleanValue(source);
+      if (!clean) {
+        return Promise.resolve(false);
+      }
+      if (sourceLooksImmediate(clean)) {
+        return Promise.resolve(true);
+      }
+
+      return fetch(clean, {
+        method: "HEAD",
+        cache: "force-cache"
+      }).then(function(response) {
+        return response.ok;
+      }).catch(function() {
+        return false;
+      });
+    }
+
+    function addPackageFile(files, mountedPackages, packageInfo) {
+      var virtualPath = "id1/" + packageInfo.file;
+      if (files[virtualPath]) {
+        return;
+      }
+
+      files[virtualPath] = packageInfo.source;
+      mountedPackages.push(packageInfo);
+    }
+
+    function addMapFile(files, map) {
+      files["id1/maps/" + map.file] = map.source;
+      if (map.file.toLowerCase() !== map.file) {
+        files["id1/maps/" + map.file.toLowerCase()] = map.source;
+      }
+    }
+
+    function baseFiles() {
+      var files = {
+        "default.fmf": "default.fmf",
+        "id1/demo.cfg": asciiArrayBuffer(demoConfig),
+        "qw/fte.cfg": asciiArrayBuffer(demoConfig),
+        "ctf/fte.cfg": asciiArrayBuffer(demoConfig),
+        "id1/data.pk3": "qw/data.pk3",
+        "id1/fragfile.dat": "id1/fragfile.dat"
+      };
+
+      if (window.Quake106Shareware && typeof window.Quake106Shareware.extractPak0 === "function") {
+        files["id1/pak0.pak"] = window.Quake106Shareware.extractPak0({
+          setStatus: setStatus
+        }).catch(function(error) {
+          var message = error && error.message ? error.message : String(error);
+          showError("Unable to prepare pak0.pak from quake106.zip: " + message);
+          throw error;
+        });
+      }
+
+      return files;
+    }
+
+    function prepareFilesForDemo(demo) {
+      var assetFiles = {};
+      var mountedPackages = [];
+      var neededPackages = packagesNeededForMaps(demo.packages, demo.maps);
+
+      neededPackages.forEach(function(packageInfo) {
+        addPackageFile(assetFiles, mountedPackages, packageInfo);
+      });
+
+      assetFiles["id1/" + demo.file] = demo.source;
+
+      return demo.maps.reduce(function(chain, map) {
+        return chain.then(function() {
+          if (packagesProvideMap(mountedPackages, map.file)) {
+            return;
+          }
+
+          if (mapFileNeedsPak1(map.file)) {
+            throw new Error("This demo uses " + fileNameFromValue(map.file) + ", which needs pak1.pak or another package containing that map. Drop the .pak first, then drop the .dem again.");
+          }
+
+          var fallbackPackages = builtInPackagesForMap(map.file);
+          if (fallbackPackages.length) {
+            fallbackPackages.forEach(function(packageInfo) {
+              addPackageFile(assetFiles, mountedPackages, packageInfo);
+            });
+            return;
+          }
+
+          return sourceExists(map.source).then(function(exists) {
+            if (exists) {
+              addMapFile(assetFiles, map);
+              return;
+            }
+
+            addMapFile(assetFiles, map);
+          });
+        });
+      }, Promise.resolve()).then(function() {
+        var files = baseFiles();
+        Object.keys(assetFiles).forEach(function(path) {
+          files[path] = assetFiles[path];
+        });
+        return files;
+      });
+    }
+
     function focusCanvas() {
       try {
         canvas.focus({ preventScroll: true });
@@ -659,89 +813,62 @@
       document.title = selectedDemo.title + " - FTE Demo Player";
       document.getElementById("demo-title").textContent = selectedDemo.title;
 
-      var files = {
-        "default.fmf": "default.fmf",
-        "id1/demo.cfg": asciiArrayBuffer(demoConfig),
-        "qw/fte.cfg": asciiArrayBuffer(demoConfig),
-        "ctf/fte.cfg": asciiArrayBuffer(demoConfig),
-        "id1/data.pk3": "qw/data.pk3",
-        "id1/ctf.pk3": "../../paks/ctf.pk3",
-        "id1/ra.pk3": "../../paks/ra.pk3",
-        "id1/fragfile.dat": "id1/fragfile.dat"
-      };
-      if (window.Quake106Shareware && typeof window.Quake106Shareware.extractPak0 === "function") {
-        files["id1/pak0.pak"] = window.Quake106Shareware.extractPak0({
-          setStatus: setStatus
-        }).catch(function(error) {
-          var message = error && error.message ? error.message : String(error);
-          showError("Unable to prepare pak0.pak from quake106.zip: " + message);
-          throw error;
-        });
-      }
-      selectedDemo.packages.forEach(function(packageInfo) {
-        files["id1/" + packageInfo.file] = packageInfo.source;
-      });
-      files["id1/" + selectedDemo.file] = selectedDemo.source;
-      selectedDemo.maps.forEach(function(map) {
-        if (packagesProvideMap(selectedDemo.packages, map.file)) {
-          return;
-        }
-        files["id1/maps/" + map.file] = map.source;
-        if (map.file.toLowerCase() !== map.file) {
-          files["id1/maps/" + map.file.toLowerCase()] = map.source;
-        }
-      });
-
-      var Module = {
-        arguments: [
-          "-nohome",
-          "-width", "640",
-          "-height", "480",
-          "+set", "vid_fullscreen", "0",
-          "+set", "vid_width", "640",
-          "+set", "vid_height", "480",
-          "+set", "gl_font", "graybugs",
-          "+set", "snd_samplebits", "32",
-          "+set", "volume", "0.05",
-          "+playdemo", selectedDemo.file
-        ],
-        files: files,
-        canvas: canvas,
-        print: function(message) {
-          console.log(message);
-        },
-        printErr: function(message) {
-          console.warn(message);
-        },
-        setStatus: setStatus,
-        totalDependencies: 0,
-        monitorRunDependencies: function(left) {
-          this.totalDependencies = Math.max(this.totalDependencies, left);
-          setStatus(left ? "Preparing... (" + (this.totalDependencies - left) + "/" + this.totalDependencies + ")" : "All downloads complete.");
-        },
-        postRun: [
-          function() {
-            if (Module.sched === undefined) {
-              showError("Unable to initialise the FTE runtime.");
-            } else {
-              fitPlayerToWindow();
-              setPlaybackControlsEnabled(true);
-              updatePlaybackTime();
-              setStatus("");
+      setStatus("Checking map assets...");
+      prepareFilesForDemo(selectedDemo).then(function(files) {
+        var Module = {
+          arguments: [
+            "-nohome",
+            "-width", "640",
+            "-height", "480",
+            "+set", "vid_fullscreen", "0",
+            "+set", "vid_width", "640",
+            "+set", "vid_height", "480",
+            "+set", "gl_font", "graybugs",
+            "+set", "snd_samplebits", "32",
+            "+set", "volume", "0.05",
+            "+playdemo", selectedDemo.file
+          ],
+          files: files,
+          canvas: canvas,
+          print: function(message) {
+            console.log(message);
+          },
+          printErr: function(message) {
+            console.warn(message);
+          },
+          setStatus: setStatus,
+          totalDependencies: 0,
+          monitorRunDependencies: function(left) {
+            this.totalDependencies = Math.max(this.totalDependencies, left);
+            setStatus(left ? "Preparing... (" + (this.totalDependencies - left) + "/" + this.totalDependencies + ")" : "All downloads complete.");
+          },
+          postRun: [
+            function() {
+              if (Module.sched === undefined) {
+                showError("Unable to initialise the FTE runtime.");
+              } else {
+                fitPlayerToWindow();
+                setPlaybackControlsEnabled(true);
+                updatePlaybackTime();
+                setStatus("");
+              }
             }
-          }
-        ]
-      };
+          ]
+        };
 
-      setStatus("Downloading...");
-      var script = document.createElement("script");
-      script.src = "ftewebgl.js";
-      script.type = "text/javascript";
-      script.charset = "utf-8";
-      script.addEventListener("error", function() {
-        showError("Unable to download ftewebgl.js.");
+        window.Module = Module;
+        setStatus("Downloading...");
+        var script = document.createElement("script");
+        script.src = "ftewebgl.js";
+        script.type = "text/javascript";
+        script.charset = "utf-8";
+        script.addEventListener("error", function() {
+          showError("Unable to download ftewebgl.js.");
+        });
+        document.head.appendChild(script);
+      }).catch(function(error) {
+        showError(error && error.message ? error.message : String(error));
       });
-      document.head.appendChild(script);
     }
   </script>
 </body>
