@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated": "2026-05-06",
+  "updated": "2026-05-07",
   "format_notes": "name_hex is the raw Quake byte string, each byte as 2 hex digits. Bytes 128-255 render as the colored (gold/bronze) glyphs in the Quake conchars set. Same encoding used by QSS-M's id1/backups/names.json.",
   "clans": [
     {
@@ -24402,6 +24402,5658 @@
         {
           "name_hex": "c2cd85c37261636b6492e7",
           "alias": "BM·Crackd0g"
+        },
+        {
+          "name_hex": "c26967d36d926b696e67c6697368a1",
+          "alias": "BIGSM0KINGFISH!"
+        },
+        {
+          "name_hex": "9043434350118cd2f9ebeff6",
+          "alias": "[CCCP] RYKOV"
+        },
+        {
+          "name_hex": "c392926b757342927420c66c616721",
+          "alias": "C00KUSB0T FLAG!"
+        },
+        {
+          "name_hex": "90434343509120cee9ebefece1e9",
+          "alias": "[CCCP] NIKOLAI"
+        },
+        {
+          "name_hex": "90434343509120d4f2eff4f3ebf9",
+          "alias": "[CCCP] TROTSKY"
+        },
+        {
+          "name_hex": "c2d3c69c5363687292e4e9eee7e5f2",
+          "alias": "BSF·SCHR0DINGER"
+        },
+        {
+          "name_hex": "904551918fcb69eb599275f241f373",
+          "alias": "[EQ]·KIKY0URASS"
+        },
+        {
+          "name_hex": "d46865a0c4616c6c6573aca0cfd2",
+          "alias": "THE DALLES, OR"
+        },
+        {
+          "name_hex": "c2d3c68ec261e392ee",
+          "alias": "BSF·BAC0N"
+        },
+        {
+          "name_hex": "9045519185486967686c616e646572",
+          "alias": "[EQ]·HIGHLANDER"
+        },
+        {
+          "name_hex": "c2d3c68fcccc616d61d47292ce",
+          "alias": "BSF·LLAMATR0N"
+        },
+        {
+          "name_hex": "c2d3c69cc2a892a9a892a9c2",
+          "alias": "BSF·B(0)(0)B"
+        },
+        {
+          "name_hex": "c2d3c68ec269e720c275e2e261",
+          "alias": "BSF·BIG BUBBA"
+        },
+        {
+          "name_hex": "d2656e746f6eaca0d7c1",
+          "alias": "RENTON, WA"
+        },
+        {
+          "name_hex": "d66164657220666c616721",
+          "alias": "VADER FLAG!"
+        },
+        {
+          "name_hex": "c17272616b69739cc6ece1e7a1",
+          "alias": "ARRAKIS·FLAG!"
+        },
+        {
+          "name_hex": "c9eee361726e6164696e652dc3c4c9",
+          "alias": "INCARNADINE-CDI"
+        },
+        {
+          "name_hex": "ce6577706f7274c265616368acc3c1",
+          "alias": "NEWPORTBEACH,CA"
+        },
+        {
+          "name_hex": "456d7065726f725b4344495d",
+          "alias": "EMPEROR[CDI]"
+        },
+        {
+          "name_hex": "904551919cd3e1ed6d79c1e4e1edf3",
+          "alias": "[EQ]·SAMMYADAMS"
+        },
+        {
+          "name_hex": "c973736171756164aca0d7c1",
+          "alias": "ISSAQUAD, WA"
+        },
+        {
+          "name_hex": "c2656c6c65767565ac20d7c1",
+          "alias": "BELLEVUE, WA"
+        },
+        {
+          "name_hex": "11ebed10c3d2f9d0d492",
+          "alias": "]KM[CRYPT0"
+        },
+        {
+          "name_hex": "10434343501120c1e3c520",
+          "alias": "[CCCP] ACE"
+        },
+        {
+          "name_hex": "1dc275d463c865d21e90434449911f",
+          "alias": "<BUTCHER-[CDI]>"
+        },
+        {
+          "name_hex": "80d4d2c78242756c6c73657965",
+          "alias": "TRGBULLSEYE"
+        },
+        {
+          "name_hex": "904551919cd6656e67e5f2",
+          "alias": "[EQ]·VENGER"
+        },
+        {
+          "name_hex": "c312126b757342127485c6ece1e7a1",
+          "alias": "C00KUSB0T·FLAG!"
+        },
+        {
+          "name_hex": "c2d3c68543e8e1f2ec13e554f5eee1",
+          "alias": "BSF·CHARL1ETUNA"
+        },
+        {
+          "name_hex": "9045474f918ec4e5f4e88e",
+          "alias": "[EGO]·DETH·"
+        },
+        {
+          "name_hex": "d66164657285c6ece1e7a1",
+          "alias": "VADER·FLAG!"
+        },
+        {
+          "name_hex": "91ebed904de5f2ec936e",
+          "alias": "]KM[MERL1N"
+        },
+        {
+          "name_hex": "91ebed904692924c",
+          "alias": "]KM[F00L"
+        },
+        {
+          "name_hex": "9dd2c29fc2ecf5e467656f6e6572",
+          "alias": "<RB>BLUDGEONER"
+        },
+        {
+          "name_hex": "90434343509120d3f4e1ece9ee",
+          "alias": "[CCCP] STALIN"
+        },
+        {
+          "name_hex": "80d4d2c78277696c626572",
+          "alias": "TRGWILBER"
+        },
+        {
+          "name_hex": "90636b119cd061e312",
+          "alias": "[CK]·PAC0"
+        },
+        {
+          "name_hex": "e8e9e6e98d9c64756ee712",
+          "alias": "·DUNG0"
+        },
+        {
+          "name_hex": "c2d3c68ec293e720c275936c6495f2",
+          "alias": "BSF·B1G BU1LD3R"
+        },
+        {
+          "name_hex": "9dd2c29fd0f2ef66657373696f6e6c",
+          "alias": "<RB>PROFESSIONL"
+        },
+        {
+          "name_hex": "10564949114ee16de54ce57373",
+          "alias": "[VII]NAMELESS"
+        },
+        {
+          "name_hex": "cec2c98e546f6b656e",
+          "alias": "NBI·TOKEN"
+        },
+        {
+          "name_hex": "80d4d2c782456d7079726f73",
+          "alias": "TRGEMPYROS"
+        },
+        {
+          "name_hex": "105649491154f261f665ec65f2",
+          "alias": "[VII]TRAVELER"
+        },
+        {
+          "name_hex": "e8e9e6e98d8f6d6164706512ee",
+          "alias": "·MADPE0N"
+        },
+        {
+          "name_hex": "9dd2c29fc712126679ce166d15",
+          "alias": "<RB>G00FYN4M3"
+        },
+        {
+          "name_hex": "ce6f727468a0c2656e64aca0d7c1",
+          "alias": "NORTH BEND, WA"
+        },
+        {
+          "name_hex": "c7d18e41746865697374",
+          "alias": "GQ·ATHEIST"
+        },
+        {
+          "name_hex": "904551919ccc6c92f4e8",
+          "alias": "[EQ]·LL0TH"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20d3ede9ece579",
+          "alias": "<CGIB> SMILEY"
+        },
+        {
+          "name_hex": "cec2c99c5375736869204b",
+          "alias": "NBI·SUSHI K"
+        },
+        {
+          "name_hex": "9056494991c4726577",
+          "alias": "[VII]DREW"
+        },
+        {
+          "name_hex": "904242918fd4d972616e6ed98f",
+          "alias": "[BB]·TYRANNY·"
+        },
+        {
+          "name_hex": "4344498d8085c275d463c865d28582",
+          "alias": "·BUTCHER·"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20466154614c",
+          "alias": "<CGIB> FATAL"
+        },
+        {
+          "name_hex": "546169796f72797520464c414721",
+          "alias": "TAIYORYU FLAG!"
+        },
+        {
+          "name_hex": "904343435091cbe1f2e1ede1faeff6",
+          "alias": "[CCCP]KARAMA2OV"
+        },
+        {
+          "name_hex": "9d53746f6c699f859de4f69a9f",
+          "alias": "<STOLI>·<DV8>"
+        },
+        {
+          "name_hex": "57926c6666209cc7d5ce9c",
+          "alias": "W0LFF ·GUN·"
+        },
+        {
+          "name_hex": "c36170c4618f90c66c61c7a191",
+          "alias": "CAPDA·[FLAG!]"
+        },
+        {
+          "name_hex": "536e166b65a0a0a0a0a0a0a0c792c4",
+          "alias": "SN4KE       G0D"
+        },
+        {
+          "name_hex": "90434343509120c4efebf4eff220cd",
+          "alias": "[CCCP] DOKTOR M"
+        },
+        {
+          "name_hex": "d3616372616d656e746facc3c1",
+          "alias": "SACRAMENTO,CA"
+        },
+        {
+          "name_hex": "90636b9185d374e963eb65f2421279",
+          "alias": "[CK]·STICKERB0Y"
+        },
+        {
+          "name_hex": "10c1cd119c9df416e312e213f4159f",
+          "alias": "[AM]·<T4C0B1T3>"
+        },
+        {
+          "name_hex": "53f5f2458553e8ef548043444982",
+          "alias": "SURE·SHOTCDI"
+        },
+        {
+          "name_hex": "90434343509120c6ece1eeebe5f2",
+          "alias": "[CCCP] FLANKER"
+        },
+        {
+          "name_hex": "5375726553686f745b4344495d",
+          "alias": "SURESHOT[CDI]"
+        },
+        {
+          "name_hex": "417272616b697320464c414721",
+          "alias": "ARRAKIS FLAG!"
+        },
+        {
+          "name_hex": "53686174746572208ec7d5ce8e",
+          "alias": "SHATTER ·GUN·"
+        },
+        {
+          "name_hex": "90434343509120c6f5ece3f2f5ed",
+          "alias": "[CCCP] FULCRUM"
+        },
+        {
+          "name_hex": "1045474f918ec7efece9e1f4e88e",
+          "alias": "[EGO]·GOLIATH·"
+        },
+        {
+          "name_hex": "904242119cd6eff2f4e5f89c",
+          "alias": "[BB]·VORTEX·"
+        },
+        {
+          "name_hex": "c465746885c6ece1e7a1",
+          "alias": "DETH·FLAG!"
+        },
+        {
+          "name_hex": "4344498d53f5f2459c53e8ef54",
+          "alias": "SURE·SHOT"
+        },
+        {
+          "name_hex": "53616d736f6e8ee4f69a",
+          "alias": "SAMSON·DV8"
+        },
+        {
+          "name_hex": "904551919c4bf279124765ce",
+          "alias": "[EQ]·KRY0GEN"
+        },
+        {
+          "name_hex": "8ee2f3f28e626164626f79",
+          "alias": "·BSR·BADBOY"
+        },
+        {
+          "name_hex": "9d43c7c9c29f204de9f3e6e9f4",
+          "alias": "<CGIB> MISFIT"
+        },
+        {
+          "name_hex": "4e696e6a6178a0a0a0a0a0a0c792c4",
+          "alias": "NINJAX      G0D"
+        },
+        {
+          "name_hex": "c2d3c68ec861f0f079d4729275f4",
+          "alias": "BSF·HAPPYTR0UT"
+        },
+        {
+          "name_hex": "106673119cc465f3f9d3",
+          "alias": "[FS]·DESYS"
+        },
+        {
+          "name_hex": "9056494991d56cf9737365d3",
+          "alias": "[VII]ULYSSES"
+        },
+        {
+          "name_hex": "9dd2c29fd46865a0d361696e74",
+          "alias": "<RB>THE SAINT"
+        },
+        {
+          "name_hex": "cf6d616baca0d7c1",
+          "alias": "OMAK, WA"
+        },
+        {
+          "name_hex": "c7d18e5368697468656164",
+          "alias": "GQ·SHITHEAD"
+        },
+        {
+          "name_hex": "d1d38ed3656c66c465737472756374",
+          "alias": "QS·SELFDESTRUCT"
+        },
+        {
+          "name_hex": "e8e9e6e98d8e73eff56ceee574",
+          "alias": "·SOULNET"
+        },
+        {
+          "name_hex": "d7656e6174636865652ca0d7c1",
+          "alias": "WENATCHEE, WA"
+        },
+        {
+          "name_hex": "c3e8e572727985e3e2",
+          "alias": "CHERRY·CB"
+        },
+        {
+          "name_hex": "c2d3c68e4492726b7573",
+          "alias": "BSF·D0RKUS"
+        },
+        {
+          "name_hex": "90d3f4e5e1ecf4c891905891",
+          "alias": "[STEALTH][X]"
+        },
+        {
+          "name_hex": "104242119c536570756c74757261",
+          "alias": "[BB]·SEPULTURA"
+        },
+        {
+          "name_hex": "9190f6e38f8f496e7465677261",
+          "alias": "][VC··INTEGRA"
+        },
+        {
+          "name_hex": "c973736171756168aca0d7c1",
+          "alias": "ISSAQUAH, WA"
+        },
+        {
+          "name_hex": "044343435004204c656e696e",
+          "alias": "CCCP LENIN"
+        },
+        {
+          "name_hex": "9190f6e39c9c4ddef26c936e",
+          "alias": "][VC··M^RL1N"
+        },
+        {
+          "name_hex": "4bf27573f459a0a0a0a0a0a0c792c4",
+          "alias": "KRUSTY      G0D"
+        },
+        {
+          "name_hex": "4344498dc9cec36172ce6164c9cec5",
+          "alias": "INCARNADINE"
+        },
+        {
+          "name_hex": "da6572efa085c7d5ce85",
+          "alias": "ZERO ·GUN·"
+        },
+        {
+          "name_hex": "c2cd8580cb612dc26fcf6d82",
+          "alias": "BM·KA-BOOM"
+        },
+        {
+          "name_hex": "904551919c706974f6e9f0",
+          "alias": "[EQ]·PITVIP"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20d3631272d0",
+          "alias": "<CGIB> SC0RP"
+        },
+        {
+          "name_hex": "e8e9e6e98d8e77926ce6e6",
+          "alias": "·W0LFF"
+        },
+        {
+          "name_hex": "d2c29d4d6176657293636b9fd2c2",
+          "alias": "RB<MAVER1CK>RB"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef824b7296636b4892",
+          "alias": "GHETTOKR4CKH0"
+        },
+        {
+          "name_hex": "91ebed9070617261649278",
+          "alias": "]KM[PARAD0X"
+        },
+        {
+          "name_hex": "cec2c98e426967446164647944696c",
+          "alias": "NBI·BIGDADDYDIL"
+        },
+        {
+          "name_hex": "90c1cd919c9dcce1f9e44261636b9f",
+          "alias": "[AM]·<LAYDBACK>"
+        },
+        {
+          "name_hex": "10d2cb1120504e657373",
+          "alias": "[RK] PNESS"
+        },
+        {
+          "name_hex": "c7d18e537472616864",
+          "alias": "GQ·STRAHD"
+        },
+        {
+          "name_hex": "c2d3c685426c9292c4f36865c4",
+          "alias": "BSF·BL00DSHED"
+        },
+        {
+          "name_hex": "c2d3c69c41ecec50e9eee7536b6c7a",
+          "alias": "BSF·ALLPINGSKL2"
+        },
+        {
+          "name_hex": "c2d3c68e90c2797465cd6591",
+          "alias": "BSF·[BYTEME]"
+        },
+        {
+          "name_hex": "106673119ce36162e1ece97374",
+          "alias": "[FS]·CABALIST"
+        },
+        {
+          "name_hex": "90636b91204a6f686e",
+          "alias": "[CK] JOHN"
+        },
+        {
+          "name_hex": "90636b9185c761f265f48eca61f885",
+          "alias": "[CK]·GARET·JAX·"
+        },
+        {
+          "name_hex": "90636b9185c49292ed73e461f9",
+          "alias": "[CK]·D00MSDAY"
+        },
+        {
+          "name_hex": "cb656e74ac20d7c1",
+          "alias": "KENT, WA"
+        },
+        {
+          "name_hex": "80d4d2c7824d696c616e6f",
+          "alias": "TRGMILANO"
+        },
+        {
+          "name_hex": "1045511156656e676572",
+          "alias": "[EQ]VENGER"
+        },
+        {
+          "name_hex": "c2cd8fc665636573",
+          "alias": "BM·FECES"
+        },
+        {
+          "name_hex": "104551110e46656c126e",
+          "alias": "[EQ]·FEL0N"
+        },
+        {
+          "name_hex": "d2616e64209ce4f69a9c",
+          "alias": "RAND ·DV8·"
+        },
+        {
+          "name_hex": "c2eff973656e85c3c2",
+          "alias": "BOYSEN·CB"
+        },
+        {
+          "name_hex": "10c1cd119c9dd6e5ee12cd1f",
+          "alias": "[AM]·<VEN0M>"
+        },
+        {
+          "name_hex": "80d4d2c782547265446f67",
+          "alias": "TRGTREDOG"
+        },
+        {
+          "name_hex": "1cc5c41c43cfcdc547c5d453cfcdc5",
+          "alias": "·ED·COMEGETSOME"
+        },
+        {
+          "name_hex": "10656411c8616269e2",
+          "alias": "[ED]HABIB"
+        },
+        {
+          "name_hex": "906673919cf3eff5ec7468696566",
+          "alias": "[FS]·SOULTHIEF"
+        },
+        {
+          "name_hex": "737069646572202020202020676f64",
+          "alias": "SPIDER      GOD"
+        },
+        {
+          "name_hex": "6f6d6564",
+          "alias": "OMED"
+        },
+        {
+          "name_hex": "cec2c98e536f757061c6ccd9",
+          "alias": "NBI·SOUPAFLY"
+        },
+        {
+          "name_hex": "9045474f919cc3e5eef4f2e9e39c",
+          "alias": "[EGO]·CENTRIC·"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef82c49248",
+          "alias": "GHETTOD0H"
+        },
+        {
+          "name_hex": "e8e9e6e98d8eed61677573",
+          "alias": "·MAGUS"
+        },
+        {
+          "name_hex": "906673918fe665e3e573",
+          "alias": "[FS]·FECES"
+        },
+        {
+          "name_hex": "904551918559e5e5e4efe7e7f9",
+          "alias": "[EQ]·YEEDOGGY"
+        },
+        {
+          "name_hex": "cbd48ecee5f6e5f2f3",
+          "alias": "KT·NEVERS"
+        },
+        {
+          "name_hex": "9ce2f3f29c636170706564",
+          "alias": "·BSR·CAPPED"
+        },
+        {
+          "name_hex": "80506f77657262696c7482e4f69a",
+          "alias": "POWERBILTDV8"
+        },
+        {
+          "name_hex": "646574687374616c6b6572",
+          "alias": "DETHSTALKER"
+        },
+        {
+          "name_hex": "90656491d39570e8937292f4682020",
+          "alias": "[ED]S3PH1R0TH"
+        },
+        {
+          "name_hex": "9045474f919ccde9ecebc4f5e49c",
+          "alias": "[EGO]·MILKDUD·"
+        },
+        {
+          "name_hex": "4344498dc36c616e8fd7686f7265",
+          "alias": "CLAN·WHORE"
+        },
+        {
+          "name_hex": "904551918fc7f5f2f5",
+          "alias": "[EQ]·GURU"
+        },
+        {
+          "name_hex": "80d4d2c7824465646c6f63",
+          "alias": "TRGDEDLOC"
+        },
+        {
+          "name_hex": "9d43c7c9c29fa04ff6e5f24be9cccc",
+          "alias": "<CGIB> OVERKILL"
+        },
+        {
+          "name_hex": "906673919cd392756cd468699566",
+          "alias": "[FS]·S0ULTHI3F"
+        },
+        {
+          "name_hex": "425554434845525b4344495d",
+          "alias": "BUTCHER[CDI]"
+        },
+        {
+          "name_hex": "d07574618ed359ce",
+          "alias": "PUTA·SYN"
+        },
+        {
+          "name_hex": "c4d305cfd66572d0cf7765d205d0c7",
+          "alias": "DS·OVERPOWER·PG"
+        },
+        {
+          "name_hex": "906673918f64756ee712",
+          "alias": "[FS]·DUNG0"
+        },
+        {
+          "name_hex": "0ec5c40ec17265f30e",
+          "alias": "·ED·ARES·"
+        },
+        {
+          "name_hex": "9d43c7c9c29fa0d3e8e1f4746572",
+          "alias": "<CGIB> SHATTER"
+        },
+        {
+          "name_hex": "656b756e",
+          "alias": "EKUN"
+        },
+        {
+          "name_hex": "90636b9120ea65726b926666",
+          "alias": "[CK] JERK0FF"
+        },
+        {
+          "name_hex": "c7d18e4e6573737573",
+          "alias": "GQ·NESSUS"
+        },
+        {
+          "name_hex": "904551918ece756bc5",
+          "alias": "[EQ]·NUKE"
+        },
+        {
+          "name_hex": "9d427275736869659f85c8c1d6cfc3",
+          "alias": "<BRUSHIE>·HAVOC"
+        },
+        {
+          "name_hex": "c2d3c69cc5f8e14279746520ba92",
+          "alias": "BSF·EXABYTE :0"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef825692724c926e",
+          "alias": "GHETTOV0RL0N"
+        },
+        {
+          "name_hex": "10636b118a9dd36ce179e572d89f",
+          "alias": "<SLAYERX>"
+        },
+        {
+          "name_hex": "d461636f6d61acd7c1",
+          "alias": "TACOMA,WA"
+        },
+        {
+          "name_hex": "c4d30550654e645261476f4e0ed0c7",
+          "alias": "DS·PENDRAGON·PG"
+        },
+        {
+          "name_hex": "104b5411204465205061726953",
+          "alias": "[KT] DE PARIS"
+        },
+        {
+          "name_hex": "cec2c98e4c6c616d61464c59",
+          "alias": "NBI·LLAMAFLY"
+        },
+        {
+          "name_hex": "90636b919cd068c163c59c",
+          "alias": "[CK]·PHACE·"
+        },
+        {
+          "name_hex": "41f2e3f4f5f2f5f3858510c8d6c311",
+          "alias": "ARCTURUS··[HVC]"
+        },
+        {
+          "name_hex": "80d4d2c7824a6a61726f37",
+          "alias": "TRGJJARO7"
+        },
+        {
+          "name_hex": "e8e9e6e98d8e776f6ce6e6",
+          "alias": "·WOLFF"
+        },
+        {
+          "name_hex": "0ec5c40ec8616269e20e",
+          "alias": "·ED·HABIB·"
+        },
+        {
+          "name_hex": "c2d3c68ed36b9595749572",
+          "alias": "BSF·SK33T3R"
+        },
+        {
+          "name_hex": "10636b119cd363686d12726bf9",
+          "alias": "[CK]·SCHM0RKY"
+        },
+        {
+          "name_hex": "d3d0c9ad4445522020202020c792c4",
+          "alias": "SPI-DER     G0D"
+        },
+        {
+          "name_hex": "106c67641185e8e1eee4e96d616e",
+          "alias": "[LGD]·HANDIMAN"
+        },
+        {
+          "name_hex": "5b45515d2d76656e676572",
+          "alias": "[EQ]-VENGER"
+        },
+        {
+          "name_hex": "cec2c98e486f757365c6ccd9",
+          "alias": "NBI·HOUSEFLY"
+        },
+        {
+          "name_hex": "c2d3c68ec1e1726476e172eb",
+          "alias": "BSF·AARDVARK"
+        },
+        {
+          "name_hex": "9dd2c29fcde1f6657269636b",
+          "alias": "<RB>MAVERICK"
+        },
+        {
+          "name_hex": "106c6764119ce56e69676de1",
+          "alias": "[LGD]·ENIGMA"
+        },
+        {
+          "name_hex": "9dd2c29fcf7068696469616e",
+          "alias": "<RB>OPHIDIAN"
+        },
+        {
+          "name_hex": "53756c6c61201dc8e1f6efe31f",
+          "alias": "SULLA <HAVOC>"
+        },
+        {
+          "name_hex": "c2ecf5e467656f6e6572",
+          "alias": "BLUDGEONER"
+        },
+        {
+          "name_hex": "9ce2f3f2856576696c76656e6f6d",
+          "alias": "·BSR·EVILVENOM"
+        },
+        {
+          "name_hex": "c3efefec7768697085c3c2",
+          "alias": "COOLWHIP·CB"
+        },
+        {
+          "name_hex": "c4d30e4b75726167756e6a696ed0c7",
+          "alias": "DS·KURAGUNJINPG"
+        },
+        {
+          "name_hex": "90d2cb9185d162657274",
+          "alias": "[RK]·QBERT"
+        },
+        {
+          "name_hex": "5b5649495d5461636f",
+          "alias": "[VII]TACO"
+        },
+        {
+          "name_hex": "1045511185cd79f374e9639394",
+          "alias": "[EQ]·MYSTIC12"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef82e24173f46152e4",
+          "alias": "GHETTOBASTARD"
+        },
+        {
+          "name_hex": "9045474f9141f3f357efeff0e5f242",
+          "alias": "[EGO]ASSWOOPERB"
+        },
+        {
+          "name_hex": "4d656c726963202d3e583c2d",
+          "alias": "MELRIC ->X<-"
+        },
+        {
+          "name_hex": "c2cd9cd363726577c472697665",
+          "alias": "BM·SCREWDRIVE"
+        },
+        {
+          "name_hex": "104551118ee1e3ed156d616e",
+          "alias": "[EQ]·ACM3MAN"
+        },
+        {
+          "name_hex": "536f756c436174636865725b53594e",
+          "alias": "SOULCATCHER[SYN"
+        },
+        {
+          "name_hex": "4c92726420479264",
+          "alias": "L0RD G0D"
+        },
+        {
+          "name_hex": "10cbd4918f44658a506f756c6574",
+          "alias": "POULET"
+        },
+        {
+          "name_hex": "c2d3c68f53637564",
+          "alias": "BSF·SCUD"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef825370617258",
+          "alias": "GHETTOSPARX"
+        },
+        {
+          "name_hex": "0fc5c40fc4e5e3e9ede1f4efd20f",
+          "alias": "·ED·DECIMATOR·"
+        },
+        {
+          "name_hex": "c4d30e416b6167756e6a696ed0c7",
+          "alias": "DS·AKAGUNJINPG"
+        },
+        {
+          "name_hex": "90636b91c26c6f77cd6f6e6b6579",
+          "alias": "[CK]BLOWMONKEY"
+        },
+        {
+          "name_hex": "cd656d70686973ac20d4ce",
+          "alias": "MEMPHIS, TN"
+        },
+        {
+          "name_hex": "6213120f616e74696d616e21",
+          "alias": "B10·ANTIMAN!"
+        },
+        {
+          "name_hex": "104551119c52696368e2eff9",
+          "alias": "[EQ]·RICHBOY"
+        },
+        {
+          "name_hex": "d2c29cc3cc92d292d89cd2c2",
+          "alias": "RB·CL0R0X·RB"
+        },
+        {
+          "name_hex": "90424291c2e1ecec9cd4efeee7f5e5",
+          "alias": "[BB]BALL·TONGUE"
+        },
+        {
+          "name_hex": "c36176616c6965728ed359ce",
+          "alias": "CAVALIER·SYN"
+        },
+        {
+          "name_hex": "e8e9e6e98d8e62616462eff9",
+          "alias": "·BADBOY"
+        },
+        {
+          "name_hex": "cc6fd264d430c1648ed359ce",
+          "alias": "LORDT0AD·SYN"
+        },
+        {
+          "name_hex": "d3f4e5f0f0e5f2209d48617630639f",
+          "alias": "STEPPER <HAV0C>"
+        },
+        {
+          "name_hex": "8d8e4613f265858d905811",
+          "alias": "[X]"
+        },
+        {
+          "name_hex": "9ce2e9ef9c6475626912f5f3",
+          "alias": "·BIO·DUBI0US"
+        },
+        {
+          "name_hex": "5b414d5d2d736d7468",
+          "alias": "[AM]-SMTH"
+        },
+        {
+          "name_hex": "1065641143efede547e5f453efede5",
+          "alias": "[ED]COMEGETSOME"
+        },
+        {
+          "name_hex": "9dd2c29ec2ecf5e467656f6e6572",
+          "alias": "<RB-BLUDGEONER"
+        },
+        {
+          "name_hex": "8ee2e9ef9c637261636be492e7",
+          "alias": "·BIO·CRACKD0G"
+        },
+        {
+          "name_hex": "10d2cb91206861d2649ccb6f72",
+          "alias": "[RK] HARD·KOR"
+        },
+        {
+          "name_hex": "536f6d657468696e675f53594e",
+          "alias": "SOMETHING_SYN"
+        },
+        {
+          "name_hex": "9cce9c20d375706572736f6e6963",
+          "alias": "·N· SUPERSONIC"
+        },
+        {
+          "name_hex": "104551119cd4626fcec5",
+          "alias": "[EQ]·TBONE"
+        },
+        {
+          "name_hex": "d46895a0c492749c10e3736411",
+          "alias": "TH3 D0T·[CSD]"
+        },
+        {
+          "name_hex": "10c4c3114d61756c",
+          "alias": "[DC]MAUL"
+        },
+        {
+          "name_hex": "476e696d6973685f464c414721",
+          "alias": "GNIMISH_FLAG!"
+        },
+        {
+          "name_hex": "65726173655b73645d",
+          "alias": "ERASE[SD]"
+        },
+        {
+          "name_hex": "416a617820466c616721",
+          "alias": "AJAX FLAG!"
+        },
+        {
+          "name_hex": "90636b919c8dcb6565e2ec6572",
+          "alias": "KEEBLER"
+        },
+        {
+          "name_hex": "d3f4f2e1f762657272799cc3c2",
+          "alias": "STRAWBERRY·CB"
+        },
+        {
+          "name_hex": "9056494991c441e747e552",
+          "alias": "[VII]DAGGER"
+        },
+        {
+          "name_hex": "85ce858ad3686f636b77617665",
+          "alias": "SHOCKWAVE"
+        },
+        {
+          "name_hex": "1d43c7c9c21fcf6d6573c8",
+          "alias": "<CGIB>OMESH"
+        },
+        {
+          "name_hex": "4272f573686965209dc8e1f6b0e39f",
+          "alias": "BRUSHIE <HAV0C>"
+        },
+        {
+          "name_hex": "10564949114772417659",
+          "alias": "[VII]GRAVY"
+        },
+        {
+          "name_hex": "916d676b900ff395f4e80f",
+          "alias": "]MGK[·S3TH·"
+        },
+        {
+          "name_hex": "9d41746f6d9f85858585c8c1d6cfc3",
+          "alias": "<ATOM>····HAVOC"
+        },
+        {
+          "name_hex": "c2d3c685d573e89572",
+          "alias": "BSF·USH3R"
+        },
+        {
+          "name_hex": "546169796f7279752d464c414721",
+          "alias": "TAIYORYU-FLAG!"
+        },
+        {
+          "name_hex": "90424291d2e1e2e9e48fd0e1eee4e1",
+          "alias": "[BB]RABID·PANDA"
+        },
+        {
+          "name_hex": "c2d3c68549205355434b",
+          "alias": "BSF·I SUCK"
+        },
+        {
+          "name_hex": "c2cd85c3f261636b64efe7",
+          "alias": "BM·CRACKDOG"
+        },
+        {
+          "name_hex": "106c6764919ced616775f3",
+          "alias": "[LGD]·MAGUS"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef82d18576d5",
+          "alias": "GHETTOQ·VU"
+        },
+        {
+          "name_hex": "c2cd859dd0d2c5d4d41cc2cfd99f",
+          "alias": "BM·<PRETT·BOY>"
+        },
+        {
+          "name_hex": "d36f756c436174636865728ed359ce",
+          "alias": "SOULCATCHER·SYN"
+        },
+        {
+          "name_hex": "c7d18e4e6577626965",
+          "alias": "GQ·NEWBIE"
+        },
+        {
+          "name_hex": "51532090c5ecc4f2e9d4e3e891",
+          "alias": "QS [ELDRITCH]"
+        },
+        {
+          "name_hex": "4344498d8fd48fd48fd48f",
+          "alias": "·T·T·T·"
+        },
+        {
+          "name_hex": "90c4c391556c74696d12",
+          "alias": "[DC]ULTIM0"
+        },
+        {
+          "name_hex": "d2c29c50726f66657373696f6e616c",
+          "alias": "RB·PROFESSIONAL"
+        },
+        {
+          "name_hex": "c2d3c685c4727567cd6521",
+          "alias": "BSF·DRUGME!"
+        },
+        {
+          "name_hex": "c2d3c69c43686f70204b696e67",
+          "alias": "BSF·CHOP KING"
+        },
+        {
+          "name_hex": "706f6c796e2020201dc8e1f6efe31f",
+          "alias": "POLYN   <HAVOC>"
+        },
+        {
+          "name_hex": "10564949115475726b6579",
+          "alias": "[VII]TURKEY"
+        },
+        {
+          "name_hex": "7669742d454d42",
+          "alias": "VIT-EMB"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef82624967c1e6d292",
+          "alias": "GHETTOBIGAFR0"
+        },
+        {
+          "name_hex": "9ce2f3f29c666c6f77626965",
+          "alias": "·BSR·FLOWBIE"
+        },
+        {
+          "name_hex": "904b5491204465204d6f6c61792020",
+          "alias": "[KT] DE MOLAY"
+        },
+        {
+          "name_hex": "e8e9e6e98d8f6261646d92926e",
+          "alias": "·BADM00N"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef82625573744572",
+          "alias": "GHETTOBUSTER"
+        },
+        {
+          "name_hex": "91ebed90536572656e137479",
+          "alias": "]KM[SEREN1TY"
+        },
+        {
+          "name_hex": "4d657869636f205b5446415d",
+          "alias": "MEXICO [TFA]"
+        },
+        {
+          "name_hex": "c2cd85616e74136d616e",
+          "alias": "BM·ANT1MAN"
+        },
+        {
+          "name_hex": "10414d11e261e279e27519e36815f2",
+          "alias": "[AM]BABYBU7CH3R"
+        },
+        {
+          "name_hex": "10656411c1f2e5f3",
+          "alias": "[ED]ARES"
+        },
+        {
+          "name_hex": "5b54657472615d202d205b4476385d",
+          "alias": "[TETRA] - [DV8]"
+        },
+        {
+          "name_hex": "9dd2c29fc275666679",
+          "alias": "<RB>BUFFY"
+        },
+        {
+          "name_hex": "536e616b6520202020202020476f44",
+          "alias": "SNAKE       GOD"
+        },
+        {
+          "name_hex": "e8e9e6e98d8ff7e8e5e5ec6572",
+          "alias": "·WHEELER"
+        },
+        {
+          "name_hex": "9056494991c34c9241eb",
+          "alias": "[VII]CL0AK"
+        },
+        {
+          "name_hex": "1065641185c461736965ce",
+          "alias": "[ED]·DASIEN"
+        },
+        {
+          "name_hex": "d3f4e5f0f0e5f2209d4861766f639f",
+          "alias": "STEPPER <HAVOC>"
+        },
+        {
+          "name_hex": "c3e8e9e19c4d616e61776172",
+          "alias": "CHIA·MANAWAR"
+        },
+        {
+          "name_hex": "c2cd9cc3726974746572",
+          "alias": "BM·CRITTER"
+        },
+        {
+          "name_hex": "c3e8e9e19c4d617468626f79",
+          "alias": "CHIA·MATHBOY"
+        },
+        {
+          "name_hex": "c2d3c69cc5f8e1426f74203a6f",
+          "alias": "BSF·EXABOT :O"
+        },
+        {
+          "name_hex": "4344498d456d7065726f72",
+          "alias": "EMPEROR"
+        },
+        {
+          "name_hex": "c2d3c69c67756e6e6572",
+          "alias": "BSF·GUNNER"
+        },
+        {
+          "name_hex": "d1756172747a8590e4f61a91",
+          "alias": "QUART2·[DV8]"
+        },
+        {
+          "name_hex": "1dd2c21f43cfcdc547c5d453cfcdc5",
+          "alias": "<RB>COMEGETSOME"
+        },
+        {
+          "name_hex": "904551918f62ed",
+          "alias": "[EQ]·BM"
+        },
+        {
+          "name_hex": "41f2e3f4f5f2f5f39d48617630639f",
+          "alias": "ARCTURUS<HAV0C>"
+        },
+        {
+          "name_hex": "7370616e6b33",
+          "alias": "SPANK3"
+        },
+        {
+          "name_hex": "d2c42dc5e1f3f4e3efe1f3f42d9999",
+          "alias": "RD-EASTCOAST-77"
+        },
+        {
+          "name_hex": "c5726d61638fc6ece1e7a1",
+          "alias": "ERMAC·FLAG!"
+        },
+        {
+          "name_hex": "d07561728e10e3736411",
+          "alias": "PUAR·[CSD]"
+        },
+        {
+          "name_hex": "d26f61644b696c6c85c6ece1e7a1",
+          "alias": "ROADKILL·FLAG!"
+        },
+        {
+          "name_hex": "c2cd85cccc616d61c46f6d65",
+          "alias": "BM·LLAMADOME"
+        },
+        {
+          "name_hex": "c2cd208083cd656c7269c38382",
+          "alias": "BM MELRIC"
+        },
+        {
+          "name_hex": "0e6231120f6b6964",
+          "alias": "·B10·KID"
+        },
+        {
+          "name_hex": "4344498dd093cdd09190c496c4c4d9",
+          "alias": "P1MP][D4DDY"
+        },
+        {
+          "name_hex": "80d2e5d4e9c3ecc58210d3c9d4c891",
+          "alias": "RETICLE[SITH]"
+        },
+        {
+          "name_hex": "90656491c86f6c6c79776f6fc4",
+          "alias": "[ED]HOLLYWOOD"
+        },
+        {
+          "name_hex": "9045474f919cc3e5eef4f2e9e3",
+          "alias": "[EGO]·CENTRIC"
+        },
+        {
+          "name_hex": "65d865637574696f6e65728fd3d9ce",
+          "alias": "EXECUTIONER·SYN"
+        },
+        {
+          "name_hex": "5153204d6f6f6b6965",
+          "alias": "QS MOOKIE"
+        },
+        {
+          "name_hex": "c1cd9c11f36861747465f2109c",
+          "alias": "AM·]SHATTER[·"
+        },
+        {
+          "name_hex": "536e6f6f702d454d42",
+          "alias": "SNOOP-EMB"
+        },
+        {
+          "name_hex": "80c752c54dcc49ce8210d3c9d4c891",
+          "alias": "GREMLIN[SITH]"
+        },
+        {
+          "name_hex": "9cce9c20d26079616c",
+          "alias": "·N· R`YAL"
+        },
+        {
+          "name_hex": "9cce9c2056e1eceff2e9e1ee",
+          "alias": "·N· VALORIAN"
+        },
+        {
+          "name_hex": "c2d3c69c456e467565676f",
+          "alias": "BSF·ENFUEGO"
+        },
+        {
+          "name_hex": "cf726967696e616c8ed359ce",
+          "alias": "ORIGINAL·SYN"
+        },
+        {
+          "name_hex": "104242119cd5736865d29c",
+          "alias": "[BB]·USHER·"
+        },
+        {
+          "name_hex": "906673918fe795ed69ee69",
+          "alias": "[FS]·G3MINI"
+        },
+        {
+          "name_hex": "10455111856c657468616c",
+          "alias": "[EQ]·LETHAL"
+        },
+        {
+          "name_hex": "104551119cc4f5eee792",
+          "alias": "[EQ]·DUNG0"
+        },
+        {
+          "name_hex": "416b615f576f6f64795f2854464129",
+          "alias": "AKA_WOODY_(TFA)"
+        },
+        {
+          "name_hex": "a4636f7270201063736411",
+          "alias": "$CORP [CSD]"
+        },
+        {
+          "name_hex": "c2cd8570f2ef64e9e779",
+          "alias": "BM·PRODIGY"
+        },
+        {
+          "name_hex": "9ce2f3f29c666167737973",
+          "alias": "·BSR·FAGSYS"
+        },
+        {
+          "name_hex": "ce756bc5209dcc92c39f",
+          "alias": "NUKE <L0C>"
+        },
+        {
+          "name_hex": "104551918f6412",
+          "alias": "[EQ]·D0"
+        },
+        {
+          "name_hex": "c3e8e9e19c536e617266",
+          "alias": "CHIA·SNARF"
+        },
+        {
+          "name_hex": "5b524b5d20536b72617574",
+          "alias": "[RK] SKRAUT"
+        },
+        {
+          "name_hex": "c2cd85d36b616e6b79d7686f7265",
+          "alias": "BM·SKANKYWHORE"
+        },
+        {
+          "name_hex": "90746c6d918e47926c64656ec5f9e5",
+          "alias": "[TLM]·G0LDENEYE"
+        },
+        {
+          "name_hex": "5370656564",
+          "alias": "SPEED"
+        },
+        {
+          "name_hex": "c7d18e7468655f444d",
+          "alias": "GQ·THE_DM"
+        },
+        {
+          "name_hex": "9045474f919cc3f9f0e8ede1ee9c",
+          "alias": "[EGO]·CYPHMAN·"
+        },
+        {
+          "name_hex": "666174616c2d687062",
+          "alias": "FATAL-HPB"
+        },
+        {
+          "name_hex": "4b7275737479474f44",
+          "alias": "KRUSTYGOD"
+        },
+        {
+          "name_hex": "d3c896ce958578d578",
+          "alias": "SH4N3·XUX"
+        },
+        {
+          "name_hex": "104551118573ee",
+          "alias": "[EQ]·SN"
+        },
+        {
+          "name_hex": "c7d18ed3656c66c465737472756374",
+          "alias": "GQ·SELFDESTRUCT"
+        },
+        {
+          "name_hex": "106c6764119cf36e6170",
+          "alias": "[LGD]·SNAP"
+        },
+        {
+          "name_hex": "54c152c745d442cf5910d3c9d4c891",
+          "alias": "TARGETBOY[SITH]"
+        },
+        {
+          "name_hex": "437261636b2e53594e",
+          "alias": "CRACK.SYN"
+        },
+        {
+          "name_hex": "c3d68ec368616f746963da",
+          "alias": "CV·CHAOTICZ"
+        },
+        {
+          "name_hex": "e8e9e6e98d8e44722e576865656c",
+          "alias": "·DR.WHEEL"
+        },
+        {
+          "name_hex": "10424211857768303070",
+          "alias": "[BB]·WH00P"
+        },
+        {
+          "name_hex": "4d746e446577209043744691",
+          "alias": "MTNDEW [CTF]"
+        },
+        {
+          "name_hex": "8ece8e8a42ece1e3ebeff5f4",
+          "alias": "BLACKOUT"
+        },
+        {
+          "name_hex": "c3d68fda69676775726174",
+          "alias": "CV·ZIGGURAT"
+        },
+        {
+          "name_hex": "d66fc46be18c8c80d3ed93f2f6e682",
+          "alias": "VODKA  SM1RVF"
+        },
+        {
+          "name_hex": "9056494991cb48e14de54ce54fee",
+          "alias": "[VII]KHAMELEON"
+        },
+        {
+          "name_hex": "9043434350918ac2eff2f2e9f3",
+          "alias": "BORRIS"
+        },
+        {
+          "name_hex": "90746c6d918ecd92eee5f98e8e8e",
+          "alias": "[TLM]·M0NEY···"
+        },
+        {
+          "name_hex": "c7d19cc8656164c8756e746572",
+          "alias": "GQ·HEADHUNTER"
+        },
+        {
+          "name_hex": "f012ecf9a05be8f6e35d",
+          "alias": "P0LY [HVC]"
+        },
+        {
+          "name_hex": "8ee2f3f285636172746d616e",
+          "alias": "·BSR·CARTMAN"
+        },
+        {
+          "name_hex": "d1d390c8656164c8756ef465f291",
+          "alias": "QS[HEADHUNTER]"
+        },
+        {
+          "name_hex": "d2c42dc7e8e1ece5efee2d949a",
+          "alias": "RD-GHALEON-28"
+        },
+        {
+          "name_hex": "90455191c461726bc8616d73746572",
+          "alias": "[EQ]DARKHAMSTER"
+        },
+        {
+          "name_hex": "d468650cd07265616368657210d811",
+          "alias": "THE PREACHER[X]"
+        },
+        {
+          "name_hex": "c2d3c685621212666572",
+          "alias": "BSF·B00FER"
+        },
+        {
+          "name_hex": "111053f4efedf0e552111085905891",
+          "alias": "][STOMPER][·[X]"
+        },
+        {
+          "name_hex": "106c6764119ce37261636b6ce5",
+          "alias": "[LGD]·CRACKLE"
+        },
+        {
+          "name_hex": "106c6764119c709270",
+          "alias": "[LGD]·P0P"
+        },
+        {
+          "name_hex": "9045474f918f746f77656c626f79",
+          "alias": "[EGO]·TOWELBOY"
+        },
+        {
+          "name_hex": "90414d918f9df24147e51f",
+          "alias": "[AM]·<RAGE>"
+        },
+        {
+          "name_hex": "506f63686163636f203c5446413e",
+          "alias": "POCHACCO <TFA>"
+        },
+        {
+          "name_hex": "cec2c98e4a696d6d79536e6f6f6b61",
+          "alias": "NBI·JIMMYSNOOKA"
+        },
+        {
+          "name_hex": "11cdc7cb10c26164c77579cd696b65",
+          "alias": "]MGK[BADGUYMIKE"
+        },
+        {
+          "name_hex": "9d9ea0cc92e392a09e9fa090445091",
+          "alias": "<- L0C0 -> [DP]"
+        },
+        {
+          "name_hex": "7069747669702d61776179425242",
+          "alias": "PITVIP-AWAYBRB"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef8262967354965264",
+          "alias": "GHETTOB4ST4RD"
+        },
+        {
+          "name_hex": "6b6964",
+          "alias": "KID"
+        },
+        {
+          "name_hex": "1110f6e385857012ecf94e",
+          "alias": "][VC··P0LYN"
+        },
+        {
+          "name_hex": "9066739185d3e57265eee97479",
+          "alias": "[FS]·SERENITY"
+        },
+        {
+          "name_hex": "c769c2c26c65739043744691",
+          "alias": "GIBBLES[CTF]"
+        },
+        {
+          "name_hex": "9d43c7c9c29fa0d4e1e31262697465",
+          "alias": "<CGIB> TAC0BITE"
+        },
+        {
+          "name_hex": "80d2e5e46d6167658220666c616721",
+          "alias": "REDMAGE FLAG!"
+        },
+        {
+          "name_hex": "4b72616d7073746572205b5446415d",
+          "alias": "KRAMPSTER [TFA]"
+        },
+        {
+          "name_hex": "5b5649495d4275727269746f",
+          "alias": "[VII]BURRITO"
+        },
+        {
+          "name_hex": "692073756b",
+          "alias": "I SUK"
+        },
+        {
+          "name_hex": "4751204d657271",
+          "alias": "GQ MERQ"
+        },
+        {
+          "name_hex": "616e616c61766961746f72",
+          "alias": "ANALAVIATOR"
+        },
+        {
+          "name_hex": "8044c155d448c98210d3c9d4c891",
+          "alias": "DAUTHI[SITH]"
+        },
+        {
+          "name_hex": "e8e9e6e98d8e6d61647065efee",
+          "alias": "·MADPEON"
+        },
+        {
+          "name_hex": "c3efed7261646580d3ed93f2f6e682",
+          "alias": "COMRADESM1RVF"
+        },
+        {
+          "name_hex": "414d5f6d61737461",
+          "alias": "AM_MASTA"
+        },
+        {
+          "name_hex": "90c1cd919c9dd0f292e493e7d99f",
+          "alias": "[AM]·<PR0D1GY>"
+        },
+        {
+          "name_hex": "906673918fd4616392c2697465",
+          "alias": "[FS]·TAC0BITE"
+        },
+        {
+          "name_hex": "d9e1e3eb9290f4e6e191",
+          "alias": "YACK0[TFA]"
+        },
+        {
+          "name_hex": "9045474f918f467273646676766364",
+          "alias": "[EGO]·FRSDFVVCD"
+        },
+        {
+          "name_hex": "91ebed9057126c6666",
+          "alias": "]KM[W0LFF"
+        },
+        {
+          "name_hex": "904242918fcde5f2e3e9e6f5ec8f",
+          "alias": "[BB]·MERCIFUL·"
+        },
+        {
+          "name_hex": "54126b65",
+          "alias": "T0KE"
+        },
+        {
+          "name_hex": "d2c42dc7f2e1e6e6e9f82d1614",
+          "alias": "RD-GRAFFIX-42"
+        },
+        {
+          "name_hex": "90c693f2e591ad90d891",
+          "alias": "[F1RE]-[X]"
+        },
+        {
+          "name_hex": "914b4c909dd7e1f2c3e1f49f",
+          "alias": "]KL[<WARCAT>"
+        },
+        {
+          "name_hex": "90636b91d061e392",
+          "alias": "[CK]PAC0"
+        },
+        {
+          "name_hex": "c3d69cd0617261646fd8",
+          "alias": "CV·PARADOX"
+        },
+        {
+          "name_hex": "49276d41536d69525646",
+          "alias": "I'MASMIRVF"
+        },
+        {
+          "name_hex": "6273722d626164626f79",
+          "alias": "BSR-BADBOY"
+        },
+        {
+          "name_hex": "114b4c109dd361d461ce9f",
+          "alias": "]KL[<SATAN>"
+        },
+        {
+          "name_hex": "ca6f74c8616d8f90e4f69a91",
+          "alias": "JOTHAM·[DV8]"
+        },
+        {
+          "name_hex": "90746c6d919ccef5e3ece5e1d29c9c",
+          "alias": "[TLM]·NUCLEAR··"
+        },
+        {
+          "name_hex": "c7d18e4d6f6f6b6965",
+          "alias": "GQ·MOOKIE"
+        },
+        {
+          "name_hex": "106c6764119ce56e69676de13f",
+          "alias": "[LGD]·ENIGMA?"
+        },
+        {
+          "name_hex": "7368697468656164",
+          "alias": "SHITHEAD"
+        },
+        {
+          "name_hex": "c5726173c572201043744611",
+          "alias": "ERASER [CTF]"
+        },
+        {
+          "name_hex": "5b4b545d204d61646f6e6e41",
+          "alias": "[KT] MADONNA"
+        },
+        {
+          "name_hex": "c8f5ee6772798a80d3ede9f2f6e682",
+          "alias": "SMIRVF"
+        },
+        {
+          "name_hex": "5b414d5d4261627962757463686572",
+          "alias": "[AM]BABYBUTCHER"
+        },
+        {
+          "name_hex": "67686f7374205b49475d",
+          "alias": "GHOST [IG]"
+        },
+        {
+          "name_hex": "90746c6d918e416e204c658e8e8e8e",
+          "alias": "[TLM]·AN LE····"
+        },
+        {
+          "name_hex": "6576657279626f64795b4344495d",
+          "alias": "EVERYBODY[CDI]"
+        },
+        {
+          "name_hex": "5b6567685d204c30726420473064",
+          "alias": "[EGH] L0RD G0D"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20c86177da",
+          "alias": "<CGIB> HAWZ"
+        },
+        {
+          "name_hex": "c2d3c68ece756bc5",
+          "alias": "BSF·NUKE"
+        },
+        {
+          "name_hex": "10cce1e6110cc21267",
+          "alias": "[LAF] B0G"
+        },
+        {
+          "name_hex": "536f6d657468696e672e73596e",
+          "alias": "SOMETHING.SYN"
+        },
+        {
+          "name_hex": "cec2c99cc675ce6bd96dcf6ecb65d9",
+          "alias": "NBI·FUNKYMONKEY"
+        },
+        {
+          "name_hex": "5b6567685d204e6f73666572617475",
+          "alias": "[EGH] NOSFERATU"
+        },
+        {
+          "name_hex": "48616e64792080d3edf5f2e682",
+          "alias": "HANDY SMURF"
+        },
+        {
+          "name_hex": "73747269646572205b7466615d",
+          "alias": "STRIDER [TFA]"
+        },
+        {
+          "name_hex": "8ee2f3f285666c616770696d70",
+          "alias": "·BSR·FLAGPIMP"
+        },
+        {
+          "name_hex": "d265617065d2aeaeaeaeae90445091",
+          "alias": "REAPER.....[DP]"
+        },
+        {
+          "name_hex": "c4d385ca6167ef85d0c7",
+          "alias": "DS·JAGO·PG"
+        },
+        {
+          "name_hex": "c3e8e9e1ad5461786d616e",
+          "alias": "CHIA-TAXMAN"
+        },
+        {
+          "name_hex": "9cce9c2043e8e5e1f0a4e8eff4",
+          "alias": "·N· CHEAP$HOT"
+        },
+        {
+          "name_hex": "46937265c6ece1ede5202020c792c4",
+          "alias": "F1REFLAME   G0D"
+        },
+        {
+          "name_hex": "6273722d636170706564",
+          "alias": "BSR-CAPPED"
+        },
+        {
+          "name_hex": "4c924385cb69eb59ef75f25741f3f3",
+          "alias": "L0C·KIKYOURWASS"
+        },
+        {
+          "name_hex": "d0756dcb936e85cb936e679d93479f",
+          "alias": "PUMK1N·K1NG<1G>"
+        },
+        {
+          "name_hex": "9cd2756ecf6ec66f6f749c90445091",
+          "alias": "·RUNONFOOT·[DP]"
+        },
+        {
+          "name_hex": "d2c2906f7068696469616e91d2c2",
+          "alias": "RB[OPHIDIAN]RB"
+        },
+        {
+          "name_hex": "85ce8520676f64",
+          "alias": "·N· GOD"
+        },
+        {
+          "name_hex": "c3e8e9e19c536176696f72",
+          "alias": "CHIA·SAVIOR"
+        },
+        {
+          "name_hex": "5b524b5d4261734d6173746572",
+          "alias": "[RK]BASMASTER"
+        },
+        {
+          "name_hex": "9d54696765726d616e9e9e90445091",
+          "alias": "<TIGERMAN--[DP]"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef824b7261636b486f",
+          "alias": "GHETTOKRACKHO"
+        },
+        {
+          "name_hex": "11cdc7cb1085c76cc7146f",
+          "alias": "]MGK[·GLG2O"
+        },
+        {
+          "name_hex": "5b49475d",
+          "alias": "[IG]"
+        },
+        {
+          "name_hex": "90c5c7cf91556e64657274616b6572",
+          "alias": "[EGO]UNDERTAKER"
+        },
+        {
+          "name_hex": "104b5411a0cd85a0ca61e36bf312ee",
+          "alias": "[KT] M· JACKS0N"
+        },
+        {
+          "name_hex": "10cce1e611a0ee1264",
+          "alias": "[LAF] N0D"
+        },
+        {
+          "name_hex": "c3e8e9e19c447265",
+          "alias": "CHIA·DRE"
+        },
+        {
+          "name_hex": "c4d39cda6575d39cd0c7",
+          "alias": "DS·ZEUS·PG"
+        },
+        {
+          "name_hex": "5b4b545d205374696e67",
+          "alias": "[KT] STING"
+        },
+        {
+          "name_hex": "106c6764119cd768697465d76f6c66",
+          "alias": "[LGD]·WHITEWOLF"
+        },
+        {
+          "name_hex": "4a656e6e69666572",
+          "alias": "JENNIFER"
+        },
+        {
+          "name_hex": "5b6567685d2054737572756769",
+          "alias": "[EGH] TSURUGI"
+        },
+        {
+          "name_hex": "436c6f636b57726b80d3edf5f2e682",
+          "alias": "CLOCKWRKSMURF"
+        },
+        {
+          "name_hex": "c7d18e9dd3f0e5e5e49f",
+          "alias": "GQ·<SPEED>"
+        },
+        {
+          "name_hex": "905649499153616e7461",
+          "alias": "[VII]SANTA"
+        },
+        {
+          "name_hex": "c2d3c68ecd72ae20c3ec6561ee",
+          "alias": "BSF·MR. CLEAN"
+        },
+        {
+          "name_hex": "d0e9edd09049c7914461646459",
+          "alias": "PIMP[IG]DADDY"
+        },
+        {
+          "name_hex": "914b4c909debe9f4f4e5ee9f",
+          "alias": "]KL[<KITTEN>"
+        },
+        {
+          "name_hex": "536f756c436174636865722e53594e",
+          "alias": "SOULCATCHER.SYN"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20d0f2efe4696779",
+          "alias": "<CGIB> PRODIGY"
+        },
+        {
+          "name_hex": "50696d7044616464795b4344495d",
+          "alias": "PIMPDADDY[CDI]"
+        },
+        {
+          "name_hex": "426162792080d3edf5f2e682",
+          "alias": "BABY SMURF"
+        },
+        {
+          "name_hex": "904551918f64e8",
+          "alias": "[EQ]·DH"
+        },
+        {
+          "name_hex": "914b4c909dc8efe2e2f39f",
+          "alias": "]KL[<HOBBS>"
+        },
+        {
+          "name_hex": "106c6764119ce4656d6f",
+          "alias": "[LGD]·DEMO"
+        },
+        {
+          "name_hex": "5b6567685d207761636b",
+          "alias": "[EGH] WACK"
+        },
+        {
+          "name_hex": "90c6f585ccefeff0f391",
+          "alias": "[FU·LOOPS]"
+        },
+        {
+          "name_hex": "91cdc7cb909c53657468",
+          "alias": "]MGK[·SETH"
+        },
+        {
+          "name_hex": "104b54118f44658a5669747279",
+          "alias": "VITRY"
+        },
+        {
+          "name_hex": "cb72616d707374657210d4c6c191",
+          "alias": "KRAMPSTER[TFA]"
+        },
+        {
+          "name_hex": "ed75e26dec65f3a09d8e64761a8e9f",
+          "alias": "MUBMLES <·DV8·>"
+        },
+        {
+          "name_hex": "10d2cb9120626973686f70",
+          "alias": "[RK] BISHOP"
+        },
+        {
+          "name_hex": "904b54919c446520436f6261696e",
+          "alias": "[KT]·DE COBAIN"
+        },
+        {
+          "name_hex": "c163659790c9c791",
+          "alias": "ACE5[IG]"
+        },
+        {
+          "name_hex": "537472696465725b5446415d",
+          "alias": "STRIDER[TFA]"
+        },
+        {
+          "name_hex": "8e8082f0926be57980828e90445091",
+          "alias": "·P0KEY·[DP]"
+        },
+        {
+          "name_hex": "916d676b900fee95f2e4e292f90f",
+          "alias": "]MGK[·N3RDB0Y·"
+        },
+        {
+          "name_hex": "d3656e7365c98ec38d616674",
+          "alias": "AFT"
+        },
+        {
+          "name_hex": "11cdc7cb109c49c72d9a9a",
+          "alias": "]MGK[·IG-88"
+        },
+        {
+          "name_hex": "9ce2f3f29c70726f64696779",
+          "alias": "·BSR·PRODIGY"
+        },
+        {
+          "name_hex": "91cdc7cb909cd0726fe46975f3",
+          "alias": "]MGK[·PRODIUS"
+        },
+        {
+          "name_hex": "90d2cb9120d162657274",
+          "alias": "[RK] QBERT"
+        },
+        {
+          "name_hex": "c1ea61788fc66c6167a1",
+          "alias": "AJAX·FLAG!"
+        },
+        {
+          "name_hex": "c392926b7573429274c66c616721",
+          "alias": "C00KUSB0TFLAG!"
+        },
+        {
+          "name_hex": "11cdc7cb90854c6172ede1ee",
+          "alias": "]MGK[·LARMAN"
+        },
+        {
+          "name_hex": "506170612080d3edf5f2e682",
+          "alias": "PAPA SMURF"
+        },
+        {
+          "name_hex": "c253c685c3726f636bcd65",
+          "alias": "BSF·CROCKME"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef8247",
+          "alias": "GHETTOG"
+        },
+        {
+          "name_hex": "4d656c726963202d2958282d",
+          "alias": "MELRIC -)X(-"
+        },
+        {
+          "name_hex": "9ce2f3f29c736e6170",
+          "alias": "·BSR·SNAP"
+        },
+        {
+          "name_hex": "74696e6f5f766969",
+          "alias": "TINO_VII"
+        },
+        {
+          "name_hex": "906673918fe472616712ee",
+          "alias": "[FS]·DRAG0N"
+        },
+        {
+          "name_hex": "4dd54ec710c9c711",
+          "alias": "MUNG[IG]"
+        },
+        {
+          "name_hex": "c7d18e9064e5e9f47991",
+          "alias": "GQ·[DEITY]"
+        },
+        {
+          "name_hex": "d3706563756c75cd8ec38d616674",
+          "alias": "AFT"
+        },
+        {
+          "name_hex": "5b4b545d446520506f756c6574",
+          "alias": "[KT]DE POULET"
+        },
+        {
+          "name_hex": "05c375c261ce85d065d4651c10d811",
+          "alias": "·CUBAN·PETE·[X]"
+        },
+        {
+          "name_hex": "52656472756d",
+          "alias": "REDRUM"
+        },
+        {
+          "name_hex": "537065656443616d6e",
+          "alias": "SPEEDCAMN"
+        },
+        {
+          "name_hex": "106673919ce7eff2e5",
+          "alias": "[FS]·GORE"
+        },
+        {
+          "name_hex": "8d8d906d657263757279918d905891",
+          "alias": "[X]"
+        },
+        {
+          "name_hex": "914ccb90c7d261d66579d4d26193ce",
+          "alias": "]LK[GRAVEYTRA1N"
+        },
+        {
+          "name_hex": "d37061636b6c65d28ec38d616674",
+          "alias": "AFT"
+        },
+        {
+          "name_hex": "8067f561f264e961ee10d3c9d4c891",
+          "alias": "GUARDIAN[SITH]"
+        },
+        {
+          "name_hex": "5b524b5d4d6144624f6d426552",
+          "alias": "[RK]MADBOMBER"
+        },
+        {
+          "name_hex": "90d2cb9120cd61c462cf6dc265d2",
+          "alias": "[RK] MADBOMBER"
+        },
+        {
+          "name_hex": "70306c79ee209dc8e1f6efe39f",
+          "alias": "P0LYN <HAVOC>"
+        },
+        {
+          "name_hex": "9094ee919c8046e541f282",
+          "alias": "[2N]·FEAR"
+        },
+        {
+          "name_hex": "5468756e646572",
+          "alias": "THUNDER"
+        },
+        {
+          "name_hex": "1dcee5f2e0fae8f5ec1f",
+          "alias": "<NER`2HUL>"
+        },
+        {
+          "name_hex": "556c74696d6f",
+          "alias": "ULTIMO"
+        },
+        {
+          "name_hex": "4dc54e8fc349d55305905811",
+          "alias": "MEN·CIUS·[X]"
+        },
+        {
+          "name_hex": "9190f6e39c9c43c17254cd616e",
+          "alias": "][VC··CARTMAN"
+        },
+        {
+          "name_hex": "d120807493e34b82209043444991",
+          "alias": "Q T1CK [CDI]"
+        },
+        {
+          "name_hex": "106673119cf0e1ebe9",
+          "alias": "[FS]·PAKI"
+        },
+        {
+          "name_hex": "c2cd8ec1737320c76f626c696e",
+          "alias": "BM·ASS GOBLIN"
+        },
+        {
+          "name_hex": "10d2cb9120484b2773204269746368",
+          "alias": "[RK] HK'S BITCH"
+        },
+        {
+          "name_hex": "914b4c908fc4d28ff74892",
+          "alias": "]KL[·DR·WH0"
+        },
+        {
+          "name_hex": "4576696c42617274205b6c706c5d",
+          "alias": "EVILBART [LPL]"
+        },
+        {
+          "name_hex": "c2d3c68ec46574c8c67563cb65d2",
+          "alias": "BSF·DETHFUCKER"
+        },
+        {
+          "name_hex": "c8616e666f7264ac8cd7c1",
+          "alias": "HANFORD, WA"
+        },
+        {
+          "name_hex": "9d44619e47696d709f208ec7d5ce8e",
+          "alias": "<DA-GIMP> ·GUN·"
+        },
+        {
+          "name_hex": "4e6573737573515456",
+          "alias": "NESSUSQTV"
+        },
+        {
+          "name_hex": "4f726967656e203d41737465723d",
+          "alias": "ORIGEN =ASTER="
+        },
+        {
+          "name_hex": "d3e3e1f2f942657272798fc3c2",
+          "alias": "SCARYBERRY·CB"
+        },
+        {
+          "name_hex": "c86f7573746f6eaca0d4d8",
+          "alias": "HOUSTON, TX"
+        },
+        {
+          "name_hex": "c2d3c68ecd63c4926e61ece473",
+          "alias": "BSF·MCD0NALDS"
+        },
+        {
+          "name_hex": "d56c7472618fc2697a9043414591",
+          "alias": "ULTRA·BI2[CAE]"
+        },
+        {
+          "name_hex": "4d6f6469",
+          "alias": "MODI"
+        },
+        {
+          "name_hex": "914ccb909ca4c793cd61ce",
+          "alias": "]LK[·$G1MAN"
+        },
+        {
+          "name_hex": "706f6c792868766329",
+          "alias": "POLY(HVC)"
+        },
+        {
+          "name_hex": "104d65747a676572118e10cc70cc11",
+          "alias": "[MET2GER]·[LPL]"
+        },
+        {
+          "name_hex": "9d4d6f72749f80525082",
+          "alias": "<MORT>RP"
+        },
+        {
+          "name_hex": "904242919cd0efe9daefee9c",
+          "alias": "[BB]·POIZON·"
+        },
+        {
+          "name_hex": "906673919cd09672b46492d8",
+          "alias": "[FS]·P4R4D0X"
+        },
+        {
+          "name_hex": "1042421185cd61737465d285",
+          "alias": "[BB]·MASTER·"
+        },
+        {
+          "name_hex": "9d9e9f90c472f5919d9e9f",
+          "alias": "<->[DRU]<->"
+        },
+        {
+          "name_hex": "536c4565506552209043414591",
+          "alias": "SLEEPER [CAE]"
+        },
+        {
+          "name_hex": "4a696d626f",
+          "alias": "JIMBO"
+        },
+        {
+          "name_hex": "4d79726c696e",
+          "alias": "MYRLIN"
+        },
+        {
+          "name_hex": "90476f6e616491202090cc70cc91",
+          "alias": "[GONAD]  [LPL]"
+        },
+        {
+          "name_hex": "c36875636b6c65686561642ed3d9ce",
+          "alias": "CHUCKLEHEAD.SYN"
+        },
+        {
+          "name_hex": "ebe285c3c2",
+          "alias": "KB·CB"
+        },
+        {
+          "name_hex": "c2ece1ededef5b646f685d",
+          "alias": "BLAMMO[DOH]"
+        },
+        {
+          "name_hex": "9dd3eef5e2ece59f80525082",
+          "alias": "<SNUBLE>RP"
+        },
+        {
+          "name_hex": "90c6f58fcde1eec3e8f591",
+          "alias": "[FU·MANCHU]"
+        },
+        {
+          "name_hex": "6a756767203d61737465723d",
+          "alias": "JUGG =ASTER="
+        },
+        {
+          "name_hex": "914ccb909cda75c2659c",
+          "alias": "]LK[·ZUBE·"
+        },
+        {
+          "name_hex": "90d2cb918ecd61c462cf6dc265d2",
+          "alias": "[RK]·MADBOMBER"
+        },
+        {
+          "name_hex": "9dd3efe4e19f",
+          "alias": "<SODA>"
+        },
+        {
+          "name_hex": "114ccb1085d3cc61d0c465cdc892d3",
+          "alias": "]LK[·SLAPDEMH0S"
+        },
+        {
+          "name_hex": "c29ccf9cc69cc80c9043414591",
+          "alias": "B·O·F·H [CAE]"
+        },
+        {
+          "name_hex": "61746865776f726c64",
+          "alias": "ATHEWORLD"
+        },
+        {
+          "name_hex": "48696b616e74687573203d41737465",
+          "alias": "HIKANTHUS =ASTE"
+        },
+        {
+          "name_hex": "91cdc7cb908f434172746d414e",
+          "alias": "]MGK[·CARTMAN"
+        },
+        {
+          "name_hex": "c7d18e46697879",
+          "alias": "GQ·FIXY"
+        },
+        {
+          "name_hex": "5b54695d52e5e444e5f6b1ec",
+          "alias": "[TI]REDDEV1L"
+        },
+        {
+          "name_hex": "800c42924c540c820c0c0c10c4d011",
+          "alias": "B0LT    [DP]"
+        },
+        {
+          "name_hex": "4344498d46937265c6ece1ede5",
+          "alias": "F1REFLAME"
+        },
+        {
+          "name_hex": "9cd36b727562c29ca09dcb6174da9f",
+          "alias": "·SKRUBB· <KATZ>"
+        },
+        {
+          "name_hex": "536d656c6c79201dcbc1f4fa1f",
+          "alias": "SMELLY <KAT2>"
+        },
+        {
+          "name_hex": "776869737065727385851064763811",
+          "alias": "WHISPERS··[DV8]"
+        },
+        {
+          "name_hex": "9190f6e39c9c44926ce273",
+          "alias": "][VC··D0LBS"
+        },
+        {
+          "name_hex": "c2d3c69cc5f6e5f26c926e67",
+          "alias": "BSF·EVERL0NG"
+        },
+        {
+          "name_hex": "526564204465617468209043414591",
+          "alias": "RED DEATH [CAE]"
+        },
+        {
+          "name_hex": "48617a65209043414591",
+          "alias": "HA2E [CAE]"
+        },
+        {
+          "name_hex": "cd617261756465722080c6d2c282",
+          "alias": "MARAUDER FRB"
+        },
+        {
+          "name_hex": "3135317b6652427d",
+          "alias": "151{FRB}"
+        },
+        {
+          "name_hex": "c26c61636bcb6174201dcbc1f4fa1f",
+          "alias": "BLACKKAT <KAT2>"
+        },
+        {
+          "name_hex": "446f63446f6f6d27446f68",
+          "alias": "DOCDOOM'DOH"
+        },
+        {
+          "name_hex": "c2616279d370696365c56d6d612dd8",
+          "alias": "BABYSPICEEMMA-X"
+        },
+        {
+          "name_hex": "c4720fca926e6573209dcb61f47a9f",
+          "alias": "DR·J0NES <KAT2>"
+        },
+        {
+          "name_hex": "4b696c6c426f7420435741",
+          "alias": "KILLBOT CWA"
+        },
+        {
+          "name_hex": "10d449119cd370cf72d4",
+          "alias": "[TI]·SPORT"
+        },
+        {
+          "name_hex": "90d449918ed348c956c18eea728e",
+          "alias": "[TI]·SHIVA·JR·"
+        },
+        {
+          "name_hex": "c2d3c68fd2926464696d75d3",
+          "alias": "BSF·R0DDIMUS"
+        },
+        {
+          "name_hex": "4576696c7574696f6e",
+          "alias": "EVILUTION"
+        },
+        {
+          "name_hex": "7472696e697479",
+          "alias": "TRINITY"
+        },
+        {
+          "name_hex": "cd72ae20c3ec6561ee209dcc92c39f",
+          "alias": "MR. CLEAN <L0C>"
+        },
+        {
+          "name_hex": "d46967e5f2d2ef6163e82090445091",
+          "alias": "TIGERROACH [DP]"
+        },
+        {
+          "name_hex": "6d617968656d20637761",
+          "alias": "MAYHEM CWA"
+        },
+        {
+          "name_hex": "10544991c4d2c9fafad4",
+          "alias": "[TI]DRI22T"
+        },
+        {
+          "name_hex": "9c4bf279124765ce9c209dcc12c39f",
+          "alias": "·KRY0GEN· <L0C>"
+        },
+        {
+          "name_hex": "909cc465c164cd61ce9c9120905891",
+          "alias": "[·DEADMAN·] [X]"
+        },
+        {
+          "name_hex": "46697265466c616d655b6c6f635d",
+          "alias": "FIREFLAME[LOC]"
+        },
+        {
+          "name_hex": "c26c6f6f64736865c49dcc92c39f",
+          "alias": "BLOODSHED<L0C>"
+        },
+        {
+          "name_hex": "f3ecf5e4e7e520e6e1e3f412f2f9",
+          "alias": "SLUDGE FACT0RY"
+        },
+        {
+          "name_hex": "d3e1f4e1ee13e34752494e8f90d891",
+          "alias": "SATAN1CGRIN·[X]"
+        },
+        {
+          "name_hex": "4e65737375737c4c6f43",
+          "alias": "NESSUS|LOC"
+        },
+        {
+          "name_hex": "6761797c4c6f43",
+          "alias": "GAY|LOC"
+        },
+        {
+          "name_hex": "6f627365727665727c6c6f63",
+          "alias": "OBSERVER|LOC"
+        },
+        {
+          "name_hex": "85d08f9169908fd4d49c7c4c6f63",
+          "alias": "·P·]I[·TT·|LOC"
+        },
+        {
+          "name_hex": "cee9e7e8f443414d9dcc92c39f",
+          "alias": "NIGHTCAM<L0C>"
+        },
+        {
+          "name_hex": "c4657379d39d4c12e39f",
+          "alias": "DESYS<L0C>"
+        },
+        {
+          "name_hex": "9c1052ce119cc46ba0c765726269cc",
+          "alias": "·[RN]·DK GERBIL"
+        },
+        {
+          "name_hex": "c269e720c275e2e261209dcc92c39f",
+          "alias": "BIG BUBBA <L0C>"
+        },
+        {
+          "name_hex": "4461426f73732d515456",
+          "alias": "DABOSS-QTV"
+        },
+        {
+          "name_hex": "61736c6b64666a",
+          "alias": "ASLKDFJ"
+        },
+        {
+          "name_hex": "4c704c5f4175746f41646d696e",
+          "alias": "LPL_AUTOADMIN"
+        },
+        {
+          "name_hex": "9dcf74686e69656c9fe4f69a",
+          "alias": "<OTHNIEL>DV8"
+        },
+        {
+          "name_hex": "4f627365727665722028545247294465646c6f63",
+          "alias": "OBSERVER (TRG)DEDLOC"
+        },
+        {
+          "name_hex": "4f62736572766572202854524729456d7079726f73",
+          "alias": "OBSERVER (TRG)EMPYROS"
+        },
+        {
+          "name_hex": "4f62736572766572206170703063306c7970736520647638",
+          "alias": "OBSERVER APP0C0LYPSE DV8"
+        },
+        {
+          "name_hex": "cc92d4f5f3209dcbe1f4fa9f",
+          "alias": "L0TUS <KAT2>"
+        },
+        {
+          "name_hex": "686967686c616e646572204c6f43",
+          "alias": "HIGHLANDER LOC"
+        },
+        {
+          "name_hex": "9dd761f285cd61e368e96ee59f",
+          "alias": "<WAR·MACHINE>"
+        },
+        {
+          "name_hex": "4f62736572766572202e6273722e66726f7374",
+          "alias": "OBSERVER .BSR.FROST"
+        },
+        {
+          "name_hex": "906673918fc16d1373e8",
+          "alias": "[FS]·AM1SH"
+        },
+        {
+          "name_hex": "906673918fe6ece1e770936d70",
+          "alias": "[FS]·FLAGP1MP"
+        },
+        {
+          "name_hex": "9ce2f3f29c6672616762616974",
+          "alias": "·BSR·FRAGBAIT"
+        },
+        {
+          "name_hex": "5c582fe1eeebe5f2",
+          "alias": "\\X/ANKER"
+        },
+        {
+          "name_hex": "c17272616b69738c9d4c12439f",
+          "alias": "ARRAKIS <L0C>"
+        },
+        {
+          "name_hex": "e7efe4e6e1f4e8e5f2",
+          "alias": "GODFATHER"
+        },
+        {
+          "name_hex": "85d08f9169908fd4d49c6c6f63",
+          "alias": "·P·]I[·TT·LOC"
+        },
+        {
+          "name_hex": "c16d92eea01dcc12c39f",
+          "alias": "AM0N <L0C>"
+        },
+        {
+          "name_hex": "4f62736572766572203c4e756b453e",
+          "alias": "OBSERVER <NUKE>"
+        },
+        {
+          "name_hex": "4f6273657276657220426163306e",
+          "alias": "OBSERVER BAC0N"
+        },
+        {
+          "name_hex": "4f62736572766572204261636f6e",
+          "alias": "OBSERVER BACON"
+        },
+        {
+          "name_hex": "4f62736572766572204253462d4261636f6e",
+          "alias": "OBSERVER BSF-BACON"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e426967204275626261",
+          "alias": "OBSERVER BSF.BIG BUBBA"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d20486177512d3d2d4f6273",
+          "alias": "OBSERVER [CK] HAWQ-=-OBS"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d20486177512d466f6f44",
+          "alias": "OBSERVER [CK] HAWQ-FOOD"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d206a65726b306666",
+          "alias": "OBSERVER [CK] JERK0FF"
+        },
+        {
+          "name_hex": "c16d6fee8a9dcc12c39f",
+          "alias": "<L0C>"
+        },
+        {
+          "name_hex": "c36c616e8fd7686f72659dcc92c39f",
+          "alias": "CLAN·WHORE<L0C>"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e20536d696c6579",
+          "alias": "OBSERVER <CGIB> SMILEY"
+        },
+        {
+          "name_hex": "4f6273657276657220436869636b656e54617274",
+          "alias": "OBSERVER CHICKENTART"
+        },
+        {
+          "name_hex": "4f62736572766572204b615a616d21",
+          "alias": "OBSERVER KAZAM!"
+        },
+        {
+          "name_hex": "4f62736572766572207065656b6f",
+          "alias": "OBSERVER PEEKO"
+        },
+        {
+          "name_hex": "4f627365727665722053637265774472697665",
+          "alias": "OBSERVER SCREWDRIVE"
+        },
+        {
+          "name_hex": "4f6273657276657220536d306b337920443420466c616721",
+          "alias": "OBSERVER SM0K3Y D4 FLAG!"
+        },
+        {
+          "name_hex": "4f6273657276657220737572452e53686f54205b4c6f435d",
+          "alias": "OBSERVER SURE.SHOT [LOC]"
+        },
+        {
+          "name_hex": "5f6f4752455f209dcc12c39f",
+          "alias": "_OGRE_ <L0C>"
+        },
+        {
+          "name_hex": "d2218ed261706973748ed221",
+          "alias": "R!·RAPIST·R!"
+        },
+        {
+          "name_hex": "4f62736572766572202e4b72793047654e2e",
+          "alias": "OBSERVER .KRY0GEN."
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d2e506f695a6f6e2e",
+          "alias": "OBSERVER [BB].POIZON."
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d2e4430306d73646179",
+          "alias": "OBSERVER [CK].D00MSDAY"
+        },
+        {
+          "name_hex": "4f62736572766572205d5b2e4156415441522e5d5b585d",
+          "alias": "OBSERVER ][.AVATAR.][X]"
+        },
+        {
+          "name_hex": "4f62736572766572205d4b4d5b41633164",
+          "alias": "OBSERVER ]KM[AC1D"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b54686f72694e",
+          "alias": "OBSERVER ]KM[THORIN"
+        },
+        {
+          "name_hex": "4f6273657276657220232e6d6572637572792e23",
+          "alias": "OBSERVER #.MERCURY.#"
+        },
+        {
+          "name_hex": "4f62736572766572203e3e5b6d6572637572795d3e5b585d",
+          "alias": "OBSERVER >>[MERCURY]>[X]"
+        },
+        {
+          "name_hex": "4f62736572766572204379626572202e47554e2e",
+          "alias": "OBSERVER CYBER .GUN."
+        },
+        {
+          "name_hex": "4f6273657276657220457261734572205b4374465d",
+          "alias": "OBSERVER ERASER [CTF]"
+        },
+        {
+          "name_hex": "4f62736572766572204d722e20436c65616e",
+          "alias": "OBSERVER MR. CLEAN"
+        },
+        {
+          "name_hex": "d5eee4e5f2f3e9e5e7e55b446f685d",
+          "alias": "UNDERSIEGE[DOH]"
+        },
+        {
+          "name_hex": "73737c70617061",
+          "alias": "SS|PAPA"
+        },
+        {
+          "name_hex": "626f62205b54445d",
+          "alias": "BOB [TD]"
+        },
+        {
+          "name_hex": "677265656e5b736c6f5d",
+          "alias": "GREEN[SLO]"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e536b3333743372",
+          "alias": "OBSERVER BSF.SK33T3R"
+        },
+        {
+          "name_hex": "41646d696e",
+          "alias": "ADMIN"
+        },
+        {
+          "name_hex": "5b335d20736861646f77737472756b",
+          "alias": "[3] SHADOWSTRUK"
+        },
+        {
+          "name_hex": "56697072794e",
+          "alias": "VIPRYN"
+        },
+        {
+          "name_hex": "4d454c5249433a4f62736572766572",
+          "alias": "MELRIC:OBSERVER"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d4a65726b6f6666",
+          "alias": "OBSERVER [CK]JERKOFF"
+        },
+        {
+          "name_hex": "4f627365727665722042616b61",
+          "alias": "OBSERVER BAKA"
+        },
+        {
+          "name_hex": "4f627365727665722043617074426c6173746f2e47554e2e",
+          "alias": "OBSERVER CAPTBLASTO.GUN."
+        },
+        {
+          "name_hex": "4f62736572766572204e42492e46754e6b596d4f6e4b6559",
+          "alias": "OBSERVER NBI.FUNKYMONKEY"
+        },
+        {
+          "name_hex": "4f62736572766572204e42492e556e697850656f6e",
+          "alias": "OBSERVER NBI.UNIXPEON"
+        },
+        {
+          "name_hex": "4f62736572766572207173205b64656974795d",
+          "alias": "OBSERVER QS [DEITY]"
+        },
+        {
+          "name_hex": "4f627365727665722057306c6666202e47554e2e",
+          "alias": "OBSERVER W0LFF .GUN."
+        },
+        {
+          "name_hex": "4465732d4c6f432d517456",
+          "alias": "DES-LOC-QTV"
+        },
+        {
+          "name_hex": "457175616e6f785b42445d",
+          "alias": "EQUANOX[BD]"
+        },
+        {
+          "name_hex": "4e69676874726176656e5b4133445d",
+          "alias": "NIGHTRAVEN[A3D]"
+        },
+        {
+          "name_hex": "53706565642d4c6f43",
+          "alias": "SPEED-LOC"
+        },
+        {
+          "name_hex": "0ec5c40fd049ce",
+          "alias": "·ED·PIN"
+        },
+        {
+          "name_hex": "91cdc7cb90854c6f6f50",
+          "alias": "]MGK[·LOOP"
+        },
+        {
+          "name_hex": "8eca6f74c8616d8e9dcaf5e4e7e59f",
+          "alias": "·JOTHAM·<JUDGE>"
+        },
+        {
+          "name_hex": "4f62736572766572205f6f4752455f203c4c30433e",
+          "alias": "OBSERVER _OGRE_ <L0C>"
+        },
+        {
+          "name_hex": "4f62736572766572202e646e612e6d657263757279",
+          "alias": "OBSERVER .DNA.MERCURY"
+        },
+        {
+          "name_hex": "4f62736572766572202e4a6f7448616d2e3c4a756467653e",
+          "alias": "OBSERVER .JOTHAM.<JUDGE>"
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d2e4d61737465522e",
+          "alias": "OBSERVER [BB].MASTER."
+        },
+        {
+          "name_hex": "4f62736572766572203c53656c662d44657374727563743e",
+          "alias": "OBSERVER <SELF-DESTRUCT>"
+        },
+        {
+          "name_hex": "4f6273657276657220416d306e",
+          "alias": "OBSERVER AM0N"
+        },
+        {
+          "name_hex": "4f6273657276657220626c6168",
+          "alias": "OBSERVER BLAH"
+        },
+        {
+          "name_hex": "4f6273657276657220426c6171",
+          "alias": "OBSERVER BLAQ"
+        },
+        {
+          "name_hex": "4f6273657276657220426f6f",
+          "alias": "OBSERVER BOO"
+        },
+        {
+          "name_hex": "4f627365727665722044656669616e63655b4d7974485d",
+          "alias": "OBSERVER DEFIANCE[MYTH]"
+        },
+        {
+          "name_hex": "4f6273657276657220666174616c",
+          "alias": "OBSERVER FATAL"
+        },
+        {
+          "name_hex": "4f6273657276657220466c6f756e646572",
+          "alias": "OBSERVER FLOUNDER"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e736f756c6e6574",
+          "alias": "OBSERVER HIFI>.SOULNET"
+        },
+        {
+          "name_hex": "4f62736572766572204c61576e3e53656544",
+          "alias": "OBSERVER LAWN>SEED"
+        },
+        {
+          "name_hex": "4f62736572766572206d746e",
+          "alias": "OBSERVER MTN"
+        },
+        {
+          "name_hex": "4f62736572766572206e683e2e62616472756e65",
+          "alias": "OBSERVER NH>.BADRUNE"
+        },
+        {
+          "name_hex": "4f62736572766572206e683e2e6b696c6c623079",
+          "alias": "OBSERVER NH>.KILLB0Y"
+        },
+        {
+          "name_hex": "4f62736572766572206e683e2e6d616472756e65",
+          "alias": "OBSERVER NH>.MADRUNE"
+        },
+        {
+          "name_hex": "4f6273657276657220706c61796572",
+          "alias": "OBSERVER PLAYER"
+        },
+        {
+          "name_hex": "4f6273657276657220536572617068696d",
+          "alias": "OBSERVER SERAPHIM"
+        },
+        {
+          "name_hex": "4f62736572766572205461636f42697465",
+          "alias": "OBSERVER TACOBITE"
+        },
+        {
+          "name_hex": "4f627365727665722054656e6b617761",
+          "alias": "OBSERVER TENKAWA"
+        },
+        {
+          "name_hex": "4f62736572766572205468756e6465722d436869636b656e",
+          "alias": "OBSERVER THUNDER-CHICKEN"
+        },
+        {
+          "name_hex": "4f6273657276657220776f6c6666",
+          "alias": "OBSERVER WOLFF"
+        },
+        {
+          "name_hex": "cb69cba09dcc92c39f",
+          "alias": "KIK <L0C>"
+        },
+        {
+          "name_hex": "6c65766572657474",
+          "alias": "LEVERETT"
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d2e4d6178696d614c2e",
+          "alias": "OBSERVER [BB].MAXIMAL."
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d2e55736865522e",
+          "alias": "OBSERVER [BB].USHER."
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e4b615a614d",
+          "alias": "OBSERVER BM.KAZAM"
+        },
+        {
+          "name_hex": "4f6273657276657220646f68",
+          "alias": "OBSERVER DOH"
+        },
+        {
+          "name_hex": "4f627365727665722046697265",
+          "alias": "OBSERVER FIRE"
+        },
+        {
+          "name_hex": "4f62736572766572206670696e67",
+          "alias": "OBSERVER FPING"
+        },
+        {
+          "name_hex": "4f6273657276657220536865726d616e",
+          "alias": "OBSERVER SHERMAN"
+        },
+        {
+          "name_hex": "4f6273657276657220537065656470687265616b20647638",
+          "alias": "OBSERVER SPEEDPHREAK DV8"
+        },
+        {
+          "name_hex": "4f6273657276657220764153515151557a23474159",
+          "alias": "OBSERVER VASQQQU2#GAY"
+        },
+        {
+          "name_hex": "85",
+          "alias": "·"
+        },
+        {
+          "name_hex": "d2c42dc1cdcfce2d9294",
+          "alias": "RD-AMON-02"
+        },
+        {
+          "name_hex": "686f6f6b616765206f776e732075",
+          "alias": "HOOKAGE OWNS U"
+        },
+        {
+          "name_hex": "10cce1e611a065f26d",
+          "alias": "[LAF] ERM"
+        },
+        {
+          "name_hex": "4f62736572766572203d5b",
+          "alias": "OBSERVER =["
+        },
+        {
+          "name_hex": "4f6273657276657220426162795370696365456d6d612d58",
+          "alias": "OBSERVER BABYSPICEEMMA-X"
+        },
+        {
+          "name_hex": "4f62736572766572205a65726f202e47554e2e",
+          "alias": "OBSERVER ZERO .GUN."
+        },
+        {
+          "name_hex": "d22185d669637469cd85d221",
+          "alias": "R!·VICTIM·R!"
+        },
+        {
+          "name_hex": "4f62736572766572202e6273722e636170706564",
+          "alias": "OBSERVER .BSR.CAPPED"
+        },
+        {
+          "name_hex": "4f62736572766572205665316e532e5b4374465d",
+          "alias": "OBSERVER VE1NS.[CTF]"
+        },
+        {
+          "name_hex": "536f757061c6ccd9",
+          "alias": "SOUPAFLY"
+        },
+        {
+          "name_hex": "46697265466c616d65205b6c6f635d",
+          "alias": "FIREFLAME [LOC]"
+        },
+        {
+          "name_hex": "8dc3e89595f395e89596e48d",
+          "alias": "CH33S3H34D"
+        },
+        {
+          "name_hex": "41d2e3c841cee7c54c0c90d06fc391",
+          "alias": "ARCHANGEL [POC]"
+        },
+        {
+          "name_hex": "6661726665746368",
+          "alias": "FARFETCH"
+        },
+        {
+          "name_hex": "3293b29c42c94c4cf92044",
+          "alias": "212·BILLY D"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e20427265616b44776e",
+          "alias": "OBSERVER <CGIB> BREAKDWN"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e206578696c65",
+          "alias": "OBSERVER <CGIB> EXILE"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e2053686174746572",
+          "alias": "OBSERVER <CGIB> SHATTER"
+        },
+        {
+          "name_hex": "4f62736572766572204b7275737479",
+          "alias": "OBSERVER KRUSTY"
+        },
+        {
+          "name_hex": "f468e52063ec61ee62e572f269e573",
+          "alias": "THE CLANBERRIES"
+        },
+        {
+          "name_hex": "4f627365727665722074686520636c616e62657272696573",
+          "alias": "OBSERVER THE CLANBERRIES"
+        },
+        {
+          "name_hex": "686967686c616e6465722d4c6f43",
+          "alias": "HIGHLANDER-LOC"
+        },
+        {
+          "name_hex": "4f6273657276657220416d6f6e",
+          "alias": "OBSERVER AMON"
+        },
+        {
+          "name_hex": "4f62736572766572204344493e46317265466c616d65",
+          "alias": "OBSERVER CDI>F1REFLAME"
+        },
+        {
+          "name_hex": "4f6273657276657220437261636b643067",
+          "alias": "OBSERVER CRACKD0G"
+        },
+        {
+          "name_hex": "4f627365727665722053616d736f6e2e647638",
+          "alias": "OBSERVER SAMSON.DV8"
+        },
+        {
+          "name_hex": "4f6273657276657220556e7370306b656e",
+          "alias": "OBSERVER UNSP0KEN"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e67756e6e6572",
+          "alias": "OBSERVER BSF.GUNNER"
+        },
+        {
+          "name_hex": "4f62736572766572204b694b203c4c30433e",
+          "alias": "OBSERVER KIK <L0C>"
+        },
+        {
+          "name_hex": "4b656e742c5741",
+          "alias": "KENT,WA"
+        },
+        {
+          "name_hex": "417272616b69737c515456",
+          "alias": "ARRAKIS|QTV"
+        },
+        {
+          "name_hex": "9045474f919cd4e9e7e5f29c",
+          "alias": "[EGO]·TIGER·"
+        },
+        {
+          "name_hex": "47697a6d6f",
+          "alias": "GI2MO"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d20446f6f6d73646179",
+          "alias": "OBSERVER [CK] DOOMSDAY"
+        },
+        {
+          "name_hex": "4f62736572766572205b44435d556c74696d30",
+          "alias": "OBSERVER [DC]ULTIM0"
+        },
+        {
+          "name_hex": "4f62736572766572205b45474f5d2e54696765722e",
+          "alias": "OBSERVER [EGO].TIGER."
+        },
+        {
+          "name_hex": "4f62736572766572203e2e463172652e3e5b585d",
+          "alias": "OBSERVER >.F1RE.>[X]"
+        },
+        {
+          "name_hex": "4f62736572766572204173735261706572",
+          "alias": "OBSERVER ASSRAPER"
+        },
+        {
+          "name_hex": "4f62736572766572204e6577706f727442656163682c4341",
+          "alias": "OBSERVER NEWPORTBEACH,CA"
+        },
+        {
+          "name_hex": "4f627365727665722052656472756d",
+          "alias": "OBSERVER REDRUM"
+        },
+        {
+          "name_hex": "4f627365727665722053616372616d656e746f2c4341",
+          "alias": "OBSERVER SACRAMENTO,CA"
+        },
+        {
+          "name_hex": "90518ee18e5191ad905891",
+          "alias": "[Q·A·Q]-[X]"
+        },
+        {
+          "name_hex": "4963454d614e",
+          "alias": "ICEMAN"
+        },
+        {
+          "name_hex": "d375131333cea012ee15",
+          "alias": "SU113N 0N3"
+        },
+        {
+          "name_hex": "9dd36ce179e572d89f",
+          "alias": "<SLAYERX>"
+        },
+        {
+          "name_hex": "2d2d112d2dc6e9f2e52d2d2d105811",
+          "alias": "--]--FIRE---[X]"
+        },
+        {
+          "name_hex": "c2ec9292e473689564",
+          "alias": "BL00DSH3D"
+        },
+        {
+          "name_hex": "62726974697368206675636b6572",
+          "alias": "BRITISH FUCKER"
+        },
+        {
+          "name_hex": "8e41f57495e368f2659c9043744691",
+          "alias": "·AUT3CHRE·[CTF]"
+        },
+        {
+          "name_hex": "5370756e6b79",
+          "alias": "SPUNKY"
+        },
+        {
+          "name_hex": "4c6179646261636b",
+          "alias": "LAYDBACK"
+        },
+        {
+          "name_hex": "d6616465727c4c6f43",
+          "alias": "VADER|LOC"
+        },
+        {
+          "name_hex": "d3686172c4",
+          "alias": "SHARD"
+        },
+        {
+          "name_hex": "da6572efa09dcc12c39f",
+          "alias": "ZERO <L0C>"
+        },
+        {
+          "name_hex": "90636b91e579e4",
+          "alias": "[CK]EYD"
+        },
+        {
+          "name_hex": "4f62736572766572205b66735d2e666c616770316d70",
+          "alias": "OBSERVER [FS].FLAGP1MP"
+        },
+        {
+          "name_hex": "9074737a91a0d0f2e5f3",
+          "alias": "[TS2] PRES"
+        },
+        {
+          "name_hex": "9074737a9120c5adcde1ee",
+          "alias": "[TS2] E-MAN"
+        },
+        {
+          "name_hex": "4f62736572766572205b5649495d44726577",
+          "alias": "OBSERVER [VII]DREW"
+        },
+        {
+          "name_hex": "4f6273657276657220546169796f72797520464c414721",
+          "alias": "OBSERVER TAIYORYU FLAG!"
+        },
+        {
+          "name_hex": "4f6273657276657220756e6e616d65642072656e616d656420746f",
+          "alias": "OBSERVER UNNAMED RENAMED TO"
+        },
+        {
+          "name_hex": "4f6273657276657220566164657220666c616721",
+          "alias": "OBSERVER VADER FLAG!"
+        },
+        {
+          "name_hex": "24ee12570fcd61ce",
+          "alias": "$N0W·MAN"
+        },
+        {
+          "name_hex": "3d6269736830705d44435b3d",
+          "alias": "=BISH0P]DC[="
+        },
+        {
+          "name_hex": "4f6273657276657220426c61636b666f6f742e2e2e5b585d",
+          "alias": "OBSERVER BLACKFOOT...[X]"
+        },
+        {
+          "name_hex": "4f62736572766572204e6f626f64792d4c6f43",
+          "alias": "OBSERVER NOBODY-LOC"
+        },
+        {
+          "name_hex": "4f6273657276657220536d6f6b657920446120466c616721",
+          "alias": "OBSERVER SMOKEY DA FLAG!"
+        },
+        {
+          "name_hex": "536f757061c6ccd9205b4c4f435d",
+          "alias": "SOUPAFLY [LOC]"
+        },
+        {
+          "name_hex": "4e65737375732d4c6f43",
+          "alias": "NESSUS-LOC"
+        },
+        {
+          "name_hex": "c3d68ed3616d736f6e",
+          "alias": "CV·SAMSON"
+        },
+        {
+          "name_hex": "d0617261646fd89dcc6fc39f",
+          "alias": "PARADOX<LOC>"
+        },
+        {
+          "name_hex": "91d085d3901cce9374e5d7926ce6",
+          "alias": "]P·S[·N1TEW0LF"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d2048617751204f6273",
+          "alias": "OBSERVER [CK] HAWQ OBS"
+        },
+        {
+          "name_hex": "4f627365727665722041737a75726f6d",
+          "alias": "OBSERVER AS2UROM"
+        },
+        {
+          "name_hex": "4f627365727665722048617751363636",
+          "alias": "OBSERVER HAWQ666"
+        },
+        {
+          "name_hex": "4f62736572766572204d696c6b447564",
+          "alias": "OBSERVER MILKDUD"
+        },
+        {
+          "name_hex": "4f62736572766572204d696c6b4475645b6f6273765d",
+          "alias": "OBSERVER MILKDUD[OBSV]"
+        },
+        {
+          "name_hex": "4f62736572766572205b44435d4a656666202d20515456",
+          "alias": "OBSERVER [DC]JEFF - QTV"
+        },
+        {
+          "name_hex": "c8136413ee1885cd7910d71212c411",
+          "alias": "H1D1N6·MY[W00D]"
+        },
+        {
+          "name_hex": "c4cfc19cd08511691085d4d47c4f42",
+          "alias": "DOA·P·]I[·TT|OB"
+        },
+        {
+          "name_hex": "cd79f374e963939490cdc7cb91",
+          "alias": "MYSTIC12[MGK]"
+        },
+        {
+          "name_hex": "8e91cd72908e988ef245ccc159928d",
+          "alias": "·]MR[·6·RELAY0"
+        },
+        {
+          "name_hex": "90414d918f1dcee5f2e0fae8f5ec1f",
+          "alias": "[AM]·<NER`2HUL>"
+        },
+        {
+          "name_hex": "4d757264657261",
+          "alias": "MURDERA"
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d42616c6c2e546f6e677565",
+          "alias": "OBSERVER [BB]BALL.TONGUE"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e30",
+          "alias": "OBSERVER BSF.0"
+        },
+        {
+          "name_hex": "4f62736572766572204b6e6f77726174",
+          "alias": "OBSERVER KNOWRAT"
+        },
+        {
+          "name_hex": "4f6273657276657220536d696c6579",
+          "alias": "OBSERVER SMILEY"
+        },
+        {
+          "name_hex": "d3707269746590d36f646191",
+          "alias": "SPRITE[SODA]"
+        },
+        {
+          "name_hex": "c16d6fee201dcc92c31f",
+          "alias": "AMON <L0C>"
+        },
+        {
+          "name_hex": "905145912053696465c6d8",
+          "alias": "[QE] SIDEFX"
+        },
+        {
+          "name_hex": "90d3c9c4c551d7c9cec4c5d291",
+          "alias": "[SIDEQWINDER]"
+        },
+        {
+          "name_hex": "46f26ff3549cf448e59c48ef4feb",
+          "alias": "FROST·THE·HOOK"
+        },
+        {
+          "name_hex": "50e8f5e3eba0a0a09d48617630639f",
+          "alias": "PHUCK   <HAV0C>"
+        },
+        {
+          "name_hex": "9045474f918e4c4f43",
+          "alias": "[EGO]·LOC"
+        },
+        {
+          "name_hex": "4e616d65",
+          "alias": "NAME"
+        },
+        {
+          "name_hex": "4f62736572766572205b4b41545a5d4461426f7373",
+          "alias": "OBSERVER [KATZ]DABOSS"
+        },
+        {
+          "name_hex": "4f62736572766572205b5649495d52656e6567616465",
+          "alias": "OBSERVER [VII]RENEGADE"
+        },
+        {
+          "name_hex": "6b6565706572",
+          "alias": "KEEPER"
+        },
+        {
+          "name_hex": "2e2e2e6c65617665206d652e2e2e",
+          "alias": "...LEAVE ME..."
+        },
+        {
+          "name_hex": "432d47",
+          "alias": "C-G"
+        },
+        {
+          "name_hex": "80f468e581f761ec6c82",
+          "alias": "THE·WALL"
+        },
+        {
+          "name_hex": "7468653d77616c6c",
+          "alias": "THE=WALL"
+        },
+        {
+          "name_hex": "5363687292e4e9eee7e5f29ccc92c3",
+          "alias": "SCHR0DINGER·L0C"
+        },
+        {
+          "name_hex": "53657468",
+          "alias": "SETH"
+        },
+        {
+          "name_hex": "4f627365727665722068656c70",
+          "alias": "OBSERVER HELP"
+        },
+        {
+          "name_hex": "4f62736572766572204e6573737573202e47554e2e",
+          "alias": "OBSERVER NESSUS .GUN."
+        },
+        {
+          "name_hex": "4f6273657276657220706974766970",
+          "alias": "OBSERVER PITVIP"
+        },
+        {
+          "name_hex": "4f6273657276657220285452472977696c626572",
+          "alias": "OBSERVER (TRG)WILBER"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e456767",
+          "alias": "OBSERVER BSF.EGG"
+        },
+        {
+          "name_hex": "4f62736572766572204d616d6d6f6e",
+          "alias": "OBSERVER MAMMON"
+        },
+        {
+          "name_hex": "c17272616b69739dcc92c39f",
+          "alias": "ARRAKIS<L0C>"
+        },
+        {
+          "name_hex": "717476",
+          "alias": "QTV"
+        },
+        {
+          "name_hex": "4253462e45786142797465",
+          "alias": "BSF.EXABYTE"
+        },
+        {
+          "name_hex": "ceefe4e5d2f5eeeee5f21064769a11",
+          "alias": "NODERUNNER[DV8]"
+        },
+        {
+          "name_hex": "90746c6d918ec4e5f4e84279c3e8e3",
+          "alias": "[TLM]·DETHBYCHC"
+        },
+        {
+          "name_hex": "c1706f639c9397939c",
+          "alias": "APOC·151·"
+        },
+        {
+          "name_hex": "4f6273657276657220212121212121212121212121212121",
+          "alias": "OBSERVER !!!!!!!!!!!!!!!"
+        },
+        {
+          "name_hex": "4f62736572766572205b414d5d2e426c6f6f64",
+          "alias": "OBSERVER [AM].BLOOD"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e47757275",
+          "alias": "OBSERVER [EQ].GURU"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b5f6f4752455f",
+          "alias": "OBSERVER ]KM[_OGRE_"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b41636964",
+          "alias": "OBSERVER ]KM[ACID"
+        },
+        {
+          "name_hex": "4f62736572766572202e",
+          "alias": "OBSERVER ."
+        },
+        {
+          "name_hex": "4f627365727665722043727970746f2773206d6f6d",
+          "alias": "OBSERVER CRYPTO'S MOM"
+        },
+        {
+          "name_hex": "4f627365727665722046617274623079",
+          "alias": "OBSERVER FARTB0Y"
+        },
+        {
+          "name_hex": "4f6273657276657220696e66656374696f7573",
+          "alias": "OBSERVER INFECTIOUS"
+        },
+        {
+          "name_hex": "116d676b100ff0f2efe4e9f5f30e",
+          "alias": "]MGK[·PRODIUS·"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d446f6f6d7364617921",
+          "alias": "OBSERVER [CK]DOOMSDAY!"
+        },
+        {
+          "name_hex": "4f62736572766572205d6d676b5b2e70726f646975732e",
+          "alias": "OBSERVER ]MGK[.PRODIUS."
+        },
+        {
+          "name_hex": "4f62736572766572206163696420646f6e65723f",
+          "alias": "OBSERVER ACID DONER?"
+        },
+        {
+          "name_hex": "4f6273657276657220436f6f6c776869702d4342",
+          "alias": "OBSERVER COOLWHIP-CB"
+        },
+        {
+          "name_hex": "4f627365727665722068307374696c65",
+          "alias": "OBSERVER H0STILE"
+        },
+        {
+          "name_hex": "85d08f9169908fd4d49c",
+          "alias": "·P·]I[·TT·"
+        },
+        {
+          "name_hex": "726f6f6e79",
+          "alias": "ROONY"
+        },
+        {
+          "name_hex": "85d06812156e69d885",
+          "alias": "·PH03NIX·"
+        },
+        {
+          "name_hex": "106564119cd46875c7",
+          "alias": "[ED]·THUG"
+        },
+        {
+          "name_hex": "424c454821",
+          "alias": "BLEH!"
+        },
+        {
+          "name_hex": "c5edf079726f73209dcc92c39f",
+          "alias": "EMPYROS <L0C>"
+        },
+        {
+          "name_hex": "616e74936d616e",
+          "alias": "ANT1MAN"
+        },
+        {
+          "name_hex": "73f5f2459c53e8ef548c904c6f4311",
+          "alias": "SURE·SHOT [LOC]"
+        },
+        {
+          "name_hex": "f7f97665726e",
+          "alias": "WYVERN"
+        },
+        {
+          "name_hex": "c77265656ec769616e7420ccc6c6",
+          "alias": "GREENGIANT LFF"
+        },
+        {
+          "name_hex": "566d616e",
+          "alias": "VMAN"
+        },
+        {
+          "name_hex": "4f62736572766572202843617074486f6f6b295b6476385d",
+          "alias": "OBSERVER (CAPTHOOK)[DV8]"
+        },
+        {
+          "name_hex": "4f62736572766572205b536f6d654f6e655d2e5b4c704c5d",
+          "alias": "OBSERVER [SOMEONE].[LPL]"
+        },
+        {
+          "name_hex": "4f6273657276657220637261706f6c61",
+          "alias": "OBSERVER CRAPOLA"
+        },
+        {
+          "name_hex": "4f627365727665722047724f774c2e5b6373645d",
+          "alias": "OBSERVER GROWL.[CSD]"
+        },
+        {
+          "name_hex": "4f627365727665722068616c6c6f21",
+          "alias": "OBSERVER HALLO!"
+        },
+        {
+          "name_hex": "4f627365727665722070656520706565205d6476385b",
+          "alias": "OBSERVER PEE PEE ]DV8["
+        },
+        {
+          "name_hex": "4f627365727665722050697373792050616e74735b73645d",
+          "alias": "OBSERVER PISSY PANTS[SD]"
+        },
+        {
+          "name_hex": "4f627365727665722073617475726e",
+          "alias": "OBSERVER SATURN"
+        },
+        {
+          "name_hex": "4f6273657276657220536f6d654f6e65202e205d6476385b",
+          "alias": "OBSERVER SOMEONE . ]DV8["
+        },
+        {
+          "name_hex": "73717565657a652e6e616d",
+          "alias": "SQUEE2E.NAM"
+        },
+        {
+          "name_hex": "d3747261779c10e3736411",
+          "alias": "STRAW·[CSD]"
+        },
+        {
+          "name_hex": "6a75696365",
+          "alias": "JUICE"
+        },
+        {
+          "name_hex": "4c4f432d546f6b652d4c4f58",
+          "alias": "LOC-TOKE-LOX"
+        },
+        {
+          "name_hex": "c56a854b72617665859293",
+          "alias": "EJ·KRAVE·01"
+        },
+        {
+          "name_hex": "436f6f6b7573426f7483d1d4d683",
+          "alias": "COOKUSBOTQTV"
+        },
+        {
+          "name_hex": "804ac553d445d28210d3c9d4c891",
+          "alias": "JESTER[SITH]"
+        },
+        {
+          "name_hex": "4f62736572766572202e44464c2e4c656164466f6f743e",
+          "alias": "OBSERVER .DFL.LEADFOOT>"
+        },
+        {
+          "name_hex": "4f627365727665722028434f4646494e295b534954485d",
+          "alias": "OBSERVER (COFFIN)[SITH]"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e486967686c616e646572",
+          "alias": "OBSERVER [EQ].HIGHLANDER"
+        },
+        {
+          "name_hex": "4f62736572766572206574636574657261",
+          "alias": "OBSERVER ETCETERA"
+        },
+        {
+          "name_hex": "4f62736572766572204675636b6572",
+          "alias": "OBSERVER FUCKER"
+        },
+        {
+          "name_hex": "4f62736572766572204c61576e3e6d30776552",
+          "alias": "OBSERVER LAWN>M0WER"
+        },
+        {
+          "name_hex": "4f6273657276657220506c617961",
+          "alias": "OBSERVER PLAYA"
+        },
+        {
+          "name_hex": "4f6273657276657220537072316e4b",
+          "alias": "OBSERVER SPR1NK"
+        },
+        {
+          "name_hex": "c4656669616e636510cd7974c811",
+          "alias": "DEFIANCE[MYTH]"
+        },
+        {
+          "name_hex": "4465666f6d616e",
+          "alias": "DEFOMAN"
+        },
+        {
+          "name_hex": "4f62736572766572206461757468695b534954485d",
+          "alias": "OBSERVER DAUTHI[SITH]"
+        },
+        {
+          "name_hex": "4f6273657276657220676869647261",
+          "alias": "OBSERVER GHIDRA"
+        },
+        {
+          "name_hex": "4f62736572766572205a65726f2e30",
+          "alias": "OBSERVER ZERO.0"
+        },
+        {
+          "name_hex": "d46dee548ecce5926e61726492",
+          "alias": "TMNT·LE0NARD0"
+        },
+        {
+          "name_hex": "0fc4c6cc0f4c656164466f6f748d",
+          "alias": "·DFL·LEADFOOT"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e6d61647065306e",
+          "alias": "OBSERVER HIFI>.MADPE0N"
+        },
+        {
+          "name_hex": "4f62736572766572204d79537445725920446f542e",
+          "alias": "OBSERVER MYSTERY DOT."
+        },
+        {
+          "name_hex": "646574682d6c6f632d717476",
+          "alias": "DETH-LOC-QTV"
+        },
+        {
+          "name_hex": "4f62736572766572205b44435d4265725a65724b",
+          "alias": "OBSERVER [DC]BERZERK"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b4d65726c316e",
+          "alias": "OBSERVER ]KM[MERL1N"
+        },
+        {
+          "name_hex": "4f627365727665722062696f2e3c5669616c6c693e",
+          "alias": "OBSERVER BIO.<VIALLI>"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e623030666572",
+          "alias": "OBSERVER BSF.B00FER"
+        },
+        {
+          "name_hex": "4f6273657276657220676f6b75",
+          "alias": "OBSERVER GOKU"
+        },
+        {
+          "name_hex": "4f62736572766572204d61677573",
+          "alias": "OBSERVER MAGUS"
+        },
+        {
+          "name_hex": "4f62736572766572205472756e6b73",
+          "alias": "OBSERVER TRUNKS"
+        },
+        {
+          "name_hex": "646574682d7174762d6c6f63",
+          "alias": "DETH-QTV-LOC"
+        },
+        {
+          "name_hex": "646574682d7174762d6c6f6320286c6f63616c6c7929",
+          "alias": "DETH-QTV-LOC (LOCALLY)"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e536368723064696e676572",
+          "alias": "OBSERVER BSF.SCHR0DINGER"
+        },
+        {
+          "name_hex": "4f62736572766572206c616e64",
+          "alias": "OBSERVER LAND"
+        },
+        {
+          "name_hex": "4f62736572766572204d722e2042616c6c7a",
+          "alias": "OBSERVER MR. BALL2"
+        },
+        {
+          "name_hex": "4f627365727665722074696e6f5f766969",
+          "alias": "OBSERVER TINO_VII"
+        },
+        {
+          "name_hex": "4f6273657276657220596f73656d6974652c204341",
+          "alias": "OBSERVER YOSEMITE, CA"
+        },
+        {
+          "name_hex": "646574682d6c6f632d71747620286c6f63616c6c7929",
+          "alias": "DETH-LOC-QTV (LOCALLY)"
+        },
+        {
+          "name_hex": "4f6273657276657220536570",
+          "alias": "OBSERVER SEP"
+        },
+        {
+          "name_hex": "4f6273657276657220546865204d656368616e6963",
+          "alias": "OBSERVER THE MECHANIC"
+        },
+        {
+          "name_hex": "48656c6c5f4c6f63",
+          "alias": "HELL_LOC"
+        },
+        {
+          "name_hex": "7568",
+          "alias": "UH"
+        },
+        {
+          "name_hex": "80c96dd061c3548e8d1043d31182",
+          "alias": "[CS]"
+        },
+        {
+          "name_hex": "496d506143542e3e5b43535d",
+          "alias": "IMPACT.>[CS]"
+        },
+        {
+          "name_hex": "f3eff5ec6e6574",
+          "alias": "SOULNET"
+        },
+        {
+          "name_hex": "6c6974746c655f6c6c616d61",
+          "alias": "LITTLE_LLAMA"
+        },
+        {
+          "name_hex": "2020ad73d46f6c69ad206476b8",
+          "alias": "-STOLI- DV8"
+        },
+        {
+          "name_hex": "d0616e64656d6f6e6975cd",
+          "alias": "PANDEMONIUM"
+        },
+        {
+          "name_hex": "45726d616320515456",
+          "alias": "ERMAC QTV"
+        },
+        {
+          "name_hex": "10f0e811506c61796572",
+          "alias": "[PH]PLAYER"
+        },
+        {
+          "name_hex": "4f62736572766572202e6273722e64796c616e",
+          "alias": "OBSERVER .BSR.DYLAN"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e4a61696c20536578",
+          "alias": "OBSERVER BM.JAIL SEX"
+        },
+        {
+          "name_hex": "4f62736572766572204b656e742c205741",
+          "alias": "OBSERVER KENT, WA"
+        },
+        {
+          "name_hex": "4f627365727665722052756e61776179",
+          "alias": "OBSERVER RUNAWAY"
+        },
+        {
+          "name_hex": "4f627365727665722057656e6174636865652c205741",
+          "alias": "OBSERVER WENATCHEE, WA"
+        },
+        {
+          "name_hex": "4f62736572766572202e46754e6b59",
+          "alias": "OBSERVER .FUNKY"
+        },
+        {
+          "name_hex": "4f62736572766572202e46754e6b592c4341",
+          "alias": "OBSERVER .FUNKY,CA"
+        },
+        {
+          "name_hex": "4f62736572766572203c52422d4d61747269782d52423e",
+          "alias": "OBSERVER <RB-MATRIX-RB>"
+        },
+        {
+          "name_hex": "4f6273657276657220616e616c736578",
+          "alias": "OBSERVER ANALSEX"
+        },
+        {
+          "name_hex": "4f627365727665722041737320476f626c696e",
+          "alias": "OBSERVER ASS GOBLIN"
+        },
+        {
+          "name_hex": "4f6273657276657220736b756e6b6561746572",
+          "alias": "OBSERVER SKUNKEATER"
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d2e4d6572636966756c2e",
+          "alias": "OBSERVER [BB].MERCIFUL."
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d446f6f6d73646179",
+          "alias": "OBSERVER [CK]DOOMSDAY"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e52696368626f79",
+          "alias": "OBSERVER [EQ].RICHBOY"
+        },
+        {
+          "name_hex": "4f62736572766572204330306b757342307420466c616721",
+          "alias": "OBSERVER C00KUSB0T FLAG!"
+        },
+        {
+          "name_hex": "4f627365727665722043616d656c4a6f636b6579",
+          "alias": "OBSERVER CAMELJOCKEY"
+        },
+        {
+          "name_hex": "4f627365727665722047512e4d6f6f6b6965",
+          "alias": "OBSERVER GQ.MOOKIE"
+        },
+        {
+          "name_hex": "4f62736572766572204a6f686e20556c74696d6f",
+          "alias": "OBSERVER JOHN ULTIMO"
+        },
+        {
+          "name_hex": "4f62736572766572204b72757374593e473044",
+          "alias": "OBSERVER KRUSTY>G0D"
+        },
+        {
+          "name_hex": "4f627365727665722050617261646f58",
+          "alias": "OBSERVER PARADOX"
+        },
+        {
+          "name_hex": "4f6273657276657220547261686e",
+          "alias": "OBSERVER TRAHN"
+        },
+        {
+          "name_hex": "64756ee712",
+          "alias": "DUNG0"
+        },
+        {
+          "name_hex": "4f6273657276657220503077443372",
+          "alias": "OBSERVER P0WD3R"
+        },
+        {
+          "name_hex": "c26c7565c2657272799cc3c2",
+          "alias": "BLUEBERRY·CB"
+        },
+        {
+          "name_hex": "d09292707910cd7974c811",
+          "alias": "P00PY[MYTH]"
+        },
+        {
+          "name_hex": "d26156656e10cd7974c811",
+          "alias": "RAVEN[MYTH]"
+        },
+        {
+          "name_hex": "c368616f746963da10cd7974c811",
+          "alias": "CHAOTICZ[MYTH]"
+        },
+        {
+          "name_hex": "42756c6c73657965",
+          "alias": "BULLSEYE"
+        },
+        {
+          "name_hex": "e3e4e98d8f90e7efece491",
+          "alias": "·[GOLD]"
+        },
+        {
+          "name_hex": "4f62736572766572205b4368454573454430475d",
+          "alias": "OBSERVER [CHEESED0G]"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e4b696b59307572417373",
+          "alias": "OBSERVER [EQ].KIKY0URASS"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e4d79737469633132",
+          "alias": "OBSERVER [EQ].MYSTIC12"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e543164616c",
+          "alias": "OBSERVER [EQ].T1DAL"
+        },
+        {
+          "name_hex": "4f62736572766572205b65715d494c696b6553616c7361",
+          "alias": "OBSERVER [EQ]ILIKESALSA"
+        },
+        {
+          "name_hex": "4f62736572766572206d6d6d6d2e2e2e2073616c7361",
+          "alias": "OBSERVER MMMM... SALSA"
+        },
+        {
+          "name_hex": "8e49e3e54de1ee8e",
+          "alias": "·ICEMAN·"
+        },
+        {
+          "name_hex": "4f62736572766572202e4963654d616e2e",
+          "alias": "OBSERVER .ICEMAN."
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e4c6c307468",
+          "alias": "OBSERVER [EQ].LL0TH"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d4461726b48616d73746572",
+          "alias": "OBSERVER [EQ]DARKHAMSTER"
+        },
+        {
+          "name_hex": "4e696b205b4c4f435d",
+          "alias": "NIK [LOC]"
+        },
+        {
+          "name_hex": "4f62736572766572205b543164614c5d",
+          "alias": "OBSERVER [T1DAL]"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e20486546466e6552",
+          "alias": "OBSERVER <CGIB> HEFFNER"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e205370692d646572",
+          "alias": "OBSERVER <CGIB> SPI-DER"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e437261636b643067",
+          "alias": "OBSERVER BM.CRACKD0G"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e57696c64426f6172",
+          "alias": "OBSERVER BM.WILDBOAR"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e5b427974654d655d",
+          "alias": "OBSERVER BSF.[BYTEME]"
+        },
+        {
+          "name_hex": "4f62736572766572206431636b",
+          "alias": "OBSERVER D1CK"
+        },
+        {
+          "name_hex": "4f627365727665722047617368",
+          "alias": "OBSERVER GASH"
+        },
+        {
+          "name_hex": "4f62736572766572206a3065",
+          "alias": "OBSERVER J0E"
+        },
+        {
+          "name_hex": "4f62736572766572205375726553686f745b4c4f435d",
+          "alias": "OBSERVER SURESHOT[LOC]"
+        },
+        {
+          "name_hex": "47617368",
+          "alias": "GASH"
+        },
+        {
+          "name_hex": "4f62736572766572205c2073617920666c616720737461",
+          "alias": "OBSERVER \\ SAY FLAG STA"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e20296973636f357475",
+          "alias": "OBSERVER <CGIB> )ISCO5TU"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e20446961626c3073",
+          "alias": "OBSERVER <CGIB> DIABL0S"
+        },
+        {
+          "name_hex": "4f62736572766572204344493e436c616e2e57686f7265",
+          "alias": "OBSERVER CDI>CLAN.WHORE"
+        },
+        {
+          "name_hex": "4f62736572766572204348454677756c66",
+          "alias": "OBSERVER CHEFWULF"
+        },
+        {
+          "name_hex": "4f6273657276657220492057494e",
+          "alias": "OBSERVER I WIN"
+        },
+        {
+          "name_hex": "4f62736572766572204c30564550752929496e47",
+          "alias": "OBSERVER L0VEPU))ING"
+        },
+        {
+          "name_hex": "4f627365727665722053544655",
+          "alias": "OBSERVER STFU"
+        },
+        {
+          "name_hex": "4f6273657276657220574f524420555021",
+          "alias": "OBSERVER WORD UP!"
+        },
+        {
+          "name_hex": "5f",
+          "alias": "_"
+        },
+        {
+          "name_hex": "4f62736572766572205f",
+          "alias": "OBSERVER _"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e206f6f7a6965",
+          "alias": "OBSERVER <CGIB> OO2IE"
+        },
+        {
+          "name_hex": "4f6273657276657220446961626c6f73",
+          "alias": "OBSERVER DIABLOS"
+        },
+        {
+          "name_hex": "4f62736572766572205f4461526b53694465",
+          "alias": "OBSERVER _DARKSIDE"
+        },
+        {
+          "name_hex": "4f6273657276657220417272616b69732e466c616721",
+          "alias": "OBSERVER ARRAKIS.FLAG!"
+        },
+        {
+          "name_hex": "4f62736572766572206f6d6564",
+          "alias": "OBSERVER OMED"
+        },
+        {
+          "name_hex": "4f62736572766572205153205368697468656164",
+          "alias": "OBSERVER QS SHITHEAD"
+        },
+        {
+          "name_hex": "4f6273657276657220736b756e6b",
+          "alias": "OBSERVER SKUNK"
+        },
+        {
+          "name_hex": "4f62736572766572205661646572203c4c30433e",
+          "alias": "OBSERVER VADER <L0C>"
+        },
+        {
+          "name_hex": "20209d4a6562759f8f9de4f69a9f",
+          "alias": "<JEBU>·<DV8>"
+        },
+        {
+          "name_hex": "4f62736572766572205b434343505d204e696b6f6c6169",
+          "alias": "OBSERVER [CCCP] NIKOLAI"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e53616d6d794164616d73",
+          "alias": "OBSERVER [EQ].SAMMYADAMS"
+        },
+        {
+          "name_hex": "4f6273657276657220416345",
+          "alias": "OBSERVER ACE"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e457665726c306e67",
+          "alias": "OBSERVER BSF.EVERL0NG"
+        },
+        {
+          "name_hex": "4f62736572766572206c75316731",
+          "alias": "OBSERVER LU1G1"
+        },
+        {
+          "name_hex": "4f62736572766572206d3472316f",
+          "alias": "OBSERVER M4R1O"
+        },
+        {
+          "name_hex": "446144",
+          "alias": "DAD"
+        },
+        {
+          "name_hex": "4f6273657276657220285f2e5f29",
+          "alias": "OBSERVER (_._)"
+        },
+        {
+          "name_hex": "4f6273657276657220446144",
+          "alias": "OBSERVER DAD"
+        },
+        {
+          "name_hex": "e8e9e6e98d8eed61e477929266",
+          "alias": "·MADW00F"
+        },
+        {
+          "name_hex": "4f627365727665722042756c6c73657965",
+          "alias": "OBSERVER BULLSEYE"
+        },
+        {
+          "name_hex": "4f62736572766572206a61636b",
+          "alias": "OBSERVER JACK"
+        },
+        {
+          "name_hex": "4f62736572766572206d616e61",
+          "alias": "OBSERVER MANA"
+        },
+        {
+          "name_hex": "4f6273657276657220536d6f6b65792044612042656172",
+          "alias": "OBSERVER SMOKEY DA BEAR"
+        },
+        {
+          "name_hex": "4f6273657276657220736f756c6e6574",
+          "alias": "OBSERVER SOULNET"
+        },
+        {
+          "name_hex": "4f62736572766572205d43435b2e556c747256696f6c6574",
+          "alias": "OBSERVER ]CC[.ULTRVIOLET"
+        },
+        {
+          "name_hex": "4f62736572766572205d4c4b5b2e44794e304465417448",
+          "alias": "OBSERVER ]LK[.DYN0DEATH"
+        },
+        {
+          "name_hex": "4f62736572766572205d4c4b5b2e7048214c644162304d38",
+          "alias": "OBSERVER ]LK[.PH!LDAB0M8"
+        },
+        {
+          "name_hex": "4f62736572766572203c43432d59656c6c6f773e",
+          "alias": "OBSERVER <CC-YELLOW>"
+        },
+        {
+          "name_hex": "4f6273657276657220414d2e5d6379616e6964655b2e",
+          "alias": "OBSERVER AM.]CYANIDE[."
+        },
+        {
+          "name_hex": "4f627365727665722062696e676f",
+          "alias": "OBSERVER BINGO"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e64756e6730",
+          "alias": "OBSERVER HIFI>.DUNG0"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e776865656c6572",
+          "alias": "OBSERVER HIFI>.WHEELER"
+        },
+        {
+          "name_hex": "4f62736572766572204d696b65",
+          "alias": "OBSERVER MIKE"
+        },
+        {
+          "name_hex": "4f62736572766572206e756b65",
+          "alias": "OBSERVER NUKE"
+        },
+        {
+          "name_hex": "4f6273657276657220736f6e6963",
+          "alias": "OBSERVER SONIC"
+        },
+        {
+          "name_hex": "4f627365727665722053747261772e5b6373645d",
+          "alias": "OBSERVER STRAW.[CSD]"
+        },
+        {
+          "name_hex": "4f627365727665722056616465722e466c616721",
+          "alias": "OBSERVER VADER.FLAG!"
+        },
+        {
+          "name_hex": "4f6273657276657220796565",
+          "alias": "OBSERVER YEE"
+        },
+        {
+          "name_hex": "4f62736572766572206178696f6e",
+          "alias": "OBSERVER AXION"
+        },
+        {
+          "name_hex": "4f627365727665722064756e676f",
+          "alias": "OBSERVER DUNGO"
+        },
+        {
+          "name_hex": "4f62736572766572204e696b2d515456",
+          "alias": "OBSERVER NIK-QTV"
+        },
+        {
+          "name_hex": "4f62736572766572206e756b65202d20717476",
+          "alias": "OBSERVER NUKE - QTV"
+        },
+        {
+          "name_hex": "d1d38e4d6f6f6b6965",
+          "alias": "QS·MOOKIE"
+        },
+        {
+          "name_hex": "4f62736572766572205b45474f5d2e446574682e",
+          "alias": "OBSERVER [EGO].DETH."
+        },
+        {
+          "name_hex": "4f62736572766572205b67646e5d202e5370756e6b792e",
+          "alias": "OBSERVER [GDN] .SPUNKY."
+        },
+        {
+          "name_hex": "4f62736572766572205b67646e5d2e43304c30533555732e",
+          "alias": "OBSERVER [GDN].C0L0S5US."
+        },
+        {
+          "name_hex": "4f62736572766572205153204d6f6f6b6965",
+          "alias": "OBSERVER QS MOOKIE"
+        },
+        {
+          "name_hex": "4f627365727665722051532e4d6f6f6b6965",
+          "alias": "OBSERVER QS.MOOKIE"
+        },
+        {
+          "name_hex": "4f6273657276657220436869612e536176696f72",
+          "alias": "OBSERVER CHIA.SAVIOR"
+        },
+        {
+          "name_hex": "4f62736572766572204d657271202d515456",
+          "alias": "OBSERVER MERQ -QTV"
+        },
+        {
+          "name_hex": "4f62736572766572206964696f74",
+          "alias": "OBSERVER IDIOT"
+        },
+        {
+          "name_hex": "4f62736572766572204a6f686e47616c74",
+          "alias": "OBSERVER JOHNGALT"
+        },
+        {
+          "name_hex": "4f62736572766572204e6f4e616d65466167676f74",
+          "alias": "OBSERVER NONAMEFAGGOT"
+        },
+        {
+          "name_hex": "4f627365727665722074686520656c657068616e74",
+          "alias": "OBSERVER THE ELEPHANT"
+        },
+        {
+          "name_hex": "4f62736572766572205b65645d486f6c6c79776f6f44",
+          "alias": "OBSERVER [ED]HOLLYWOOD"
+        },
+        {
+          "name_hex": "4f62736572766572205a696767757261745b4d7974485d",
+          "alias": "OBSERVER ZIGGURAT[MYTH]"
+        },
+        {
+          "name_hex": "d3f4e5e1ecf4c8209dcc92c39f",
+          "alias": "STEALTH <L0C>"
+        },
+        {
+          "name_hex": "546865204675636b696e204d616e",
+          "alias": "THE FUCKIN MAN"
+        },
+        {
+          "name_hex": "4f62736572766572205b434343505d2046756c6372756d",
+          "alias": "OBSERVER [CCCP] FULCRUM"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e473030723030",
+          "alias": "OBSERVER [EQ].G00R00"
+        },
+        {
+          "name_hex": "4f62736572766572205d5b2e4572617345722e5d5b585d",
+          "alias": "OBSERVER ][.ERASER.][X]"
+        },
+        {
+          "name_hex": "4f62736572766572205d6d676b5b2e63757273652e",
+          "alias": "OBSERVER ]MGK[.CURSE."
+        },
+        {
+          "name_hex": "4f62736572766572205d6d676b5b736f756c726561766572",
+          "alias": "OBSERVER ]MGK[SOULREAVER"
+        },
+        {
+          "name_hex": "4f6273657276657220656c662d44657374727563743e",
+          "alias": "OBSERVER ELF-DESTRUCT>"
+        },
+        {
+          "name_hex": "c2e1e442657272798ec3c2",
+          "alias": "BADBERRY·CB"
+        },
+        {
+          "name_hex": "4d61677573",
+          "alias": "MAGUS"
+        },
+        {
+          "name_hex": "c361707065c4a01dcc12c31f",
+          "alias": "CAPPED <L0C>"
+        },
+        {
+          "name_hex": "4f6273657276657220536b6565746572",
+          "alias": "OBSERVER SKEETER"
+        },
+        {
+          "name_hex": "9d9c46937265c6ece1ede59c9f",
+          "alias": "<·F1REFLAME·>"
+        },
+        {
+          "name_hex": "4f627365727665722074727574685f6661697279",
+          "alias": "OBSERVER TRUTH_FAIRY"
+        },
+        {
+          "name_hex": "556c636572",
+          "alias": "ULCER"
+        },
+        {
+          "name_hex": "4f62736572766572204368696361676f2c20494c",
+          "alias": "OBSERVER CHICAGO, IL"
+        },
+        {
+          "name_hex": "4f62736572766572206379616e696465",
+          "alias": "OBSERVER CYANIDE"
+        },
+        {
+          "name_hex": "4f6273657276657220646b",
+          "alias": "OBSERVER DK"
+        },
+        {
+          "name_hex": "4f6273657276657220656d7065726f72207065656b6f",
+          "alias": "OBSERVER EMPEROR PEEKO"
+        },
+        {
+          "name_hex": "4f627365727665722068656c6c6f",
+          "alias": "OBSERVER HELLO"
+        },
+        {
+          "name_hex": "4f62736572766572206c6f6f6b6965",
+          "alias": "OBSERVER LOOKIE"
+        },
+        {
+          "name_hex": "4f6273657276657220706f6f70",
+          "alias": "OBSERVER POOP"
+        },
+        {
+          "name_hex": "4f62736572766572207072696d616c207065656b6f",
+          "alias": "OBSERVER PRIMAL PEEKO"
+        },
+        {
+          "name_hex": "4f627365727665722062696c6c79",
+          "alias": "OBSERVER BILLY"
+        },
+        {
+          "name_hex": "53706565642d43414d45444f4f44",
+          "alias": "SPEED-CAMEDOOD"
+        },
+        {
+          "name_hex": "44656974792d4c6f43",
+          "alias": "DEITY-LOC"
+        },
+        {
+          "name_hex": "52",
+          "alias": "R"
+        },
+        {
+          "name_hex": "4253462e457861426f74",
+          "alias": "BSF.EXABOT"
+        },
+        {
+          "name_hex": "11c1c1108c4aae8c43f5e5f2f66f",
+          "alias": "]AA[ J. CUERVO"
+        },
+        {
+          "name_hex": "7375636b206d792070656e6973",
+          "alias": "SUCK MY PENIS"
+        },
+        {
+          "name_hex": "5b6b745d6d6f6e7462617264",
+          "alias": "[KT]MONTBARD"
+        },
+        {
+          "name_hex": "c2cd8ed4d261da",
+          "alias": "BM·TRAZ"
+        },
+        {
+          "name_hex": "4f6273657276657220486f6c7920436f77",
+          "alias": "OBSERVER HOLY COW"
+        },
+        {
+          "name_hex": "4f62736572766572204e42492e546f6b656e",
+          "alias": "OBSERVER NBI.TOKEN"
+        },
+        {
+          "name_hex": "119cd46875c79c10",
+          "alias": "]·THUG·["
+        },
+        {
+          "name_hex": "85ecefeff0f7e1eeeee1f0ece1f985",
+          "alias": "·LOOPWANNAPLAY·"
+        },
+        {
+          "name_hex": "4f6273657276657220486f6d65792e5448452e436c6f776e",
+          "alias": "OBSERVER HOMEY.THE.CLOWN"
+        },
+        {
+          "name_hex": "4f627365727665722057424d4f442076332e30",
+          "alias": "OBSERVER WBMOD V3.0"
+        },
+        {
+          "name_hex": "d46dee548e4b72616e67",
+          "alias": "TMNT·KRANG"
+        },
+        {
+          "name_hex": "80812f585c9374c8529263c88182",
+          "alias": "·/X\\1THR0CH·"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d706974766970",
+          "alias": "OBSERVER [EQ]PITVIP"
+        },
+        {
+          "name_hex": "4f6273657276657220466154614c2e7245614374496f4e",
+          "alias": "OBSERVER FATAL.REACTION"
+        },
+        {
+          "name_hex": "4f627365727665722053746f6d7065725b585d",
+          "alias": "OBSERVER STOMPER[X]"
+        },
+        {
+          "name_hex": "536e616b654354464c",
+          "alias": "SNAKECTFL"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20d695f2e296cc",
+          "alias": "<CGIB> V3RB4L"
+        },
+        {
+          "name_hex": "4c4f564520504953544f4e",
+          "alias": "LOVE PISTON"
+        },
+        {
+          "name_hex": "4354464c2d56657262614c",
+          "alias": "CTFL-VERBAL"
+        },
+        {
+          "name_hex": "c4f2e1e712ee10c84311",
+          "alias": "DRAG0N[HC]"
+        },
+        {
+          "name_hex": "4f62736572766572202e45442e434f4d45474554534f4d45",
+          "alias": "OBSERVER .ED.COMEGETSOME"
+        },
+        {
+          "name_hex": "4f6273657276657220285d477572755b29",
+          "alias": "OBSERVER (]GURU[)"
+        },
+        {
+          "name_hex": "4f62736572766572205b462e492e522e455d2d5b585d",
+          "alias": "OBSERVER [F.I.R.E]-[X]"
+        },
+        {
+          "name_hex": "4f627365727665722046697879202e47554e2e",
+          "alias": "OBSERVER FIXY .GUN."
+        },
+        {
+          "name_hex": "4f6273657276657220476f74636861",
+          "alias": "OBSERVER GOTCHA"
+        },
+        {
+          "name_hex": "4f627365727665722052656c656e746c6573732e47554e2e",
+          "alias": "OBSERVER RELENTLESS.GUN."
+        },
+        {
+          "name_hex": "4f62736572766572205370656564",
+          "alias": "OBSERVER SPEED"
+        },
+        {
+          "name_hex": "4f62736572766572205a69676775726174",
+          "alias": "OBSERVER ZIGGURAT"
+        },
+        {
+          "name_hex": "4f62736572766572205b534944455157494e4445525d",
+          "alias": "OBSERVER [SIDEQWINDER]"
+        },
+        {
+          "name_hex": "4f6273657276657220416d6f6e203c4c30433e",
+          "alias": "OBSERVER AMON <L0C>"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e6d61677573",
+          "alias": "OBSERVER HIFI>.MAGUS"
+        },
+        {
+          "name_hex": "4f627365727665722070696e67207370696b6573",
+          "alias": "OBSERVER PING SPIKES"
+        },
+        {
+          "name_hex": "4f627365727665722053686174746572202e47554e2e",
+          "alias": "OBSERVER SHATTER .GUN."
+        },
+        {
+          "name_hex": "4f62736572766572205461633062697465202e47554e2e",
+          "alias": "OBSERVER TAC0BITE .GUN."
+        },
+        {
+          "name_hex": "4f6273657276657220556e31787065304e",
+          "alias": "OBSERVER UN1XPE0N"
+        },
+        {
+          "name_hex": "4f62736572766572205a65726f203c4c30433e",
+          "alias": "OBSERVER ZERO <L0C>"
+        },
+        {
+          "name_hex": "4f62736572766572204379626572",
+          "alias": "OBSERVER CYBER"
+        },
+        {
+          "name_hex": "4f6273657276657220447275",
+          "alias": "OBSERVER DRU"
+        },
+        {
+          "name_hex": "4f6273657276657220476f642e4e514f2e",
+          "alias": "OBSERVER GOD.NQO."
+        },
+        {
+          "name_hex": "4f6273657276657220686966692d617373686f6c65",
+          "alias": "OBSERVER HIFI-ASSHOLE"
+        },
+        {
+          "name_hex": "4f62736572766572206c61676779205e6f5e",
+          "alias": "OBSERVER LAGGY ^O^"
+        },
+        {
+          "name_hex": "544f4f4c494f",
+          "alias": "TOOLIO"
+        },
+        {
+          "name_hex": "49472d3838",
+          "alias": "IG-88"
+        },
+        {
+          "name_hex": "10414d1185c8e5ecec6b6565701f",
+          "alias": "[AM]·HELLKEEP>"
+        },
+        {
+          "name_hex": "cc92c39c5363687292e4e9eee7e5f2",
+          "alias": "L0C·SCHR0DINGER"
+        },
+        {
+          "name_hex": "e2ec9292e4f3e895e42d4c6f43",
+          "alias": "BL00DSH3D-LOC"
+        },
+        {
+          "name_hex": "9dc76fece9e174e8834cef439f",
+          "alias": "<GOLIATHLOC>"
+        },
+        {
+          "name_hex": "64756ee7122d515456",
+          "alias": "DUNG0-QTV"
+        },
+        {
+          "name_hex": "486967686c616e6465722d515456",
+          "alias": "HIGHLANDER-QTV"
+        },
+        {
+          "name_hex": "92ee659793906e6c91",
+          "alias": "0NE51[NL]"
+        },
+        {
+          "name_hex": "4f62736572766572205b4952435d235365785f5369746573",
+          "alias": "OBSERVER [IRC]#SEX_SITES"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e204f7665724b694c4c",
+          "alias": "OBSERVER <CGIB> OVERKILL"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e2050726f64696779",
+          "alias": "OBSERVER <CGIB> PRODIGY"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e4f6d657348",
+          "alias": "OBSERVER <CGIB>OMESH"
+        },
+        {
+          "name_hex": "4f62736572766572204c61576e3e4d306e6b6559",
+          "alias": "OBSERVER LAWN>M0NKEY"
+        },
+        {
+          "name_hex": "0ec4c6cc0e4c6f6f508d",
+          "alias": "·DFL·LOOP"
+        },
+        {
+          "name_hex": "9d43c7c9c29f20e6ece1e770696d70",
+          "alias": "<CGIB> FLAGPIMP"
+        },
+        {
+          "name_hex": "4f62736572766572202e5b522779616c5d2e",
+          "alias": "OBSERVER .[R'YAL]."
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e20666c616770696d70",
+          "alias": "OBSERVER <CGIB> FLAGPIMP"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e204861775a",
+          "alias": "OBSERVER <CGIB> HAWZ"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e204a61634b",
+          "alias": "OBSERVER <CGIB> JACK"
+        },
+        {
+          "name_hex": "4f62736572766572206670",
+          "alias": "OBSERVER FP"
+        },
+        {
+          "name_hex": "4f62736572766572204f7665724b694c4c",
+          "alias": "OBSERVER OVERKILL"
+        },
+        {
+          "name_hex": "54595f4c4f43",
+          "alias": "TY_LOC"
+        },
+        {
+          "name_hex": "626a74",
+          "alias": "BJT"
+        },
+        {
+          "name_hex": "4f62736572766572205b65645d436f6d65476574536f6d65",
+          "alias": "OBSERVER [ED]COMEGETSOME"
+        },
+        {
+          "name_hex": "4f62736572766572206173736b69636b45445041554c",
+          "alias": "OBSERVER ASSKICKEDPAUL"
+        },
+        {
+          "name_hex": "4f6273657276657220436170742e4b69636b796572617373",
+          "alias": "OBSERVER CAPT.KICKYERASS"
+        },
+        {
+          "name_hex": "4f6273657276657220646f6f6279",
+          "alias": "OBSERVER DOOBY"
+        },
+        {
+          "name_hex": "4f6273657276657220676f2047554e",
+          "alias": "OBSERVER GO GUN"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e77306c6666",
+          "alias": "OBSERVER HIFI>.W0LFF"
+        },
+        {
+          "name_hex": "4f6273657276657220726f636b6574206d616e",
+          "alias": "OBSERVER ROCKET MAN"
+        },
+        {
+          "name_hex": "4f6273657276657220526f636b6574204d616e21",
+          "alias": "OBSERVER ROCKET MAN!"
+        },
+        {
+          "name_hex": "4f6273657276657220766167696e6120706c7567676572",
+          "alias": "OBSERVER VAGINA PLUGGER"
+        },
+        {
+          "name_hex": "4f62736572766572203c44414e4b3e202e47554e2e",
+          "alias": "OBSERVER <DANK> .GUN."
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e416e6775732e4f67",
+          "alias": "OBSERVER BM.ANGUS.OG"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e4d6344306e616c6473",
+          "alias": "OBSERVER BSF.MCD0NALDS"
+        },
+        {
+          "name_hex": "4f6273657276657220676f2067756e21",
+          "alias": "OBSERVER GO GUN!"
+        },
+        {
+          "name_hex": "4f62736572766572204f627365727665722031",
+          "alias": "OBSERVER OBSERVER 1"
+        },
+        {
+          "name_hex": "4f62736572766572207365616e",
+          "alias": "OBSERVER SEAN"
+        },
+        {
+          "name_hex": "4f627365727665722077617463686572",
+          "alias": "OBSERVER WATCHER"
+        },
+        {
+          "name_hex": "4f6273657276657220416e316d346c3e5b7269676874735d",
+          "alias": "OBSERVER AN1M4L>[RIGHTS]"
+        },
+        {
+          "name_hex": "4f6273657276657220436176616c6965722e53594e",
+          "alias": "OBSERVER CAVALIER.SYN"
+        },
+        {
+          "name_hex": "4f6273657276657220436869612d5461786d616e",
+          "alias": "OBSERVER CHIA-TAXMAN"
+        },
+        {
+          "name_hex": "4f62736572766572204f726967696e616c2e53594e",
+          "alias": "OBSERVER ORIGINAL.SYN"
+        },
+        {
+          "name_hex": "10c6f58fc7e5e5fa91",
+          "alias": "[FU·GEE2]"
+        },
+        {
+          "name_hex": "4e756b45202d204c4f43",
+          "alias": "NUKE - LOC"
+        },
+        {
+          "name_hex": "c16d6f6e85ccefc3",
+          "alias": "AMON·LOC"
+        },
+        {
+          "name_hex": "4f627365727665722030207b67756e7d",
+          "alias": "OBSERVER 0 {GUN}"
+        },
+        {
+          "name_hex": "c36cc16ecc65d353",
+          "alias": "CLANLESS"
+        },
+        {
+          "name_hex": "4572647269636b208ec7d5ce8e",
+          "alias": "ERDRICK ·GUN·"
+        },
+        {
+          "name_hex": "c920c86176c520cecf20d36b696ccc",
+          "alias": "I HAVE NO SKILL"
+        },
+        {
+          "name_hex": "706f6f",
+          "alias": "POO"
+        },
+        {
+          "name_hex": "3a206f62736572766572",
+          "alias": ": OBSERVER"
+        },
+        {
+          "name_hex": "4f62736572766572203020726f78206a3030",
+          "alias": "OBSERVER 0 ROX J00"
+        },
+        {
+          "name_hex": "4f6273657276657220726f78",
+          "alias": "OBSERVER ROX"
+        },
+        {
+          "name_hex": "4f627365727665722076696920726f78206a3030",
+          "alias": "OBSERVER VII ROX J00"
+        },
+        {
+          "name_hex": "686967686c616e6465722d64656d6f",
+          "alias": "HIGHLANDER-DEMO"
+        },
+        {
+          "name_hex": "c361727275746820109cd3c49c11",
+          "alias": "CARRUTH [·SD·]"
+        },
+        {
+          "name_hex": "537472616864204c4f43",
+          "alias": "STRAHD LOC"
+        },
+        {
+          "name_hex": "4f62736572766572206273722e616e65757279736d",
+          "alias": "OBSERVER BSR.ANEURYSM"
+        },
+        {
+          "name_hex": "4f627365727665722046726f73542e7448652e486f4f6b",
+          "alias": "OBSERVER FROST.THE.HOOK"
+        },
+        {
+          "name_hex": "4f6273657276657220536b656562",
+          "alias": "OBSERVER SKEEB"
+        },
+        {
+          "name_hex": "9c11f793ece415f28d20209ce34b9c",
+          "alias": "  ·CK·"
+        },
+        {
+          "name_hex": "9c1141706f638d202020209ce34b9c",
+          "alias": "    ·CK·"
+        },
+        {
+          "name_hex": "9c91c8d5c48d20202020209ce34b9c",
+          "alias": "     ·CK·"
+        },
+        {
+          "name_hex": "9d43c7c9c29fa0d292eec292e2",
+          "alias": "<CGIB> R0NB0B"
+        },
+        {
+          "name_hex": "9c11d3e8ef8d0c0c0c0c0c9c63eb9c",
+          "alias": "     ·CK·"
+        },
+        {
+          "name_hex": "9d43c7c9c29f0cc7eb50778272",
+          "alias": "<CGIB> GKPWR"
+        },
+        {
+          "name_hex": "91bf908ee7f5f3746f6666",
+          "alias": "]?[·GUSTOFF"
+        },
+        {
+          "name_hex": "d469f4f4f920d76fede261f4",
+          "alias": "TITTY WOMBAT"
+        },
+        {
+          "name_hex": "8ed4cb8ec5ecdfcee1e3e8ef",
+          "alias": "·TK·EL_NACHO"
+        },
+        {
+          "name_hex": "9d43c2c9c29fa046927274756e61",
+          "alias": "<CBIB> F0RTUNA"
+        },
+        {
+          "name_hex": "9d0ef26f67f5e50f9f",
+          "alias": "<·ROGUE·>"
+        },
+        {
+          "name_hex": "d0efe9f3efee426572727985c3c2",
+          "alias": "POISONBERRY·CB"
+        },
+        {
+          "name_hex": "4465662d4f6666696369616c",
+          "alias": "DEF-OFFICIAL"
+        },
+        {
+          "name_hex": "73696768",
+          "alias": "SIGH"
+        },
+        {
+          "name_hex": "4344498d80cbe9ec6c4182",
+          "alias": "KILLA"
+        },
+        {
+          "name_hex": "5245434f5244494e472044454d4f",
+          "alias": "RECORDING DEMO"
+        },
+        {
+          "name_hex": "44656d6f2064756465",
+          "alias": "DEMO DUDE"
+        },
+        {
+          "name_hex": "e3f785c3c2",
+          "alias": "CW·CB"
+        },
+        {
+          "name_hex": "c2cd856475626992f5f32d61776179",
+          "alias": "BM·DUBI0US-AWAY"
+        },
+        {
+          "name_hex": "916d676b901ce2e1e4f3eff5ec1c",
+          "alias": "]MGK[·BADSOUL·"
+        },
+        {
+          "name_hex": "c1ed6f6e9dcc12c39f",
+          "alias": "AMON<L0C>"
+        },
+        {
+          "name_hex": "4b696b796f7572617373",
+          "alias": "KIKYOURASS"
+        },
+        {
+          "name_hex": "536f6e5f476f6b6f75",
+          "alias": "SON_GOKOU"
+        },
+        {
+          "name_hex": "426f62626174756573646179",
+          "alias": "BOBBATUESDAY"
+        },
+        {
+          "name_hex": "4f6273657276657220736869742066616365",
+          "alias": "OBSERVER SHIT FACE"
+        },
+        {
+          "name_hex": "4f6273657276657220537072697469616e",
+          "alias": "OBSERVER SPRITIAN"
+        },
+        {
+          "name_hex": "4f62736572766572202a4e2a20676f64",
+          "alias": "OBSERVER *N* GOD"
+        },
+        {
+          "name_hex": "4f6273657276657220436172744d616e5f",
+          "alias": "OBSERVER CARTMAN_"
+        },
+        {
+          "name_hex": "4f62736572766572206675636b68656164",
+          "alias": "OBSERVER FUCKHEAD"
+        },
+        {
+          "name_hex": "4f62736572766572202e4e2e20476f626c6969696e",
+          "alias": "OBSERVER .N. GOBLIIIN"
+        },
+        {
+          "name_hex": "4f627365727665722044532e5a6575532e5047",
+          "alias": "OBSERVER DS.ZEUS.PG"
+        },
+        {
+          "name_hex": "4f6273657276657220496365",
+          "alias": "OBSERVER ICE"
+        },
+        {
+          "name_hex": "1066731185e8e1f373616e",
+          "alias": "[FS]·HASSAN"
+        },
+        {
+          "name_hex": "906673918ecee5ed65736973",
+          "alias": "[FS]·NEMESIS"
+        },
+        {
+          "name_hex": "90d469918e9d4d61769f",
+          "alias": "[TI]·<MAV>"
+        },
+        {
+          "name_hex": "c4656669616e63650c8fc7d5ce8f",
+          "alias": "DEFIANCE ·GUN·"
+        },
+        {
+          "name_hex": "90969295918ed4936765d292616368",
+          "alias": "[403]·T1GER0ACH"
+        },
+        {
+          "name_hex": "c16d926e2d4c6f43",
+          "alias": "AM0N-LOC"
+        },
+        {
+          "name_hex": "736d6173686572",
+          "alias": "SMASHER"
+        },
+        {
+          "name_hex": "7174762d6d61677573",
+          "alias": "QTV-MAGUS"
+        },
+        {
+          "name_hex": "4e756b452d6c6f63",
+          "alias": "NUKE-LOC"
+        },
+        {
+          "name_hex": "cc12100d0dcb7275d874c179",
+          "alias": "KRUXTAY"
+        },
+        {
+          "name_hex": "5b6b745d",
+          "alias": "[KT]"
+        },
+        {
+          "name_hex": "c3d685c4656669616e6365",
+          "alias": "CV·DEFIANCE"
+        },
+        {
+          "name_hex": "53706565642d43414d4e",
+          "alias": "SPEED-CAMN"
+        },
+        {
+          "name_hex": "1d43c2c9c29f85a46e966b15",
+          "alias": "<CBIB>·$N4K3"
+        },
+        {
+          "name_hex": "d377657276650c109cd3c48511",
+          "alias": "SWERVE [·SD·]"
+        },
+        {
+          "name_hex": "cd696c6bc475645b6f6273765d",
+          "alias": "MILKDUD[OBSV]"
+        },
+        {
+          "name_hex": "57696c6c794265616d697368",
+          "alias": "WILLYBEAMISH"
+        },
+        {
+          "name_hex": "4f62736572766572203c434749423e46697265466c616d65",
+          "alias": "OBSERVER <CGIB>FIREFLAME"
+        },
+        {
+          "name_hex": "4f627365727665722046697265666c616d6520476f44",
+          "alias": "OBSERVER FIREFLAME GOD"
+        },
+        {
+          "name_hex": "4f627365727665722056697072794e",
+          "alias": "OBSERVER VIPRYN"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e426163306e",
+          "alias": "OBSERVER BSF.BAC0N"
+        },
+        {
+          "name_hex": "d661646572209dcc12c39f",
+          "alias": "VADER <L0C>"
+        },
+        {
+          "name_hex": "8e626c6168",
+          "alias": "·BLAH"
+        },
+        {
+          "name_hex": "62526f546845722066496c6c4572",
+          "alias": "BROTHER FILLER"
+        },
+        {
+          "name_hex": "4f62736572766572205b434343505d20416345",
+          "alias": "OBSERVER [CCCP] ACE"
+        },
+        {
+          "name_hex": "4f62736572766572205b6d745d2e5b723163686230795d",
+          "alias": "OBSERVER [MT].[R1CHB0Y]"
+        },
+        {
+          "name_hex": "4f6273657276657220426c6f6f6473686544",
+          "alias": "OBSERVER BLOODSHED"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e53753131336e3e306e33",
+          "alias": "OBSERVER BM.SU113N>0N3"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e4e756b45",
+          "alias": "OBSERVER BSF.NUKE"
+        },
+        {
+          "name_hex": "4f62736572766572204354465f477579",
+          "alias": "OBSERVER CTF_GUY"
+        },
+        {
+          "name_hex": "4f62736572766572204772656e64654c",
+          "alias": "OBSERVER GRENDEL"
+        },
+        {
+          "name_hex": "4f627365727665722049737361717561682c205741",
+          "alias": "OBSERVER ISSAQUAH, WA"
+        },
+        {
+          "name_hex": "6c6f736572",
+          "alias": "LOSER"
+        },
+        {
+          "name_hex": "4f627365727665722062616472756e65",
+          "alias": "OBSERVER BADRUNE"
+        },
+        {
+          "name_hex": "4f627365727665722064656d6f",
+          "alias": "OBSERVER DEMO"
+        },
+        {
+          "name_hex": "4f6273657276657220536f757061464c59",
+          "alias": "OBSERVER SOUPAFLY"
+        },
+        {
+          "name_hex": "4f627365727665722059495073696c616e74",
+          "alias": "OBSERVER YIPSILANT"
+        },
+        {
+          "name_hex": "c66169d4",
+          "alias": "FAIT"
+        },
+        {
+          "name_hex": "c2cd85c368656572cc6561646572",
+          "alias": "BM·CHEERLEADER"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e4a2d523064",
+          "alias": "OBSERVER BSF.J-R0D"
+        },
+        {
+          "name_hex": "9cd42dc26f6ec58e",
+          "alias": "·T-BONE·"
+        },
+        {
+          "name_hex": "100ed330f5ccd295965695d20e91",
+          "alias": "[·S0ULR34V3R·]"
+        },
+        {
+          "name_hex": "50726f70686554",
+          "alias": "PROPHET"
+        },
+        {
+          "name_hex": "c4cfc19cd08511691085d4d4",
+          "alias": "DOA·P·]I[·TT"
+        },
+        {
+          "name_hex": "45479cc2127373",
+          "alias": "EG·B0SS"
+        },
+        {
+          "name_hex": "4e65737375732d43616d657261",
+          "alias": "NESSUS-CAMERA"
+        },
+        {
+          "name_hex": "7468655f444d2d43616d657261",
+          "alias": "THE_DM-CAMERA"
+        },
+        {
+          "name_hex": "66726f73742d6374666c",
+          "alias": "FROST-CTFL"
+        },
+        {
+          "name_hex": "6475626912f5f3",
+          "alias": "DUBI0US"
+        },
+        {
+          "name_hex": "48617767",
+          "alias": "HAWG"
+        },
+        {
+          "name_hex": "9d99e49f446f63",
+          "alias": "<7D>DOC"
+        },
+        {
+          "name_hex": "4768616c656f6e",
+          "alias": "GHALEON"
+        },
+        {
+          "name_hex": "90414d919c67656ee9f5f3",
+          "alias": "[AM]·GENIUS"
+        },
+        {
+          "name_hex": "4f62736572766572204e42492e537069636520456d6d61",
+          "alias": "OBSERVER NBI.SPICE EMMA"
+        },
+        {
+          "name_hex": "4f627365727665722050316d502e5b4c30445d",
+          "alias": "OBSERVER P1MP.[L0D]"
+        },
+        {
+          "name_hex": "57656ec074636815152c5741",
+          "alias": "WEN@TCH33,WA"
+        },
+        {
+          "name_hex": "4f6273657276657220476f6c69617468",
+          "alias": "OBSERVER GOLIATH"
+        },
+        {
+          "name_hex": "4f62736572766572204a6f652d426f62",
+          "alias": "OBSERVER JOE-BOB"
+        },
+        {
+          "name_hex": "4f62736572766572204d657271202e47554e2e",
+          "alias": "OBSERVER MERQ .GUN."
+        },
+        {
+          "name_hex": "4f627365727665722052422e3c4e756b453e2e5242",
+          "alias": "OBSERVER RB.<NUKE>.RB"
+        },
+        {
+          "name_hex": "4f62736572766572205374656572424f59",
+          "alias": "OBSERVER STEERBOY"
+        },
+        {
+          "name_hex": "4f627365727665722077656e6174636865652c5741",
+          "alias": "OBSERVER WENATCHEE,WA"
+        },
+        {
+          "name_hex": "85d40bc2926e1520cc6ce16de185",
+          "alias": "·TB0N3 LLAMA·"
+        },
+        {
+          "name_hex": "4f62736572766572203c436845663e205b4f70732d42575d",
+          "alias": "OBSERVER <CHEF> [OPS-BW]"
+        },
+        {
+          "name_hex": "4f6273657276657220666972655b785d",
+          "alias": "OBSERVER FIRE[X]"
+        },
+        {
+          "name_hex": "4f62736572766572204b7275737479474f44",
+          "alias": "OBSERVER KRUSTYGOD"
+        },
+        {
+          "name_hex": "4f6273657276657220757a69396d6d202020202020473044",
+          "alias": "OBSERVER U2I9MM      G0D"
+        },
+        {
+          "name_hex": "0dc2722ed768697af065727a",
+          "alias": "BR.WHI2PER2"
+        },
+        {
+          "name_hex": "4f62736572766572204e696e6a6178202020202020473044",
+          "alias": "OBSERVER NINJAX      G0D"
+        },
+        {
+          "name_hex": "4f627365727665722053656c662d4465737472756374",
+          "alias": "OBSERVER SELF-DESTRUCT"
+        },
+        {
+          "name_hex": "4f6273657276657220412052344231442044316e4730",
+          "alias": "OBSERVER A R4B1D D1NG0"
+        },
+        {
+          "name_hex": "4f62736572766572207a65726f202e67756e2e",
+          "alias": "OBSERVER 2ERO .GUN."
+        },
+        {
+          "name_hex": "4e696b2d515456",
+          "alias": "NIK-QTV"
+        },
+        {
+          "name_hex": "4561676c65",
+          "alias": "EAGLE"
+        },
+        {
+          "name_hex": "9d56616c6f7269614e9f",
+          "alias": "<VALORIAN>"
+        },
+        {
+          "name_hex": "4c6f43204f6666696369616c",
+          "alias": "LOC OFFICIAL"
+        },
+        {
+          "name_hex": "43796265722d43414d",
+          "alias": "CYBER-CAM"
+        },
+        {
+          "name_hex": "5669706572209043744691",
+          "alias": "VIPER [CTF]"
+        },
+        {
+          "name_hex": "4f62736572766572205b45474f5d2e476f6c696174682e",
+          "alias": "OBSERVER [EGO].GOLIATH."
+        },
+        {
+          "name_hex": "4f62736572766572203c44612d47696d703e202e47554e2e",
+          "alias": "OBSERVER <DA-GIMP> .GUN."
+        },
+        {
+          "name_hex": "4f627365727665722054614c6f4e2e53432e",
+          "alias": "OBSERVER TALON.SC."
+        },
+        {
+          "name_hex": "c572c173c5728f1043744611",
+          "alias": "ERASER·[CTF]"
+        },
+        {
+          "name_hex": "4f6273657276657220414c4c2d426c6171",
+          "alias": "OBSERVER ALL-BLAQ"
+        },
+        {
+          "name_hex": "4f62736572766572205b45474f5d476f6c69617468",
+          "alias": "OBSERVER [EGO]GOLIATH"
+        },
+        {
+          "name_hex": "4f62736572766572204a65726b6f6666",
+          "alias": "OBSERVER JERKOFF"
+        },
+        {
+          "name_hex": "4f627365727665722052427c4e756b45",
+          "alias": "OBSERVER RB|NUKE"
+        },
+        {
+          "name_hex": "434f4f4b286e6f746865726529",
+          "alias": "COOK(NOTHERE)"
+        },
+        {
+          "name_hex": "4f627365727665722043796265727b47554e7d",
+          "alias": "OBSERVER CYBER{GUN}"
+        },
+        {
+          "name_hex": "c4656669616e63659c9dcc6fc39f",
+          "alias": "DEFIANCE·<LOC>"
+        },
+        {
+          "name_hex": "7365412dc2c1d3d3",
+          "alias": "SEA-BASS"
+        },
+        {
+          "name_hex": "4675636b596f75",
+          "alias": "FUCKYOU"
+        },
+        {
+          "name_hex": "4f62736572766572205c2f6f6f646f6f",
+          "alias": "OBSERVER \\/OODOO"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e64756269307573",
+          "alias": "OBSERVER BM.DUBI0US"
+        },
+        {
+          "name_hex": "4f62736572766572204e6967687443414d3c4c30433e",
+          "alias": "OBSERVER NIGHTCAM<L0C>"
+        },
+        {
+          "name_hex": "c7e1eee7737461729cc38d616674",
+          "alias": "AFT"
+        },
+        {
+          "name_hex": "62616c3030",
+          "alias": "BAL00"
+        },
+        {
+          "name_hex": "4f627365727665722028506f77657262696c7429647638",
+          "alias": "OBSERVER (POWERBILT)DV8"
+        },
+        {
+          "name_hex": "54687261776e",
+          "alias": "THRAWN"
+        },
+        {
+          "name_hex": "4f62736572766572202d3d417373617373696e3d2d",
+          "alias": "OBSERVER -=ASSASSIN=-"
+        },
+        {
+          "name_hex": "4f62736572766572205b5649495d434c30416b",
+          "alias": "OBSERVER [VII]CL0AK"
+        },
+        {
+          "name_hex": "4f6273657276657220422e5d415353415353314e5b62307a",
+          "alias": "OBSERVER B.]ASSASS1N[B02"
+        },
+        {
+          "name_hex": "4f627365727665722043796265727365786d616368696e65",
+          "alias": "OBSERVER CYBERSEXMACHINE"
+        },
+        {
+          "name_hex": "4f62736572766572204b4c41575b4d444b5d",
+          "alias": "OBSERVER KLAW[MDK]"
+        },
+        {
+          "name_hex": "4f62736572766572204f66666c6f6164",
+          "alias": "OBSERVER OFFLOAD"
+        },
+        {
+          "name_hex": "4f6273657276657220727562626572206475636b79",
+          "alias": "OBSERVER RUBBER DUCKY"
+        },
+        {
+          "name_hex": "4f627365727665722052756d72756d",
+          "alias": "OBSERVER RUMRUM"
+        },
+        {
+          "name_hex": "4f6273657276657220546872696c6c202e47554e2e",
+          "alias": "OBSERVER THRILL .GUN."
+        },
+        {
+          "name_hex": "423042413d46335454",
+          "alias": "B0BA=F3TT"
+        },
+        {
+          "name_hex": "10449251118081c1706fcccc6f8182",
+          "alias": "[D0Q]·APOLLO·"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d2e5363686d30726b79",
+          "alias": "OBSERVER [CK].SCHM0RKY"
+        },
+        {
+          "name_hex": "4f62736572766572205b5030545d202e614369442e",
+          "alias": "OBSERVER [P0T] .ACID."
+        },
+        {
+          "name_hex": "4f6273657276657220686967686c616e646572",
+          "alias": "OBSERVER HIGHLANDER"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d2e424c656543482e3e",
+          "alias": "OBSERVER [CK].BLEECH.>"
+        },
+        {
+          "name_hex": "4f6273657276657220686967686c616e646572204c6f43",
+          "alias": "OBSERVER HIGHLANDER LOC"
+        },
+        {
+          "name_hex": "6a6f65",
+          "alias": "JOE"
+        },
+        {
+          "name_hex": "4f62736572766572205b636b5d2e47617265742e4a61782e",
+          "alias": "OBSERVER [CK].GARET.JAX."
+        },
+        {
+          "name_hex": "4f62736572766572204d6f726f6e",
+          "alias": "OBSERVER MORON"
+        },
+        {
+          "name_hex": "4f62736572766572204e6577626965202e47554e2e",
+          "alias": "OBSERVER NEWBIE .GUN."
+        },
+        {
+          "name_hex": "426967",
+          "alias": "BIG"
+        },
+        {
+          "name_hex": "4f62736572766572205f6f4752455f2e7074",
+          "alias": "OBSERVER _OGRE_.PT"
+        },
+        {
+          "name_hex": "4f6273657276657220426561745f446f776e5f44657468",
+          "alias": "OBSERVER BEAT_DOWN_DETH"
+        },
+        {
+          "name_hex": "4f6273657276657220626f726564",
+          "alias": "OBSERVER BORED"
+        },
+        {
+          "name_hex": "4f6273657276657220466c6167212043686565726c6472",
+          "alias": "OBSERVER FLAG! CHEERLDR"
+        },
+        {
+          "name_hex": "4f62736572766572204a616d6573546f774e202e47554e2e",
+          "alias": "OBSERVER JAMESTOWN .GUN."
+        },
+        {
+          "name_hex": "4f62736572766572204e6573737573",
+          "alias": "OBSERVER NESSUS"
+        },
+        {
+          "name_hex": "4f6273657276657220536c656570696e67",
+          "alias": "OBSERVER SLEEPING"
+        },
+        {
+          "name_hex": "4f62736572766572205961776e",
+          "alias": "OBSERVER YAWN"
+        },
+        {
+          "name_hex": "4f62736572766572207a7a7a",
+          "alias": "OBSERVER 222"
+        },
+        {
+          "name_hex": "4f62736572766572205a7a5a5a7a5a5a7a7a7a7a",
+          "alias": "OBSERVER Z2ZZ2ZZ2222"
+        },
+        {
+          "name_hex": "4f6273657276657220657865632067756e2e736372",
+          "alias": "OBSERVER EXEC GUN.SCR"
+        },
+        {
+          "name_hex": "4c6f432d515456",
+          "alias": "LOC-QTV"
+        },
+        {
+          "name_hex": "ede1e470656f6e9dcc12c39f",
+          "alias": "MADPEON<L0C>"
+        },
+        {
+          "name_hex": "4f6273657276657220202e463172452e2020205d54734b5b",
+          "alias": "OBSERVER  .F1RE.   ]TSK["
+        },
+        {
+          "name_hex": "4f62736572766572205b42425d2e536c4174452e",
+          "alias": "OBSERVER [BB].SLATE."
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b6d6173636f74",
+          "alias": "OBSERVER ]KM[MASCOT"
+        },
+        {
+          "name_hex": "4f62736572766572203c2e4a65737465722e3e",
+          "alias": "OBSERVER <.JESTER.>"
+        },
+        {
+          "name_hex": "4f6273657276657220426c617a65",
+          "alias": "OBSERVER BLA2E"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e437261636b646f67",
+          "alias": "OBSERVER BM.CRACKDOG"
+        },
+        {
+          "name_hex": "4f62736572766572204253462d736f756c7468696566",
+          "alias": "OBSERVER BSF-SOULTHIEF"
+        },
+        {
+          "name_hex": "4f62736572766572204253462e3c5a6552303e",
+          "alias": "OBSERVER BSF.<ZER0>"
+        },
+        {
+          "name_hex": "4f627365727665722063686130",
+          "alias": "OBSERVER CHA0"
+        },
+        {
+          "name_hex": "4f6273657276657220686966693e2e6d616470656f6e",
+          "alias": "OBSERVER HIFI>.MADPEON"
+        },
+        {
+          "name_hex": "4f62736572766572205068656172",
+          "alias": "OBSERVER PHEAR"
+        },
+        {
+          "name_hex": "4f627365727665722070696d70",
+          "alias": "OBSERVER PIMP"
+        },
+        {
+          "name_hex": "4f6273657276657220504d532d526176656e",
+          "alias": "OBSERVER PMS-RAVEN"
+        },
+        {
+          "name_hex": "4f627365727665722071747672756c6573",
+          "alias": "OBSERVER QTVRULES"
+        },
+        {
+          "name_hex": "4f6273657276657220736f756c7468696566",
+          "alias": "OBSERVER SOULTHIEF"
+        },
+        {
+          "name_hex": "4f62736572766572207a316767",
+          "alias": "OBSERVER 21GG"
+        },
+        {
+          "name_hex": "4f627365727665722028474b29204375727345",
+          "alias": "OBSERVER (GK) CURSE"
+        },
+        {
+          "name_hex": "4f62736572766572205d2e4262616c6c2e5b",
+          "alias": "OBSERVER ].BBALL.["
+        },
+        {
+          "name_hex": "4f6273657276657220504947474c454421",
+          "alias": "OBSERVER PIGGLED!"
+        },
+        {
+          "name_hex": "4f62736572766572207330756c7468316566",
+          "alias": "OBSERVER S0ULTH1EF"
+        },
+        {
+          "name_hex": "4a6f736566",
+          "alias": "JOSEF"
+        },
+        {
+          "name_hex": "4f62736572766572205b5649495d556c7973736553",
+          "alias": "OBSERVER [VII]ULYSSES"
+        },
+        {
+          "name_hex": "4f6273657276657220617364",
+          "alias": "OBSERVER ASD"
+        },
+        {
+          "name_hex": "8ed4687572f374efee8511c4f61a10",
+          "alias": "·THURSTON·]DV8["
+        },
+        {
+          "name_hex": "20201d4d752d5a69711f2020",
+          "alias": "<MU-ZIQ>"
+        },
+        {
+          "name_hex": "426c6f6f64736865642d4c6f43",
+          "alias": "BLOODSHED-LOC"
+        },
+        {
+          "name_hex": "5b53615d",
+          "alias": "[SA]"
+        },
+        {
+          "name_hex": "3a",
+          "alias": ":"
+        },
+        {
+          "name_hex": "4f62736572766572205b4b545d204465204d6f6c6179",
+          "alias": "OBSERVER [KT] DE MOLAY"
+        },
+        {
+          "name_hex": "4f62736572766572205b6b745d6d6f6e7462617264",
+          "alias": "OBSERVER [KT]MONTBARD"
+        },
+        {
+          "name_hex": "416c6c6579204d636265616c",
+          "alias": "ALLEY MCBEAL"
+        },
+        {
+          "name_hex": "4f627365727665722068656865",
+          "alias": "OBSERVER HEHE"
+        },
+        {
+          "name_hex": "416c6c6579204d636265616c2d4c6f",
+          "alias": "ALLEY MCBEAL-LO"
+        },
+        {
+          "name_hex": "536368723064696e6765722e4c6f43",
+          "alias": "SCHR0DINGER.LOC"
+        },
+        {
+          "name_hex": "6c6c616d6120626561746572",
+          "alias": "LLAMA BEATER"
+        },
+        {
+          "name_hex": "7a796c6f6c",
+          "alias": "2YLOL"
+        },
+        {
+          "name_hex": "4f62736572766572205b66735d2e64756e6730",
+          "alias": "OBSERVER [FS].DUNG0"
+        },
+        {
+          "name_hex": "4f627365727665722046697265466c616d65",
+          "alias": "OBSERVER FIREFLAME"
+        },
+        {
+          "name_hex": "4f6273657276657220536f756c436174636865722e53594e",
+          "alias": "OBSERVER SOULCATCHER.SYN"
+        },
+        {
+          "name_hex": "4e617475726520426f79",
+          "alias": "NATURE BOY"
+        },
+        {
+          "name_hex": "4f6273657276657220424d2e4c307264204b617a616d",
+          "alias": "OBSERVER BM.L0RD KA2AM"
+        },
+        {
+          "name_hex": "4f62736572766572204e617475726520426f79",
+          "alias": "OBSERVER NATURE BOY"
+        },
+        {
+          "name_hex": "4f6273657276657220436c616e2e57686f72653c4c30433e",
+          "alias": "OBSERVER CLAN.WHORE<L0C>"
+        },
+        {
+          "name_hex": "44726163756c205b56616d705d",
+          "alias": "DRACUL [VAMP]"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b736f756c7468696566",
+          "alias": "OBSERVER ]KM[SOULTHIEF"
+        },
+        {
+          "name_hex": "0b0f6d6572637572790f0b",
+          "alias": "·MERCURY·"
+        },
+        {
+          "name_hex": "74657265",
+          "alias": "TERE"
+        },
+        {
+          "name_hex": "9d8e4f48a18e9f",
+          "alias": "<·OH!·>"
+        },
+        {
+          "name_hex": "cccc616d61c46f6d65",
+          "alias": "LLAMADOME"
+        },
+        {
+          "name_hex": "706974f6e9f0e5f25f",
+          "alias": "PITVIPER_"
+        },
+        {
+          "name_hex": "4f6273657276657220284d30442944725362616974736f",
+          "alias": "OBSERVER (M0D)DRSBAITSO"
+        },
+        {
+          "name_hex": "4f62736572766572205d42725d2e44695a7a2e4d614e",
+          "alias": "OBSERVER ]BR].DIZ2.MAN"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b4630304c",
+          "alias": "OBSERVER ]KM[F00L"
+        },
+        {
+          "name_hex": "4f627365727665722044304430",
+          "alias": "OBSERVER D0D0"
+        },
+        {
+          "name_hex": "4f62736572766572206465737973",
+          "alias": "OBSERVER DESYS"
+        },
+        {
+          "name_hex": "4f62736572766572206d657263757279",
+          "alias": "OBSERVER MERCURY"
+        },
+        {
+          "name_hex": "4f6273657276657220534154414e314320444f472e5b585d",
+          "alias": "OBSERVER SATAN1C DOG.[X]"
+        },
+        {
+          "name_hex": "4f6273657276657220536572656e697479",
+          "alias": "OBSERVER SERENITY"
+        },
+        {
+          "name_hex": "4f62736572766572207468652e706f6f7a65",
+          "alias": "OBSERVER THE.POO2E"
+        },
+        {
+          "name_hex": "4f62736572766572207772656b74",
+          "alias": "OBSERVER WREKT"
+        },
+        {
+          "name_hex": "4f62736572766572207a65726f",
+          "alias": "OBSERVER 2ERO"
+        },
+        {
+          "name_hex": "6465737973",
+          "alias": "DESYS"
+        },
+        {
+          "name_hex": "4f62736572766572205b66735d2e70616b69",
+          "alias": "OBSERVER [FS].PAKI"
+        },
+        {
+          "name_hex": "4f62736572766572205b66735d2e5330756c5468693366",
+          "alias": "OBSERVER [FS].S0ULTHI3F"
+        },
+        {
+          "name_hex": "4f62736572766572205d6b6d5b57306c6666",
+          "alias": "OBSERVER ]KM[W0LFF"
+        },
+        {
+          "name_hex": "4f62736572766572206c6179646261636b",
+          "alias": "OBSERVER LAYDBACK"
+        },
+        {
+          "name_hex": "4f62736572766572206c65747320676f206b6d21",
+          "alias": "OBSERVER LETS GO KM!"
+        },
+        {
+          "name_hex": "4f62736572766572207a6572302d626f74",
+          "alias": "OBSERVER 2ER0-BOT"
+        },
+        {
+          "name_hex": "44657379732d4c6f43",
+          "alias": "DESYS-LOC"
+        },
+        {
+          "name_hex": "d0617261646fd8",
+          "alias": "PARADOX"
+        },
+        {
+          "name_hex": "66726f73742d6c6f63",
+          "alias": "FROST-LOC"
+        },
+        {
+          "name_hex": "537465766541757374696e",
+          "alias": "STEVEAUSTIN"
+        },
+        {
+          "name_hex": "20d3639275f267c520",
+          "alias": "SC0URGE"
+        },
+        {
+          "name_hex": "4f62736572766572206231302e616e74696d616e21",
+          "alias": "OBSERVER B10.ANTIMAN!"
+        },
+        {
+          "name_hex": "e5f8696c65",
+          "alias": "EXILE"
+        },
+        {
+          "name_hex": "4f62736572766572206578696c65",
+          "alias": "OBSERVER EXILE"
+        },
+        {
+          "name_hex": "4f6273657276657220686f73743f",
+          "alias": "OBSERVER HOST?"
+        },
+        {
+          "name_hex": "4f62736572766572204d797374696331325b4c6f435d",
+          "alias": "OBSERVER MYSTIC12[LOC]"
+        },
+        {
+          "name_hex": "4f62736572766572205b45515d2e4b72793047654e",
+          "alias": "OBSERVER [EQ].KRY0GEN"
+        },
+        {
+          "name_hex": "4f6273657276657220446574687374616c6b6572",
+          "alias": "OBSERVER DETHSTALKER"
+        },
+        {
+          "name_hex": "50616e7468657220584c0d",
+          "alias": "PANTHER XL"
+        },
+        {
+          "name_hex": "6a6f686e4d",
+          "alias": "JOHNM"
+        },
+        {
+          "name_hex": "4f62736572766572204a61636b654c",
+          "alias": "OBSERVER JACKEL"
+        },
+        {
+          "name_hex": "4f62736572766572205a69676775726174202e47554e2e",
+          "alias": "OBSERVER ZIGGURAT .GUN."
+        },
+        {
+          "name_hex": "cdc7cb85c21316d1c4131761737472",
+          "alias": "MGK·B14QD15ASTR"
+        },
+        {
+          "name_hex": "9cd36fc49cf341564147e5",
+          "alias": "·SOD·SAVAGE"
+        },
+        {
+          "name_hex": "80c7e8e5d4d4ef824d617553",
+          "alias": "GHETTOMAUS"
+        },
+        {
+          "name_hex": "4f62736572766572202847686554546f294d617553",
+          "alias": "OBSERVER (GHETTO)MAUS"
+        },
+        {
+          "name_hex": "4f627365727665722057314430774d344b3372",
+          "alias": "OBSERVER W1D0WM4K3R"
+        },
+        {
+          "name_hex": "4f627365727665722051535b4865616448756e7465725d",
+          "alias": "OBSERVER QS[HEADHUNTER]"
+        },
+        {
+          "name_hex": "4f62736572766572204c6f72642e536574",
+          "alias": "OBSERVER LORD.SET"
+        },
+        {
+          "name_hex": "e26c61e8",
+          "alias": "BLAH"
+        },
+        {
+          "name_hex": "c3d69cc461656d6fce",
+          "alias": "CV·DAEMON"
+        },
+        {
+          "name_hex": "41646d6972616c2054687261776e",
+          "alias": "ADMIRAL THRAWN"
+        },
+        {
+          "name_hex": "61646d6972616c206461616c61",
+          "alias": "ADMIRAL DAALA"
+        },
+        {
+          "name_hex": "53636f6f627920446f6f",
+          "alias": "SCOOBY DOO"
+        },
+        {
+          "name_hex": "2d3d",
+          "alias": "-="
+        },
+        {
+          "name_hex": "476f6c696174682d495243",
+          "alias": "GOLIATH-IRC"
+        },
+        {
+          "name_hex": "4f6273657276657220427974656d616e",
+          "alias": "OBSERVER BYTEMAN"
+        },
+        {
+          "name_hex": "4f627365727665722044657379732d4c6f43",
+          "alias": "OBSERVER DESYS-LOC"
+        },
+        {
+          "name_hex": "4f62736572766572202e41757433636872652e5b4374465d",
+          "alias": "OBSERVER .AUT3CHRE.[CTF]"
+        },
+        {
+          "name_hex": "486f70656c6573735b446f685d",
+          "alias": "HOPELESS[DOH]"
+        },
+        {
+          "name_hex": "476f6f6d62616820435741",
+          "alias": "GOOMBAH CWA"
+        },
+        {
+          "name_hex": "67726f77657220435741",
+          "alias": "GROWER CWA"
+        },
+        {
+          "name_hex": "c3f2e1f7ece5f280525082",
+          "alias": "CRAWLERRP"
+        },
+        {
+          "name_hex": "ed92d2d292f72020209dcbe1f4fa9f",
+          "alias": "M0RR0W   <KAT2>"
+        },
+        {
+          "name_hex": "506f6c65636174",
+          "alias": "POLECAT"
+        },
+        {
+          "name_hex": "5b524b5d205370417258",
+          "alias": "[RK] SPARX"
+        },
+        {
+          "name_hex": "7a6f736f2e746661",
+          "alias": "2OSO.TFA"
         }
       ]
     }
