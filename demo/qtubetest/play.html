@@ -72,8 +72,27 @@
       height: var(--player-height, 480px);
       max-width: 100%;
       aspect-ratio: 4 / 3;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
       background: #000;
       outline: 1px solid var(--border);
+    }
+
+    .viewport:fullscreen,
+    .viewport:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      aspect-ratio: auto;
+      outline: 0;
+    }
+
+    .viewport:fullscreen canvas.emscripten,
+    .viewport:-webkit-full-screen canvas.emscripten {
+      width: min(100vw, calc(100vh * 4 / 3));
+      height: min(100vh, calc(100vw * 3 / 4));
     }
 
     canvas.emscripten {
@@ -86,6 +105,104 @@
       margin: 0;
       padding: 0;
       background: #000;
+    }
+
+    .player-overlay {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 18px 14px;
+      background: linear-gradient(180deg, rgba(13, 11, 10, 0), rgba(19, 16, 14, 0.88) 38%, rgba(19, 16, 14, 0.94));
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      z-index: 2;
+    }
+
+    .viewport:hover .player-overlay,
+    .viewport:focus-within .player-overlay,
+    .viewport.overlay-visible .player-overlay {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .volume-control {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .overlay-button {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #f2e2d0;
+      padding: 0;
+      cursor: pointer;
+      transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+    }
+
+    .overlay-button:hover:not(:disabled),
+    .overlay-button:focus-visible:not(:disabled) {
+      background: rgba(212, 143, 82, 0.18);
+      color: #fff5e8;
+      outline: 0;
+    }
+
+    .overlay-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .overlay-button svg {
+      width: 25px;
+      height: 25px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .volume-off-icon,
+    .fullscreen-exit-icon {
+      display: none;
+    }
+
+    .volume-toggle.is-muted .volume-on-icon,
+    .fullscreen-button.is-fullscreen .fullscreen-enter-icon {
+      display: none;
+    }
+
+    .volume-toggle.is-muted .volume-off-icon,
+    .fullscreen-button.is-fullscreen .fullscreen-exit-icon {
+      display: block;
+    }
+
+    .volume-slider {
+      width: clamp(110px, 18vw, 190px);
+      height: 20px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .volume-slider:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
     }
 
     .controls {
@@ -195,6 +312,37 @@
 
     <div class="viewport">
       <canvas class="emscripten" id="canvas" width="640" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+      <div id="playerOverlay" class="player-overlay" aria-label="Player overlay controls" hidden>
+        <div class="volume-control">
+          <button id="volumeToggle" class="overlay-button volume-toggle" type="button" aria-label="Mute" title="Mute" disabled>
+            <svg class="volume-on-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+              <path d="M18.5 6a9 9 0 0 1 0 12"></path>
+            </svg>
+            <svg class="volume-off-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
+              <path d="m16 9 5 5"></path>
+              <path d="m21 9-5 5"></path>
+            </svg>
+          </button>
+          <input id="volumeSlider" class="volume-slider" type="range" min="0" max="1" step="0.01" value="0.05" aria-label="Volume" disabled>
+        </div>
+        <button id="fullscreenButton" class="overlay-button fullscreen-button" type="button" aria-label="Enter fullscreen" title="Enter fullscreen" disabled>
+          <svg class="fullscreen-enter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H3v5"></path>
+            <path d="M16 3h5v5"></path>
+            <path d="M21 16v5h-5"></path>
+            <path d="M8 21H3v-5"></path>
+          </svg>
+          <svg class="fullscreen-exit-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 3v6H3"></path>
+            <path d="M15 3v6h6"></path>
+            <path d="M21 15h-6v6"></path>
+            <path d="M3 15h6v6"></path>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="controls" aria-live="polite">
@@ -207,8 +355,6 @@
         <button type="button" data-player-control="pause" disabled>Pause</button>
         <button type="button" data-player-control="play" disabled>Play</button>
         <button type="button" data-player-control="forward" disabled>+2s</button>
-        <button type="button" data-player-control="volumeDown" disabled>Vol -</button>
-        <button type="button" data-player-control="volumeUp" disabled>Vol +</button>
         <span id="playback-time" class="playback-time">--:--</span>
       </div>
     </div>
@@ -223,6 +369,11 @@
     var progressElement = document.getElementById("progress");
     var errorElement = document.getElementById("error");
     var canvas = document.getElementById("canvas");
+    var playerViewport = document.querySelector(".viewport");
+    var playerOverlay = document.getElementById("playerOverlay");
+    var volumeToggle = document.getElementById("volumeToggle");
+    var volumeSlider = document.getElementById("volumeSlider");
+    var fullscreenButton = document.getElementById("fullscreenButton");
     var sizeElement = document.querySelector(".size");
     var loadingControlsElement = document.getElementById("loadingControls");
     var playbackControlsElement = document.getElementById("playbackControls");
@@ -230,13 +381,15 @@
     var playbackTimeElement = document.getElementById("playback-time");
     var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     var PLAYER_VERTICAL_MARGIN = 36;
+    var INITIAL_VOLUME = 0.05;
+    var currentVolume = INITIAL_VOLUME;
+    var previousAudibleVolume = INITIAL_VOLUME;
+    var overlayHideTimer = 0;
     var ENGINE_CONTROL_COMMANDS = {
       back: "demo_jump -2",
       pause: "demo_setspeed 0",
       play: "demo_setspeed 100",
-      forward: "demo_jump +2",
-      volumeDown: "inc volume -0.05",
-      volumeUp: "inc volume 0.05"
+      forward: "demo_jump +2"
     };
     var BUILT_IN_PACKAGES = [
       {
@@ -662,6 +815,9 @@
       if (loadingControlsElement) {
         loadingControlsElement.hidden = true;
       }
+      if (playerOverlay) {
+        playerOverlay.hidden = true;
+      }
       statusElement.hidden = true;
       progressElement.hidden = true;
       errorElement.textContent = message;
@@ -696,9 +852,19 @@
       if (playbackControlsElement) {
         playbackControlsElement.hidden = !enabled;
       }
+      if (playerOverlay) {
+        playerOverlay.hidden = !enabled;
+      }
       controlButtons.forEach(function(button) {
         button.disabled = !enabled;
       });
+      [volumeToggle, volumeSlider, fullscreenButton].forEach(function(control) {
+        if (control) {
+          control.disabled = !enabled;
+        }
+      });
+      updateFullscreenButton();
+      updateVolumeControls();
     }
 
     function sourceLooksImmediate(source) {
@@ -819,15 +985,115 @@
       }
     }
 
-    function sendEngineCommand(command) {
+    function sendEngineCommand(command, options) {
       if (!command) {
         return;
       }
 
-      focusCanvas();
+      if (!options || options.focus !== false) {
+        focusCanvas();
+      }
       if (typeof FTEC !== "undefined" && FTEC && typeof FTEC.cbufadd === "function") {
         FTEC.cbufadd(command + "\n");
       }
+    }
+
+    function clampVolume(value) {
+      var number = Number(value);
+      if (!Number.isFinite(number)) {
+        return INITIAL_VOLUME;
+      }
+      return Math.max(0, Math.min(1, number));
+    }
+
+    function updateVolumeControls() {
+      if (volumeSlider) {
+        volumeSlider.value = String(currentVolume);
+      }
+      if (volumeToggle) {
+        var muted = currentVolume <= 0;
+        volumeToggle.classList.toggle("is-muted", muted);
+        volumeToggle.setAttribute("aria-label", muted ? "Unmute" : "Mute");
+        volumeToggle.title = muted ? "Unmute" : "Mute";
+      }
+    }
+
+    function setVolume(value, sendCommand) {
+      currentVolume = clampVolume(value);
+      if (currentVolume > 0) {
+        previousAudibleVolume = currentVolume;
+      }
+      updateVolumeControls();
+      if (sendCommand) {
+        sendEngineCommand("volume " + currentVolume.toFixed(2), {
+          focus: false
+        });
+      }
+    }
+
+    function getFullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function fullscreenSupported() {
+      return !!(playerViewport && (playerViewport.requestFullscreen || playerViewport.webkitRequestFullscreen));
+    }
+
+    function isPlayerFullscreen() {
+      return getFullscreenElement() === playerViewport;
+    }
+
+    function updateFullscreenButton() {
+      if (!fullscreenButton) {
+        return;
+      }
+      var fullscreen = isPlayerFullscreen();
+      fullscreenButton.classList.toggle("is-fullscreen", fullscreen);
+      fullscreenButton.setAttribute("aria-label", fullscreen ? "Exit fullscreen" : "Enter fullscreen");
+      fullscreenButton.title = fullscreen ? "Exit fullscreen" : "Enter fullscreen";
+      fullscreenButton.disabled = fullscreenButton.disabled || !fullscreenSupported();
+    }
+
+    function toggleFullscreen() {
+      if (!fullscreenSupported()) {
+        return;
+      }
+
+      var action;
+      if (isPlayerFullscreen()) {
+        action = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen();
+      } else {
+        action = playerViewport.requestFullscreen ? playerViewport.requestFullscreen() : playerViewport.webkitRequestFullscreen();
+      }
+
+      if (action && typeof action.catch === "function") {
+        action.catch(function(error) {
+          console.warn(error);
+        });
+      }
+    }
+
+    function showOverlayTemporarily() {
+      if (!playerViewport || !playerOverlay || playerOverlay.hidden) {
+        return;
+      }
+      playerViewport.classList.add("overlay-visible");
+      if (overlayHideTimer) {
+        clearTimeout(overlayHideTimer);
+      }
+      overlayHideTimer = window.setTimeout(function() {
+        playerViewport.classList.remove("overlay-visible");
+      }, 2200);
+    }
+
+    function handleFullscreenChange() {
+      updateFullscreenButton();
+      if (isPlayerFullscreen()) {
+        requestEngineResize();
+      } else {
+        fitPlayerToWindow();
+      }
+      showOverlayTemporarily();
     }
 
     function formatClock(seconds) {
@@ -858,6 +1124,15 @@
     }
 
     function stopControlEvent(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    function stopOverlayPointerEvent(event) {
+      event.stopPropagation();
+    }
+
+    function stopOverlayButtonEvent(event) {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -896,6 +1171,66 @@
       });
     });
 
+    if (playerViewport) {
+      ["pointermove", "touchstart"].forEach(function(type) {
+        playerViewport.addEventListener(type, showOverlayTemporarily, {
+          passive: true
+        });
+      });
+    }
+
+    if (playerOverlay) {
+      ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"].forEach(function(type) {
+        playerOverlay.addEventListener(type, stopOverlayPointerEvent);
+      });
+    }
+
+    if (volumeToggle) {
+      ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
+        volumeToggle.addEventListener(type, stopOverlayPointerEvent);
+      });
+      volumeToggle.addEventListener("click", function(event) {
+        stopOverlayButtonEvent(event);
+        if (currentVolume > 0) {
+          setVolume(0, true);
+        } else {
+          setVolume(previousAudibleVolume || INITIAL_VOLUME, true);
+        }
+        showOverlayTemporarily();
+      });
+    }
+
+    if (volumeSlider) {
+      ["pointerdown", "pointerup", "mousedown", "mouseup", "click"].forEach(function(type) {
+        volumeSlider.addEventListener(type, stopOverlayPointerEvent);
+      });
+      volumeSlider.addEventListener("input", function(event) {
+        event.stopPropagation();
+        setVolume(volumeSlider.value, true);
+        showOverlayTemporarily();
+      });
+      volumeSlider.addEventListener("change", function(event) {
+        event.stopPropagation();
+        setVolume(volumeSlider.value, true);
+        showOverlayTemporarily();
+      });
+    }
+
+    if (fullscreenButton) {
+      ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
+        fullscreenButton.addEventListener(type, stopOverlayPointerEvent);
+      });
+      fullscreenButton.addEventListener("click", function(event) {
+        stopOverlayButtonEvent(event);
+        toggleFullscreen();
+        showOverlayTemporarily();
+      });
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    setVolume(INITIAL_VOLUME, false);
+
     if (!selectedDemo) {
       showError(selectedName ? "Unknown demo: " + selectedName : "No demo selected. Drop a .dem in the /demo tool to play it.");
     } else {
@@ -914,7 +1249,7 @@
             "+set", "vid_height", "480",
             "+set", "gl_font", "graybugs",
             "+set", "snd_samplebits", "32",
-            "+set", "volume", "0.05",
+            "+set", "volume", String(INITIAL_VOLUME),
             "+playdemo", selectedDemo.file
           ],
           files: files,
