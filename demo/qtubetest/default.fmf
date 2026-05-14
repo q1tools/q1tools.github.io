@@ -4,5 +4,6 @@ protocolname "none"
 basegame id1
 disablehomedir 1
 
++set gl_load24bit 0
 +set gl_font graybugs
 +exec demo.cfg
