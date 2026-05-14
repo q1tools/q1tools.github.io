@@ -29,9 +29,10 @@
     const captimeContent = document.getElementById('captimeContent');
     const DEMO_PLAYER_URL = 'qtubetest/play.html';
     const DEMO_PLAYER_STORAGE_PREFIX = 'q1tools-demo-player:';
-    const DEMO_PLAYER_MIN_HEIGHT = 640;
+    const DEMO_PLAYER_MIN_HEIGHT = 360;
     const DEMO_PLAYER_MAX_HEIGHT = 1280;
     const DEMO_PLAYER_VERTICAL_CHROME = 104;
+    const DEMO_PLAYER_VIEWPORT_MARGIN = 24;
     const PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
@@ -3664,8 +3665,20 @@
             return;
         }
 
-        var height = Math.round(width * 0.75 + DEMO_PLAYER_VERTICAL_CHROME);
-        height = Math.max(DEMO_PLAYER_MIN_HEIGHT, Math.min(DEMO_PLAYER_MAX_HEIGHT, height));
+        var idealHeight = Math.round(width * 0.75 + DEMO_PLAYER_VERTICAL_CHROME);
+        var viewport = window.visualViewport;
+        var viewportHeight = viewport ? viewport.height : window.innerHeight;
+        var panelTop = demoPlayerPanel.getBoundingClientRect().top;
+        var availableHeight = viewportHeight - Math.max(0, panelTop) - DEMO_PLAYER_VIEWPORT_MARGIN;
+        var height = Math.min(idealHeight, DEMO_PLAYER_MAX_HEIGHT);
+        var minimumHeight = DEMO_PLAYER_MIN_HEIGHT;
+
+        if (Number.isFinite(availableHeight) && availableHeight > 0) {
+            var cappedAvailableHeight = Math.max(280, availableHeight);
+            height = Math.min(height, cappedAvailableHeight);
+            minimumHeight = Math.min(minimumHeight, cappedAvailableHeight);
+        }
+        height = Math.max(minimumHeight, height);
         demoPlayerFrame.style.setProperty('--demo-player-frame-height', height + 'px');
     }
 
@@ -3682,6 +3695,10 @@
     }
 
     window.addEventListener('resize', resizeEmbeddedPlayer);
+    window.addEventListener('scroll', resizeEmbeddedPlayer, { passive: true });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeEmbeddedPlayer);
+    }
     if (window.ResizeObserver && demoPlayerPanel) {
         new ResizeObserver(resizeEmbeddedPlayer).observe(demoPlayerPanel);
     }

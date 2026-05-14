@@ -229,6 +229,7 @@
     var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
     var playbackTimeElement = document.getElementById("playback-time");
     var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
+    var PLAYER_VERTICAL_MARGIN = 36;
     var ENGINE_CONTROL_COMMANDS = {
       back: "demo_jump -2",
       pause: "demo_setspeed 0",
@@ -572,9 +573,29 @@
 
     function viewportSize() {
       var viewport = window.visualViewport;
+      var widths = [window.innerWidth, document.documentElement.clientWidth];
+      var heights = [window.innerHeight, document.documentElement.clientHeight];
+      if (viewport) {
+        widths.push(viewport.width);
+        heights.push(viewport.height);
+      }
+      if (window.frameElement) {
+        var frameRect = window.frameElement.getBoundingClientRect();
+        if (frameRect.width) {
+          widths.push(frameRect.width);
+        }
+        if (frameRect.height) {
+          heights.push(frameRect.height);
+        }
+      }
+
       return {
-        width: viewport ? viewport.width : window.innerWidth,
-        height: viewport ? viewport.height : window.innerHeight
+        width: Math.min.apply(Math, widths.filter(function(value) {
+          return Number.isFinite(value) && value > 0;
+        })),
+        height: Math.min.apply(Math, heights.filter(function(value) {
+          return Number.isFinite(value) && value > 0;
+        }))
       };
     }
 
@@ -604,7 +625,7 @@
 
       for (var pass = 0; pass < 4; pass++) {
         setPlayerSize(width);
-        var availableHeight = Math.max(120, viewport.height - reservedPlayerHeight());
+        var availableHeight = Math.max(120, viewport.height - reservedPlayerHeight() - PLAYER_VERTICAL_MARGIN);
         var nextWidth = Math.min(maxWidth, availableHeight * 4 / 3);
 
         if (Math.abs(nextWidth - width) < 1) {
