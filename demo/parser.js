@@ -607,6 +607,70 @@
         return (Number(text) | 0) & 15;
     }
 
+    function activeTeamColor(player) {
+        if (!player || !player.name || !Number.isInteger(player.pants) || player.pants === 0 || player.frags === -99) {
+            return null;
+        }
+        return player.pants & 0x0f;
+    }
+
+    function calculateTeamScoreSnapshot(parser) {
+        const teamsByColor = new Map();
+
+        parser.runtime.players.forEach(function (player) {
+            const color = activeTeamColor(player);
+            let entry;
+            if (color === null) {
+                return;
+            }
+            entry = teamsByColor.get(color);
+            if (!entry) {
+                entry = {
+                    color: color,
+                    score: 0,
+                    players: 0
+                };
+                teamsByColor.set(color, entry);
+            }
+            entry.score += Number.isFinite(player.frags) ? player.frags : 0;
+            entry.players += 1;
+        });
+
+        return {
+            time: round(parser.runtime.time, 3) || 0,
+            teams: Array.from(teamsByColor.values()).sort(function (left, right) {
+                if (left.score !== right.score) {
+                    return right.score - left.score;
+                }
+                return left.color - right.color;
+            })
+        };
+    }
+
+    function sameTeamScoreSnapshot(left, right) {
+        if (!left || !right || left.teams.length !== right.teams.length) {
+            return false;
+        }
+        for (let index = 0; index < left.teams.length; index += 1) {
+            if (left.teams[index].color !== right.teams[index].color ||
+                left.teams[index].score !== right.teams[index].score ||
+                left.teams[index].players !== right.teams[index].players) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function recordTeamScoreSnapshot(parser) {
+        const snapshot = calculateTeamScoreSnapshot(parser);
+        const previous = parser.teamScoreTimeline[parser.teamScoreTimeline.length - 1];
+
+        if (snapshot.teams.length < 2 || sameTeamScoreSnapshot(previous, snapshot)) {
+            return;
+        }
+        parser.teamScoreTimeline.push(snapshot);
+    }
+
     function syncPlayerUserInfo(parser, slot) {
         const info = parser.runtime.playerUserInfo[slot];
         if (!info) {
@@ -631,6 +695,7 @@
             runtimePlayer.pants = pants;
             record.pants = pants;
         }
+        recordTeamScoreSnapshot(parser);
     }
 
     function applyStuffTextCommand(parser, rawText) {
@@ -2870,6 +2935,7 @@
                     parser.runtime.players[slot].name = name;
                     addAlias(ensurePlayerRecord(parser, slot), name);
                     captureSuperimposeName(parser, slot, name);
+                    recordTeamScoreSnapshot(parser);
                 }
                 break;
             }
@@ -2883,6 +2949,7 @@
                     record.frags = frags;
                     record.maxFrags = Math.max(record.maxFrags, frags);
                     record.minFrags = Math.min(record.minFrags, frags);
+                    recordTeamScoreSnapshot(parser);
                 }
                 break;
             }
@@ -2905,6 +2972,7 @@
                     record.shirt = parser.runtime.players[slot].shirt;
                     record.pants = parser.runtime.players[slot].pants;
                     captureSuperimposeColor(parser, slot, colors);
+                    recordTeamScoreSnapshot(parser);
                 }
                 break;
             }
@@ -3357,6 +3425,7 @@
             printLog: [],
             printBuffer: Object.create(null),
             stuffTextLog: [],
+            teamScoreTimeline: [],
             playersByKey: new Map(),
             protocolsSeen: new Set(),
             mapsSeen: new Set(),
@@ -4834,6 +4903,7 @@
         finalizeSegment(parser);
         flushPrintBuffer(parser, 'print');
         flushPrintBuffer(parser, 'centerprint');
+        recordTeamScoreSnapshot(parser);
 
         const protocols = Array.from(parser.protocolsSeen);
         if (protocols.length === 0) {
@@ -4846,6 +4916,7 @@
             }
             return sum + Math.max(0, segment.endTime - segment.startTime);
         }, 0);
+        const teamScoreTimeOrigin = parser.firstTimestamp === null ? 0 : parser.firstTimestamp;
 
         return {
             fileName: parser.fileMeta.name || 'demo.dem',
@@ -4872,6 +4943,18 @@
                 };
             }),
             players: finalisePlayers(parser),
+            teamScores: parser.teamScoreTimeline.map(function (snapshot) {
+                return {
+                    time: round(Math.max(0, snapshot.time - teamScoreTimeOrigin), 3),
+                    teams: snapshot.teams.map(function (team) {
+                        return {
+                            color: team.color,
+                            score: team.score,
+                            players: team.players
+                        };
+                    })
+                };
+            }),
             serverInfo: cloneStringMap(parser.runtime.serverInfo),
             playerUserInfo: parser.runtime.playerUserInfo.map(function (info) {
                 return info ? cloneStringMap(info) : null;

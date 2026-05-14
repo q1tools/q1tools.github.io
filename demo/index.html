@@ -7,12 +7,12 @@
     <link rel="icon" type="image/png" href="demo.png">
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="../sav/style.css">
-    <link rel="stylesheet" href="style.css?v=20260513a">
+    <link rel="stylesheet" href="style.css?v=20260514b">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
     <script defer src="dzip.js?v=20260321b"></script>
-    <script defer src="parser.js?v=20260321b"></script>
-    <script defer src="app.js?v=20260514c"></script>
+    <script defer src="parser.js?v=20260514a"></script>
+    <script defer src="app.js?v=20260514e"></script>
 </head>
 <body>
     <main class="page">
@@ -30,12 +30,12 @@
             <input id="folderInput" type="file" webkitdirectory directory hidden>
 
             <div id="demoPlayerDropZone" class="drop-zone demo-player-drop-zone" tabindex="0" role="button" aria-controls="demoPlayerInput">
-                <strong>Drop a .dem file here to play it</strong>
-                <small>or click to choose a .dem or .pak from your computer</small>
+                <strong>Drop a .dem or .dz file here to play it</strong>
+                <small>or click to choose a .dem, .dz, or .pak from your computer</small>
                 <small>drop .pak files here first for demos whose maps are inside them</small>
                 <small id="packageStatus" class="package-status">No extra .pak files loaded</small>
             </div>
-            <input id="demoPlayerInput" type="file" accept=".dem,.DEM,.pak,.PAK,application/octet-stream" multiple hidden>
+            <input id="demoPlayerInput" type="file" accept=".dem,.DEM,.dz,.DZ,.pak,.PAK,application/octet-stream" multiple hidden>
 
             <div class="actions">
                 <button id="clearButton" type="button" disabled>Clear</button>
@@ -46,7 +46,11 @@
         </section>
 
         <section id="demoPlayerPanel" class="panel demo-player-panel" hidden>
-            <iframe id="demoPlayerFrame" class="demo-player-frame" title="Demo playback" allow="fullscreen" allowfullscreen></iframe>
+            <div class="demo-player-frame-wrap">
+                <iframe id="demoPlayerFrame" class="demo-player-frame" title="Demo playback" allow="fullscreen" allowfullscreen></iframe>
+                <div id="demoMatchHudOverlay" class="demo-match-hud-overlay" hidden aria-label="Calculated team scores"></div>
+            </div>
+            <div id="demoPlayerInfo" class="demo-player-info" hidden></div>
         </section>
 
         <section id="summaryPanel" class="panel" hidden>

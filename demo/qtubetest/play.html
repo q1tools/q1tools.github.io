@@ -60,13 +60,6 @@
       overflow-wrap: anywhere;
     }
 
-    .size {
-      flex: 0 0 auto;
-      color: var(--muted);
-      font-size: 13px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    }
-
     .viewport {
       width: var(--player-width, 640px);
       height: var(--player-height, 480px);
@@ -227,11 +220,39 @@
     }
 
     .playback-controls {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .playback-button-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: center;
       gap: 8px;
+    }
+
+    .shortcut-key {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    .shortcut-key kbd {
+      display: inline-block;
+      min-width: 18px;
+      margin: 0 2px;
+      padding: 1px 5px;
+      border: 1px solid #51443b;
+      border-radius: 4px;
+      background: #171412;
+      color: #f2e2d0;
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
     }
 
     .controls button {
@@ -261,7 +282,8 @@
 
     .speed-select {
       appearance: none;
-      min-width: 82px;
+      width: var(--speed-select-width, 58px);
+      min-width: 58px;
       border: 1px solid #705948;
       border-radius: 6px;
       background:
@@ -333,7 +355,6 @@
   <main class="shell">
     <div class="topbar">
       <h1 id="demo-title">FTE Demo Player</h1>
-      <div class="size">640x480</div>
     </div>
 
     <div class="viewport">
@@ -377,19 +398,26 @@
         <progress value="0" max="100" id="progress" hidden></progress>
       </div>
       <div id="playbackControls" class="playback-controls" aria-label="Playback controls" hidden>
-        <button type="button" data-player-control="back" disabled>-2s</button>
-        <button id="playPauseButton" type="button" data-player-control="toggle-playback" disabled>Pause</button>
-        <select id="speedSelect" class="speed-select" aria-label="Demo speed" disabled>
-          <option value="25">0.25x</option>
-          <option value="50">0.5x</option>
-          <option value="75">0.75x</option>
-          <option value="100" selected>1x</option>
-          <option value="150">1.5x</option>
-          <option value="200">2x</option>
-          <option value="400">4x</option>
-        </select>
-        <button type="button" data-player-control="forward" disabled>+2s</button>
-        <span id="playback-time" class="playback-time">--:--</span>
+        <div class="playback-button-row">
+          <button type="button" data-player-control="back" disabled>-2s</button>
+          <button id="playPauseButton" type="button" data-player-control="toggle-playback" disabled>Pause</button>
+          <select id="speedSelect" class="speed-select" aria-label="Demo speed" disabled>
+            <option value="25">0.25x</option>
+            <option value="50">0.5x</option>
+            <option value="75">0.75x</option>
+            <option value="100" selected>1x</option>
+            <option value="150">1.5x</option>
+            <option value="200">2x</option>
+            <option value="400">4x</option>
+          </select>
+          <button type="button" data-player-control="forward" disabled>+2s</button>
+          <span id="playback-time" class="playback-time">--:--</span>
+        </div>
+        <div class="shortcut-key" aria-label="Keyboard shortcuts">
+          <kbd>0</kbd>restart
+          <kbd>1</kbd>-<kbd>9</kbd>jump
+          <kbd>,</kbd><kbd>.</kbd>frame
+        </div>
       </div>
     </div>
     <div id="error" class="error" hidden></div>
@@ -397,6 +425,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
   <script src="quake106.js?v=20260506a"></script>
+  <script src="../dzip.js?v=20260321b"></script>
+  <script src="../parser.js?v=20260321b"></script>
   <script>
     var params = new URLSearchParams(window.location.search);
     var statusElement = document.getElementById("status");
@@ -408,7 +438,6 @@
     var volumeToggle = document.getElementById("volumeToggle");
     var volumeSlider = document.getElementById("volumeSlider");
     var fullscreenButton = document.getElementById("fullscreenButton");
-    var sizeElement = document.querySelector(".size");
     var loadingControlsElement = document.getElementById("loadingControls");
     var playbackControlsElement = document.getElementById("playbackControls");
     var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
@@ -422,6 +451,8 @@
     var previousAudibleVolume = INITIAL_VOLUME;
     var playbackPaused = false;
     var playbackSpeed = 100;
+    var pauseMutedAutomatically = false;
+    var pauseResumeVolume = INITIAL_VOLUME;
     var overlayHideTimer = 0;
     var ENGINE_CONTROL_COMMANDS = {
       back: "demo_jump -2",
@@ -471,6 +502,28 @@
         return fallback;
       }
       return Math.max(min, Math.min(max, number));
+    }
+
+    function normalizeDuration(value) {
+      var text = cleanValue(value);
+      var parts;
+      var number;
+      var total = 0;
+      var index;
+
+      if (!text) {
+        return 0;
+      }
+      if (/^\d+(?::\d+(?:\.\d+)?){1,2}$/.test(text)) {
+        parts = text.split(":");
+        for (index = 0; index < parts.length; index++) {
+          total = (total * 60) + Number(parts[index]);
+        }
+        return Number.isFinite(total) && total > 0 ? total : 0;
+      }
+
+      number = Number(text);
+      return Number.isFinite(number) && number > 0 ? number : 0;
     }
 
     function stripFteComment(line) {
@@ -803,7 +856,8 @@
         pak1Source: pak1Source ? sourceForRelativeValue(pak1Source) : "",
         pak1File: pak1Source ? sanitizeVirtualFileName(spec.pak1File || "pak1.pak", "pak1.pak") : "",
         packages: packages,
-        maps: maps
+        maps: maps,
+        duration: normalizeDuration(spec.duration || spec.demoDuration || spec.length || spec.seconds)
       };
     }
 
@@ -821,7 +875,8 @@
         pak1File: params.get("pak1File") || "",
         packages: params.get("packages") || "",
         maps: params.get("maps") || "",
-        map: params.get("map") || ""
+        map: params.get("map") || "",
+        duration: params.get("duration") || params.get("demoDuration") || ""
       }, source);
     }
 
@@ -845,6 +900,7 @@
 
     var selectedName = params.get("demo") || params.get("source") || params.get("launch") || "";
     var selectedDemo = specFromSession() || specFromQuery();
+    var demoDuration = selectedDemo ? normalizeDuration(selectedDemo.duration) : 0;
 
     function requestEngineResize() {
       if (typeof window.onresize !== "function") {
@@ -885,7 +941,6 @@
 
       document.documentElement.style.setProperty("--player-width", roundedWidth + "px");
       document.documentElement.style.setProperty("--player-height", roundedHeight + "px");
-      sizeElement.textContent = roundedWidth + "x" + roundedHeight;
     }
 
     function reservedPlayerHeight() {
@@ -978,6 +1033,7 @@
         }
       });
       updatePlayPauseButton();
+      updateSpeedSelectWidth();
       updateFullscreenButton();
       updateVolumeControls();
     }
@@ -1002,6 +1058,134 @@
         return response.ok;
       }).catch(function() {
         return false;
+      });
+    }
+
+    function fetchArrayBuffer(source) {
+      return fetch(source, {
+        cache: "force-cache"
+      }).then(function(response) {
+        if (!response.ok && response.status !== 0) {
+          throw new Error("HTTP " + response.status);
+        }
+        return response.arrayBuffer();
+      });
+    }
+
+    function cloneArrayBuffer(bufferLike) {
+      if (bufferLike instanceof ArrayBuffer) {
+        return bufferLike.slice(0);
+      }
+      if (ArrayBuffer.isView(bufferLike)) {
+        return bufferLike.buffer.slice(bufferLike.byteOffset, bufferLike.byteOffset + bufferLike.byteLength);
+      }
+      throw new TypeError("Expected binary demo data.");
+    }
+
+    function addParsedDemoMaps(demo, parsed) {
+      var seenMaps = {};
+      if (!parsed || !Array.isArray(parsed.maps)) {
+        return;
+      }
+
+      demo.maps.forEach(function(map) {
+        var key = fileNameFromValue(map.file || map).toLowerCase();
+        if (key) {
+          seenMaps[key] = true;
+        }
+      });
+
+      parsed.maps.forEach(function(map) {
+        var mapName = cleanValue(map.mapName || map.file || map.name || "");
+        var descriptor;
+        var key;
+        if (!mapName) {
+          return;
+        }
+        descriptor = normalizeMapDescriptor(mapName);
+        if (!descriptor) {
+          return;
+        }
+        key = descriptor.file.toLowerCase();
+        if (!seenMaps[key]) {
+          demo.maps.push(descriptor);
+          seenMaps[key] = true;
+        }
+      });
+    }
+
+    function demoDurationFromBuffer(buffer, demo) {
+      if (!window.QuakeDemoParser || typeof window.QuakeDemoParser.parseDemoBuffer !== "function") {
+        return 0;
+      }
+
+      try {
+        var parsed = window.QuakeDemoParser.parseDemoBuffer(buffer, {
+          name: demo.file
+        });
+        var duration = 0;
+        addParsedDemoMaps(demo, parsed);
+        if (parsed && parsed.timeline) {
+          duration = normalizeDuration(Number(parsed.timeline.endTime) - Number(parsed.timeline.startTime));
+        }
+        if (!duration) {
+          duration = normalizeDuration(parsed && parsed.duration);
+        }
+        return duration;
+      } catch (error) {
+        console.warn("Unable to read demo duration:", error);
+        return 0;
+      }
+    }
+
+    function prepareDzipDemoSource(buffer, demo) {
+      if (!window.QuakeDemoDzip || typeof window.QuakeDemoDzip.extractDemoEntries !== "function") {
+        throw new Error("DZip support is unavailable.");
+      }
+
+      return window.QuakeDemoDzip.extractDemoEntries(buffer).then(function(entries) {
+        var entry = entries[0];
+        var fileName;
+        var demoBuffer;
+
+        if (!entry) {
+          throw new Error("The .dz archive does not contain any .dem entries.");
+        }
+
+        fileName = cleanValue(entry.name) || demo.file.replace(/\.dz$/i, ".dem");
+        demo.file = sanitizeVirtualFileName(fileName, "demo.dem");
+        demoBuffer = cloneArrayBuffer(entry.bytes);
+        var duration = demoDurationFromBuffer(demoBuffer, demo);
+        if (demoDuration <= 0 && duration > 0) {
+          demoDuration = duration;
+          demo.duration = duration;
+        }
+        return demoBuffer;
+      });
+    }
+
+    function prepareDemoSource(demo) {
+      if (!/\.(?:dem|dz)$/i.test(demo.file) || (demoDuration > 0 && demo.maps.length && !/\.dz$/i.test(demo.file))) {
+        return Promise.resolve(demo.source);
+      }
+
+      return fetchArrayBuffer(demo.source).then(function(buffer) {
+        if (/\.dz$/i.test(demo.file)) {
+          return prepareDzipDemoSource(buffer, demo);
+        }
+
+        var duration = demoDurationFromBuffer(buffer, demo);
+        if (duration > 0) {
+          demoDuration = duration;
+          demo.duration = duration;
+        }
+        return buffer;
+      }).catch(function(error) {
+        console.warn("Unable to prefetch demo for timeline shortcuts:", error);
+        if (/\.dz$/i.test(demo.file)) {
+          throw error;
+        }
+        return demo.source;
       });
     }
 
@@ -1047,42 +1231,46 @@
     function prepareFilesForDemo(demo) {
       var assetFiles = {};
       var mountedPackages = [];
-      var neededPackages = packagesNeededForMaps(demo.packages, demo.maps);
+      var preparedDemoSource;
 
-      neededPackages.forEach(function(packageInfo) {
-        addPackageFile(assetFiles, mountedPackages, packageInfo);
-      });
+      return prepareDemoSource(demo).then(function(demoSource) {
+        var neededPackages = packagesNeededForMaps(demo.packages, demo.maps);
+        preparedDemoSource = demoSource;
 
-      assetFiles["id1/" + demo.file] = demo.source;
+        neededPackages.forEach(function(packageInfo) {
+          addPackageFile(assetFiles, mountedPackages, packageInfo);
+        });
 
-      return demo.maps.reduce(function(chain, map) {
-        return chain.then(function() {
-          if (packagesProvideMap(mountedPackages, map.file)) {
-            return;
-          }
-
-          if (mapFileNeedsPak1(map.file)) {
-            throw new Error("This demo uses " + fileNameFromValue(map.file) + ", which needs pak1.pak or another package containing that map. Drop the .pak first, then drop the .dem again.");
-          }
-
-          var fallbackPackages = builtInPackagesForMap(map.file);
-          if (fallbackPackages.length) {
-            fallbackPackages.forEach(function(packageInfo) {
-              addPackageFile(assetFiles, mountedPackages, packageInfo);
-            });
-            return;
-          }
-
-          return sourceExists(map.source).then(function(exists) {
-            if (exists) {
-              addMapFile(assetFiles, map);
+        return demo.maps.reduce(function(chain, map) {
+          return chain.then(function() {
+            if (packagesProvideMap(mountedPackages, map.file)) {
               return;
             }
 
-            addMapFile(assetFiles, map);
+            if (mapFileNeedsPak1(map.file)) {
+              throw new Error("This demo uses " + fileNameFromValue(map.file) + ", which needs pak1.pak or another package containing that map. Drop the .pak first, then drop the demo again.");
+            }
+
+            var fallbackPackages = builtInPackagesForMap(map.file);
+            if (fallbackPackages.length) {
+              fallbackPackages.forEach(function(packageInfo) {
+                addPackageFile(assetFiles, mountedPackages, packageInfo);
+              });
+              return;
+            }
+
+            return sourceExists(map.source).then(function(exists) {
+              if (exists) {
+                addMapFile(assetFiles, map);
+                return;
+              }
+
+              addMapFile(assetFiles, map);
+            });
           });
-        });
-      }, Promise.resolve()).then(function() {
+        }, Promise.resolve());
+      }).then(function() {
+        assetFiles["id1/" + demo.file] = preparedDemoSource;
         var files = baseFiles();
         Object.keys(assetFiles).forEach(function(path) {
           files[path] = assetFiles[path];
@@ -1132,10 +1320,13 @@
       }
     }
 
-    function setVolume(value, sendCommand) {
+    function setVolume(value, sendCommand, options) {
       currentVolume = clampVolume(value);
       if (currentVolume > 0) {
         previousAudibleVolume = currentVolume;
+      }
+      if (playbackPaused && (!options || !options.pauseMute)) {
+        pauseMutedAutomatically = false;
       }
       updateVolumeControls();
       if (sendCommand) {
@@ -1160,6 +1351,43 @@
       if (sendCommand) {
         sendEngineCommand("demo_setspeed " + (playbackPaused ? 0 : playbackSpeed));
       }
+      if (playbackPaused) {
+        pauseMutedAutomatically = currentVolume > 0;
+        pauseResumeVolume = currentVolume > 0 ? currentVolume : (previousAudibleVolume || INITIAL_VOLUME);
+        if (pauseMutedAutomatically) {
+          setVolume(0, sendCommand, {
+            pauseMute: true
+          });
+        }
+      } else {
+        if (pauseMutedAutomatically && currentVolume <= 0) {
+          setVolume(pauseResumeVolume || previousAudibleVolume || INITIAL_VOLUME, sendCommand, {
+            pauseRestore: true
+          });
+        }
+        pauseMutedAutomatically = false;
+      }
+    }
+
+    function updateSpeedSelectWidth() {
+      if (!speedSelect) {
+        return;
+      }
+
+      var option = speedSelect.options[speedSelect.selectedIndex];
+      var label = option ? option.text : speedSelect.value;
+      var canvas = updateSpeedSelectWidth.canvas || (updateSpeedSelectWidth.canvas = document.createElement("canvas"));
+      var context = canvas.getContext("2d");
+      var style = getComputedStyle(speedSelect);
+      var textWidth = 0;
+      if (context) {
+        context.font = style.font;
+        textWidth = context.measureText(label).width;
+      } else {
+        textWidth = label.length * 8;
+      }
+
+      speedSelect.style.setProperty("--speed-select-width", Math.ceil(Math.max(58, textWidth + 42)) + "px");
     }
 
     function setPlaybackSpeed(value, sendCommand) {
@@ -1171,6 +1399,7 @@
       if (speedSelect && speedSelect.value !== String(speed)) {
         speedSelect.value = String(speed);
       }
+      updateSpeedSelectWidth();
       if (sendCommand && !playbackPaused) {
         sendEngineCommand("demo_setspeed " + playbackSpeed);
       }
@@ -1304,6 +1533,42 @@
       return true;
     }
 
+    function isTextInputTarget(target) {
+      if (!target) {
+        return false;
+      }
+      var tagName = String(target.tagName || "").toLowerCase();
+      return target.isContentEditable || tagName === "input" || tagName === "select" || tagName === "textarea";
+    }
+
+    function handlePercentSeekKeyboard(event) {
+      if (event.type !== "keydown" || event.altKey || event.ctrlKey || event.metaKey || event.repeat || isTextInputTarget(event.target)) {
+        return false;
+      }
+      if (event.key === "," || event.key === "<" || event.key === "." || event.key === ">") {
+        if (!playbackPaused) {
+          setPlaybackPaused(true, true);
+        }
+        sendEngineCommand("demo_nudge " + ((event.key === "," || event.key === "<") ? "-1" : "+1"));
+        showOverlayTemporarily();
+        return true;
+      }
+      if (event.key === "0") {
+        sendEngineCommand("demo_jump 0");
+        showOverlayTemporarily();
+        return true;
+      }
+      if (!/^[1-9]$/.test(event.key) || demoDuration <= 0) {
+        return false;
+      }
+
+      var percentage = Number(event.key) / 10;
+      var targetSeconds = Math.max(0, Math.round(demoDuration * percentage));
+      sendEngineCommand("demo_jump " + targetSeconds);
+      showOverlayTemporarily();
+      return true;
+    }
+
     function handleButtonKeyboard(event) {
       if (event.type !== "keydown" || !isKeyboardActivation(event)) {
         return false;
@@ -1336,7 +1601,7 @@
     }
 
     function blockEngineKeyboardEvent(event) {
-      var handledControl = handleSliderKeyboard(event) || handleSpeedKeyboard(event) || handleButtonKeyboard(event);
+      var handledControl = handlePercentSeekKeyboard(event) || handleSliderKeyboard(event) || handleSpeedKeyboard(event) || handleButtonKeyboard(event);
       if (handledControl) {
         event.preventDefault();
       }
@@ -1492,6 +1757,7 @@
       });
     });
     setVolume(INITIAL_VOLUME, false);
+    updateSpeedSelectWidth();
 
     if (!selectedDemo) {
       showError(selectedName ? "Unknown demo: " + selectedName : "No demo selected. Drop a .dem in the /demo tool to play it.");
@@ -1520,6 +1786,10 @@
             "+set", "hud_miniscores_show", "0",
             "+set", "hud_tracking_show", "0",
             "+set", "sbar_teamstatus", "0",
+            "+set", "scr_autoid_health", "0",
+            "+set", "scr_autoid_armor", "0",
+            "+set", "scr_autoid_weapon", "0",
+            "+set", "scr_autoid_weapon_mask", "0",
             "+set", "scr_scoreboard_newstyle", "0",
             "+set", "scr_scoreboard_teamscores", "0",
             "+set", "scr_scoreboard_showfrags", "0",

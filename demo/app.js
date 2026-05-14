@@ -23,6 +23,8 @@
     const demoPlayerInput = document.getElementById('demoPlayerInput');
     const demoPlayerPanel = document.getElementById('demoPlayerPanel');
     const demoPlayerFrame = document.getElementById('demoPlayerFrame');
+    const demoPlayerInfo = document.getElementById('demoPlayerInfo');
+    const demoMatchHudOverlay = document.getElementById('demoMatchHudOverlay');
     const folderAnalysisPanel = document.getElementById('folderAnalysisPanel');
     const folderAnalysisContent = document.getElementById('folderAnalysisContent');
     const captimePanel = document.getElementById('captimePanel');
@@ -33,6 +35,8 @@
     const DEMO_PLAYER_MAX_HEIGHT = 1280;
     const DEMO_PLAYER_VERTICAL_CHROME = 104;
     const DEMO_PLAYER_VIEWPORT_MARGIN = 24;
+    const DEMO_MATCH_HUD_REFRESH_MS = 250;
+    const DEMO_MATCH_HUD_MAX_TEAMS = 4;
     const PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
@@ -55,6 +59,9 @@
     let parsedFiles = [];
     let folderMode = false;
     let playerPackages = [];
+    let demoPlayerParsedFiles = [];
+    let demoMatchHudTimer = 0;
+    let demoMatchHudItem = null;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -196,6 +203,23 @@
 
     function clampNumber(value, min, max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    function parsePositiveDuration(value) {
+        if (value == null || value === '') {
+            return 0;
+        }
+        if (typeof value === 'number') {
+            return Number.isFinite(value) && value > 0 ? value : 0;
+        }
+
+        const parsedTime = parseTrimTime(value);
+        if (parsedTime !== null && parsedTime > 0) {
+            return parsedTime;
+        }
+
+        const number = Number(cleanDemlValue(value));
+        return Number.isFinite(number) && number > 0 ? number : 0;
     }
 
     function formatDecimal(value, suffix) {
@@ -1657,11 +1681,31 @@
         return options;
     }
 
-    function renderChatSection(data, index) {
+    function scopedDemoId(prefix, base, index) {
+        return String(prefix || '') + base + index;
+    }
+
+    function findScopedElementById(root, id) {
+        var elements;
+        var i;
+        if (root) {
+            elements = root.querySelectorAll('[id]');
+            for (i = 0; i < elements.length; i += 1) {
+                if (elements[i].id === id) {
+                    return elements[i];
+                }
+            }
+        }
+        return document.getElementById(id);
+    }
+
+    function renderChatSection(data, index, idPrefix) {
         if (!data.chatLog.length) {
             return renderEmptyState('No chat lines were detected.');
         }
 
+        const filterId = scopedDemoId(idPrefix, 'chatFilter', index);
+        const logId = scopedDemoId(idPrefix, 'chatLog', index);
         const options = speakerOptions(data).map(function (option) {
             return '<option value="' + escapeAttribute(option.value) + '">' + escapeHtml(option.label) + '</option>';
         }).join('');
@@ -1678,29 +1722,31 @@
 
         return [
             '<div class="chat-toolbar">',
-            '<label for="chatFilter' + index + '">Speaker</label>',
-            '<select id="chatFilter' + index + '" class="chat-filter" data-chat-target="chatLog' + index + '">',
+            '<label for="' + escapeAttribute(filterId) + '">Speaker</label>',
+            '<select id="' + escapeAttribute(filterId) + '" class="chat-filter" data-chat-target="' + escapeAttribute(logId) + '">',
             options,
             '</select>',
             '</div>',
-            '<div id="chatLog' + index + '" class="chat-log">',
+            '<div id="' + escapeAttribute(logId) + '" class="chat-log">',
             entries,
             '</div>'
         ].join('');
     }
 
-    function renderServerHappeningsSection(happenings, index) {
+    function renderServerHappeningsSection(happenings, index, idPrefix) {
         if (!happenings.length) {
             return renderEmptyState('No non-chat server messages were detected.');
         }
 
+        const logId = scopedDemoId(idPrefix, 'serverLog', index);
+        const emptyId = scopedDemoId(idPrefix, 'serverEmpty', index);
         const defaultVisibleCount = happenings.filter(function (entry) {
             return entry.source !== 'centerprint';
         }).length;
 
         return [
             '<div class="server-panel">',
-            '<div class="server-toolbar" data-server-target="serverLog' + index + '" data-server-empty-target="serverEmpty' + index + '">',
+            '<div class="server-toolbar" data-server-target="' + escapeAttribute(logId) + '" data-server-empty-target="' + escapeAttribute(emptyId) + '">',
             '<label class="toggle-control server-toggle">',
             '<input type="checkbox" class="server-filter-checkbox" value="server" checked>',
             'Server',
@@ -1710,7 +1756,7 @@
             'Centerprint',
             '</label>',
             '</div>',
-            '<div id="serverLog' + index + '" class="server-log">',
+            '<div id="' + escapeAttribute(logId) + '" class="server-log">',
             happenings.map(function (entry) {
                 const sourceType = entry.source === 'centerprint' ? 'center' : 'server';
                 const sourceLabel = sourceType;
@@ -1725,7 +1771,7 @@
                 ].join('');
             }).join(''),
             '</div>',
-            '<div id="serverEmpty' + index + '" class="empty-state"' + (defaultVisibleCount > 0 ? ' hidden' : '') + '>No server happenings match the current filters.</div>',
+            '<div id="' + escapeAttribute(emptyId) + '" class="empty-state"' + (defaultVisibleCount > 0 ? ' hidden' : '') + '>No server happenings match the current filters.</div>',
             '</div>'
         ].join('');
     }
@@ -1816,12 +1862,13 @@
         ].join('');
     }
 
-    function renderDemoCard(item, index) {
+    function renderDemoCard(item, index, options) {
         if (!item.data) {
             return renderDemoError(item);
         }
 
         const data = item.data;
+        const idPrefix = options && options.idPrefix ? options.idPrefix : '';
         const happenings = collectServerHappenings(data);
         const useFlagLabels = shouldUseFlagLabels(happenings);
         const pills = [];
@@ -1925,11 +1972,11 @@
             '</section>',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">Server Happenings</h3>' + (happenings.length ? '<button type="button" class="txt-export-button" data-export="server" data-demo-index="' + index + '" title="Save as .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M4.5 7 8 10.5 11.5 7"/><path d="M2.5 12.5v1.5h11v-1.5"/></svg></button>' : '') + '</div>',
-            renderServerHappeningsSection(happenings, index),
+            renderServerHappeningsSection(happenings, index, idPrefix),
             '</section>',
             '<section class="subsection">',
             '<div class="subsection-head"><h3 class="subsection-title">Chat Log</h3>' + (data.chatLog.length ? '<button type="button" class="txt-export-button" data-export="chat" data-demo-index="' + index + '" title="Save as .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M4.5 7 8 10.5 11.5 7"/><path d="M2.5 12.5v1.5h11v-1.5"/></svg></button>' : '') + '</div>',
-            renderChatSection(data, index),
+            renderChatSection(data, index, idPrefix),
             '</section>',
             data.warnings.length ? [
                 '<section class="subsection">',
@@ -2925,22 +2972,28 @@
         clearButton.disabled = false;
         resultsPanel.innerHTML = items.map(renderDemoCard).join('');
         updateSummary(items);
-        bindSaveAsPanels();
+        bindDemoCardInteractions(resultsPanel, parsedFiles);
         bindCombinePanel();
         bindSuperimposePanel();
-        bindTrimPanels();
-        bindSmoothPanels();
-        bindChatFilters();
-        bindServerFilters();
-        bindTextExportButtons();
     }
 
-    function bindSaveAsPanels() {
-        const panels = resultsPanel.querySelectorAll('.save-as-panel[data-demo-index]');
+    function bindDemoCardInteractions(root, items) {
+        bindSaveAsPanels(root, items);
+        bindTrimPanels(root, items);
+        bindSmoothPanels(root, items);
+        bindChatFilters(root);
+        bindServerFilters(root);
+        bindTextExportButtons(root, items);
+    }
+
+    function bindSaveAsPanels(root, items) {
+        root = root || resultsPanel;
+        items = items || parsedFiles;
+        const panels = root.querySelectorAll('.save-as-panel[data-demo-index]');
 
         panels.forEach(function (panel) {
             const demoIndex = Number(panel.getAttribute('data-demo-index'));
-            const item = parsedFiles[demoIndex];
+            const item = items[demoIndex];
             if (!item || !item.data) {
                 return;
             }
@@ -3103,12 +3156,14 @@
         }
     }
 
-    function bindTrimPanels() {
-        const panels = resultsPanel.querySelectorAll('.trim-panel[data-demo-index]');
+    function bindTrimPanels(root, items) {
+        root = root || resultsPanel;
+        items = items || parsedFiles;
+        const panels = root.querySelectorAll('.trim-panel[data-demo-index]');
 
         panels.forEach(function (panel) {
             const demoIndex = Number(panel.getAttribute('data-demo-index'));
-            const item = parsedFiles[demoIndex];
+            const item = items[demoIndex];
             const data = item && item.data;
             const startRange = panel.querySelector('.trim-range-start');
             const endRange = panel.querySelector('.trim-range-end');
@@ -3261,12 +3316,14 @@
         });
     }
 
-    function bindSmoothPanels() {
-        const panels = resultsPanel.querySelectorAll('.smooth-panel[data-demo-index]');
+    function bindSmoothPanels(root, items) {
+        root = root || resultsPanel;
+        items = items || parsedFiles;
+        const panels = root.querySelectorAll('.smooth-panel[data-demo-index]');
 
         panels.forEach(function (panel) {
             const demoIndex = Number(panel.getAttribute('data-demo-index'));
-            const item = parsedFiles[demoIndex];
+            const item = items[demoIndex];
             if (!item || !item.data) {
                 return;
             }
@@ -3317,10 +3374,11 @@
         });
     }
 
-    function bindChatFilters() {
-        const filters = resultsPanel.querySelectorAll('.chat-filter');
+    function bindChatFilters(root) {
+        root = root || resultsPanel;
+        const filters = root.querySelectorAll('.chat-filter');
         filters.forEach(function (filter) {
-            const target = document.getElementById(filter.getAttribute('data-chat-target'));
+            const target = findScopedElementById(root, filter.getAttribute('data-chat-target'));
             if (!target) {
                 return;
             }
@@ -3339,12 +3397,13 @@
         });
     }
 
-    function bindServerFilters() {
-        const toolbars = resultsPanel.querySelectorAll('.server-toolbar');
+    function bindServerFilters(root) {
+        root = root || resultsPanel;
+        const toolbars = root.querySelectorAll('.server-toolbar');
 
         toolbars.forEach(function (toolbar) {
-            const target = document.getElementById(toolbar.getAttribute('data-server-target'));
-            const emptyState = document.getElementById(toolbar.getAttribute('data-server-empty-target'));
+            const target = findScopedElementById(root, toolbar.getAttribute('data-server-target'));
+            const emptyState = findScopedElementById(root, toolbar.getAttribute('data-server-empty-target'));
             const checkboxes = Array.from(toolbar.querySelectorAll('.server-filter-checkbox'));
 
             if (!target || !checkboxes.length) {
@@ -3384,15 +3443,17 @@
         });
     }
 
-    function bindTextExportButtons() {
-        var buttons = resultsPanel.querySelectorAll('.txt-export-button[data-demo-index]');
+    function bindTextExportButtons(root, items) {
+        root = root || resultsPanel;
+        items = items || parsedFiles;
+        var buttons = root.querySelectorAll('.txt-export-button[data-demo-index]');
 
         buttons.forEach(function (button) {
             var demoIndex = Number(button.getAttribute('data-demo-index'));
             var exportType = button.getAttribute('data-export');
 
             button.addEventListener('click', function () {
-                var item = parsedFiles[demoIndex];
+                var item = items[demoIndex];
                 if (!item || !item.data) { return; }
 
                 var data = item.data;
@@ -3535,6 +3596,7 @@
         var mapKeys = ['map', 'mapName', 'map_name', 'level', 'bsp'];
         var mapsKeys = ['maps', 'mapList', 'map_list', 'bsps'];
         var titleKeys = ['title', 'name', 'label'];
+        var durationKeys = ['duration', 'demoDuration', 'demo_duration', 'length', 'seconds'];
         var source = pickDemlValue(root, sourceKeys);
         if (source && typeof source === 'object') {
             source = '';
@@ -3552,7 +3614,8 @@
         return {
             source: cleanDemlValue(source),
             title: cleanDemlValue(pickDemlValue(root, titleKeys) || pickDemlValue(nestedDemo, titleKeys)),
-            maps: maps
+            maps: maps,
+            duration: parsePositiveDuration(pickDemlValue(root, durationKeys) || pickDemlValue(nestedDemo, durationKeys))
         };
     }
 
@@ -3588,6 +3651,8 @@
                 splitDemlList(value).forEach(function (map) { maps.push(map); });
             } else if (/^(title|name|label)$/.test(key)) {
                 fields.title = fields.title || value;
+            } else if (/^(duration|demoduration|demo_duration|length|seconds)$/.test(key)) {
+                fields.duration = fields.duration || value;
             }
         });
 
@@ -3625,7 +3690,8 @@
             source: resolveDemlSource(source),
             file: fileNameFromPath(source) || fileNameFromPath(fallbackName) || 'demo.dem',
             title: cleanDemlValue(spec && spec.title) || fileNameFromPath(source) || fileNameFromPath(fallbackName) || 'Demo',
-            maps: maps
+            maps: maps,
+            duration: parsePositiveDuration(spec && spec.duration)
         };
     }
 
@@ -3642,6 +3708,9 @@
             if (spec.maps.length) {
                 params.set('maps', spec.maps.join(','));
             }
+            if (Number.isFinite(spec.duration) && spec.duration > 0) {
+                params.set('duration', String(spec.duration));
+            }
             if (spec.pak1Source) {
                 params.set('pak1Source', spec.pak1Source);
             }
@@ -3653,6 +3722,139 @@
             }
             return DEMO_PLAYER_URL + '?' + params.toString();
         }
+    }
+
+    function demoTeamScoreSnapshots(item) {
+        return (item && item.data && Array.isArray(item.data.teamScores) ? item.data.teamScores : []).filter(function (snapshot) {
+            return snapshot && Array.isArray(snapshot.teams) && snapshot.teams.length >= 2;
+        });
+    }
+
+    function demoMatchHudColor(color) {
+        var tint = LEGACY_PANTS_TINTS[color];
+        if (!tint) {
+            return '#795f50';
+        }
+        return 'rgb(' + tint[0] + ', ' + tint[1] + ', ' + tint[2] + ')';
+    }
+
+    function demoMatchHudSnapshotAtTime(snapshots, time) {
+        var low = 0;
+        var high = snapshots.length - 1;
+        var match = 0;
+
+        if (!snapshots.length) {
+            return null;
+        }
+        if (!Number.isFinite(time)) {
+            return snapshots[0];
+        }
+
+        while (low <= high) {
+            var middle = Math.floor((low + high) / 2);
+            var snapshotTime = Number(snapshots[middle].time);
+            if (!Number.isFinite(snapshotTime) || snapshotTime <= time) {
+                match = middle;
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+
+        return snapshots[match];
+    }
+
+    function currentEmbeddedDemoTime() {
+        try {
+            var frameWindow = demoPlayerFrame && demoPlayerFrame.contentWindow;
+            var module = frameWindow && frameWindow.Module;
+            var time = module && typeof module.getDemoTime === 'function' ? Number(module.getDemoTime()) : NaN;
+            return Number.isFinite(time) ? time : null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    function updateDemoMatchHudOverlayPosition() {
+        try {
+            var frameWindow = demoPlayerFrame && demoPlayerFrame.contentWindow;
+            var canvas = frameWindow && frameWindow.document && frameWindow.document.getElementById('canvas');
+            var canvasRect;
+            if (!demoMatchHudOverlay || !demoPlayerFrame || !canvas) {
+                return false;
+            }
+
+            canvasRect = canvas.getBoundingClientRect();
+            demoMatchHudOverlay.style.top = Math.round(Math.max(12, canvasRect.top + 18)) + 'px';
+            demoMatchHudOverlay.style.right = Math.round(Math.max(16, demoPlayerFrame.clientWidth - canvasRect.right + 18)) + 'px';
+            return true;
+        } catch (_error) {
+            if (demoMatchHudOverlay) {
+                demoMatchHudOverlay.style.top = '';
+                demoMatchHudOverlay.style.right = '';
+            }
+            return false;
+        }
+    }
+
+    function renderDemoMatchHudSnapshot(snapshot) {
+        if (!demoMatchHudOverlay || !snapshot || !Array.isArray(snapshot.teams) || snapshot.teams.length < 2) {
+            return;
+        }
+
+        if (!updateDemoMatchHudOverlayPosition()) {
+            demoMatchHudOverlay.hidden = true;
+            return;
+        }
+        demoMatchHudOverlay.innerHTML = snapshot.teams.slice(0, DEMO_MATCH_HUD_MAX_TEAMS).map(function (team) {
+            var color = Number(team.color);
+            var score = Number(team.score);
+            var bg = demoMatchHudColor(color);
+            return '<div class="demo-match-hud-team" style="--team-bg: ' + escapeAttribute(bg) + ';" title="Team color ' + escapeAttribute(color) + '">' + escapeHtml(Number.isFinite(score) ? score : 0) + '</div>';
+        }).join('');
+        demoMatchHudOverlay.hidden = false;
+    }
+
+    function updateDemoMatchHudOverlay() {
+        var snapshots;
+        var snapshot;
+
+        if (!demoMatchHudOverlay || !demoMatchHudItem) {
+            return;
+        }
+
+        snapshots = demoTeamScoreSnapshots(demoMatchHudItem);
+        snapshot = demoMatchHudSnapshotAtTime(snapshots, currentEmbeddedDemoTime());
+        if (!snapshot) {
+            demoMatchHudOverlay.hidden = true;
+            demoMatchHudOverlay.innerHTML = '';
+            return;
+        }
+
+        renderDemoMatchHudSnapshot(snapshot);
+    }
+
+    function stopDemoMatchHudOverlay() {
+        if (demoMatchHudTimer) {
+            window.clearInterval(demoMatchHudTimer);
+            demoMatchHudTimer = 0;
+        }
+        demoMatchHudItem = null;
+        if (demoMatchHudOverlay) {
+            demoMatchHudOverlay.hidden = true;
+            demoMatchHudOverlay.innerHTML = '';
+        }
+    }
+
+    function startDemoMatchHudOverlay(item) {
+        stopDemoMatchHudOverlay();
+        if (!demoMatchHudOverlay || !demoTeamScoreSnapshots(item).length) {
+            return;
+        }
+
+        demoMatchHudItem = item;
+        updateDemoMatchHudOverlay();
+        demoMatchHudTimer = window.setInterval(updateDemoMatchHudOverlay, DEMO_MATCH_HUD_REFRESH_MS);
     }
 
     function resizeEmbeddedPlayer() {
@@ -3678,6 +3880,7 @@
         }
         height = Math.max(minimumHeight, height);
         demoPlayerFrame.style.setProperty('--demo-player-frame-height', height + 'px');
+        updateDemoMatchHudOverlayPosition();
     }
 
     function navigateEmbeddedPlayer(url) {
@@ -3686,10 +3889,33 @@
         }
 
         demoPlayerPanel.hidden = false;
+        stopDemoMatchHudOverlay();
         resizeEmbeddedPlayer();
         demoPlayerFrame.src = url;
         demoPlayerPanel.scrollIntoView({ block: 'start', behavior: 'smooth' });
         return true;
+    }
+
+    function renderDemoPlayerInfo(item) {
+        if (!demoPlayerInfo) {
+            return;
+        }
+
+        demoPlayerParsedFiles = item ? [item] : [];
+        if (!item) {
+            demoPlayerInfo.hidden = true;
+            demoPlayerInfo.innerHTML = '';
+            stopDemoMatchHudOverlay();
+            return;
+        }
+
+        demoPlayerInfo.innerHTML = renderDemoCard(item, 0, {
+            idPrefix: 'player-'
+        });
+        demoPlayerInfo.hidden = false;
+        bindDemoCardInteractions(demoPlayerInfo, demoPlayerParsedFiles);
+        startDemoMatchHudOverlay(item);
+        resizeEmbeddedPlayer();
     }
 
     window.addEventListener('resize', resizeEmbeddedPlayer);
@@ -3909,18 +4135,32 @@
         });
     }
 
-    async function buildDemoPlayerSpecFromFile(file) {
-        var buffer = await file.arrayBuffer();
+    async function buildDemoPlayerSpecFromBuffer(buffer, meta) {
         var maps = [];
         var seenMaps = {};
         var warnings = [];
+        var duration = 0;
+        var fileName = meta.fileName || meta.name || 'demo.dem';
+        var title = meta.title || fileName;
+        var sourceBuffer = cloneArrayBuffer(buffer);
+        var item = {
+            displayName: title,
+            fileName: fileName,
+            sourceFormat: meta.sourceFormat || 'dem',
+            archiveName: meta.archiveName || '',
+            sourceBuffer: sourceBuffer,
+            fileSize: Number.isFinite(meta.size) ? meta.size : sourceBuffer.byteLength,
+            lastModified: meta.lastModified || null
+        };
 
         try {
             var data = parserApi.parseDemoBuffer(buffer, {
-                name: file.name,
-                size: file.size,
-                lastModified: file.lastModified
+                name: fileName,
+                size: meta.size,
+                lastModified: meta.lastModified
             });
+            item.data = data;
+            duration = totalTimelineDuration(data) || parsePositiveDuration(data.duration);
             data.maps.forEach(function (map) {
                 var mapName = cleanDemlValue(map.mapName || '');
                 var key = mapName.toLowerCase();
@@ -3930,11 +4170,12 @@
                 }
             });
         } catch (error) {
-            warnings.push('Could not read map names from "' + file.name + '": ' + (error && error.message ? error.message : String(error)));
+            item.error = error && error.message ? error.message : String(error);
+            warnings.push('Could not read map names from "' + fileName + '": ' + item.error);
         }
 
         if (!maps.length) {
-            var inferredMap = inferMapFromDemoSource(file.name);
+            var inferredMap = inferMapFromDemoSource(fileName);
             if (inferredMap) {
                 maps.push(inferredMap);
             }
@@ -3943,18 +4184,63 @@
         return {
             spec: {
                 source: URL.createObjectURL(new Blob([buffer], { type: 'application/octet-stream' })),
-                file: file.name,
-                title: file.name,
-                maps: maps
+                file: fileName,
+                title: title,
+                maps: maps,
+                duration: duration
             },
-            warnings: warnings
+            warnings: warnings,
+            item: item
         };
+    }
+
+    async function buildDemoPlayerSpecFromFile(file) {
+        var buffer = await file.arrayBuffer();
+        return buildDemoPlayerSpecFromBuffer(buffer, {
+            fileName: file.name,
+            title: file.name,
+            sourceFormat: 'dem',
+            size: file.size,
+            lastModified: file.lastModified
+        });
+    }
+
+    async function buildDemoPlayerSpecFromDzipFile(file) {
+        if (!dzipSupported) {
+            throw new Error('DZip support is unavailable.');
+        }
+
+        var archiveBuffer = await file.arrayBuffer();
+        var entries = await dzipApi.extractDemoEntries(archiveBuffer);
+        if (!entries.length) {
+            throw new Error('The archive does not contain any .dem entries.');
+        }
+
+        var entry = entries[0];
+        var fileName = cleanDemlValue(entry.name) || file.name.replace(/\.dz$/i, '.dem');
+        var result = await buildDemoPlayerSpecFromBuffer(cloneArrayBuffer(entry.bytes), {
+            fileName: fileName,
+            title: fileName,
+            sourceFormat: 'dz',
+            archiveName: file.name,
+            size: entry.bytes.byteLength,
+            lastModified: entry.lastModified || file.lastModified
+        });
+
+        result.warnings.unshift('Extracted "' + fileName + '" from "' + file.name + '" for playback.');
+        if (entries.length > 1) {
+            result.warnings.push('Loaded "' + fileName + '" and ignored ' + (entries.length - 1) + ' additional .dem entr' + (entries.length === 2 ? 'y' : 'ies') + ' in "' + file.name + '".');
+        }
+        return result;
     }
 
     async function handleDemoPlayerFiles(fileList) {
         var files = Array.from(fileList || []);
         var demoFiles = files.filter(function (file) {
             return /\.dem$/i.test(file.name || '');
+        });
+        var dzFiles = files.filter(function (file) {
+            return /\.dz$/i.test(file.name || '');
         });
         var demlFiles = files.filter(function (file) {
             return /\.deml$/i.test(file.name || '');
@@ -3963,6 +4249,7 @@
             return /\.pak$/i.test(file.name || '');
         });
         var spec;
+        var demoInfoItem = null;
         var launchUrl;
         var warnings = [];
 
@@ -3980,12 +4267,31 @@
             setStatus('Preparing ' + demoFiles[0].name + ' for playback...');
             var demoResult = await buildDemoPlayerSpecFromFile(demoFiles[0]);
             spec = demoResult.spec;
+            demoInfoItem = demoResult.item;
             warnings = warnings.concat(demoResult.warnings);
             if (demoFiles.length > 1) {
                 warnings.push('Loaded "' + demoFiles[0].name + '" and ignored ' + (demoFiles.length - 1) + ' additional .dem file' + (demoFiles.length === 2 ? '' : 's') + '.');
             }
             if (!spec.maps.length) {
                 warnings.push('No map was decoded from the demo. The player will try to resolve the map from the demo stream.');
+            }
+        } else if (dzFiles.length) {
+            setStatus('Extracting ' + dzFiles[0].name + ' for playback...');
+            try {
+                var dzResult = await buildDemoPlayerSpecFromDzipFile(dzFiles[0]);
+                spec = dzResult.spec;
+                demoInfoItem = dzResult.item;
+                warnings = warnings.concat(dzResult.warnings);
+            } catch (error) {
+                setWarnings(warnings.concat(['Could not read "' + dzFiles[0].name + '": ' + (error && error.message ? error.message : String(error))]));
+                setStatus('Unable to read the .dz file.', 'error');
+                return;
+            }
+            if (dzFiles.length > 1) {
+                warnings.push('Loaded "' + dzFiles[0].name + '" and ignored ' + (dzFiles.length - 1) + ' additional .dz file' + (dzFiles.length === 2 ? '' : 's') + '.');
+            }
+            if (!spec.maps.length) {
+                warnings.push('No map was decoded from the extracted demo. The player will try to resolve the map from the demo stream.');
             }
         } else if (demlFiles.length) {
             setStatus('Reading ' + demlFiles[0].name + '...');
@@ -4002,7 +4308,7 @@
                 setWarnings(warnings);
                 setStatus('Loaded ' + packageFiles.length + ' package file' + (packageFiles.length === 1 ? '' : 's') + ' for demo playback.', 'success');
             } else {
-                setWarnings(['No .dem file was provided.']);
+                setWarnings(['No .dem or .dz file was provided.']);
                 setStatus('No demo was loaded.', 'error');
             }
             return;
@@ -4014,7 +4320,7 @@
         });
         if (missingPak1Maps.length) {
             setWarnings(warnings.concat([
-                'This demo uses ' + missingPak1Maps.join(', ') + ', which needs pak1.pak or another package containing those maps. Drop the .pak here first, then drop the .dem again.'
+                'This demo uses ' + missingPak1Maps.join(', ') + ', which needs pak1.pak or another package containing those maps. Drop the .pak here first, then drop the demo again.'
             ]));
             setStatus('A package containing the registered maps is required before playing this demo.', 'error');
             return;
@@ -4033,6 +4339,7 @@
             return;
         }
 
+        renderDemoPlayerInfo(demoInfoItem);
         setWarnings(warnings);
         setStatus('Opening ' + spec.title + ' in the embedded demo player.', 'success');
     }
@@ -4227,6 +4534,8 @@
         folderAnalysisContent.innerHTML = '';
         captimePanel.hidden = true;
         captimeContent.innerHTML = '';
+        stopDemoMatchHudOverlay();
+        demoPlayerParsedFiles = [];
         renderResults([]);
     }
 
