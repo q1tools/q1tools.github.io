@@ -259,6 +259,32 @@
       opacity: 0.45;
     }
 
+    .speed-select {
+      appearance: none;
+      min-width: 82px;
+      border: 1px solid #705948;
+      border-radius: 6px;
+      background:
+        linear-gradient(45deg, transparent 50%, #f2e2d0 50%) right 12px center / 6px 6px no-repeat,
+        linear-gradient(135deg, #f2e2d0 50%, transparent 50%) right 8px center / 6px 6px no-repeat,
+        linear-gradient(180deg, #6f4f3d, #4f3a2f);
+      color: #f2e2d0;
+      padding: 8px 26px 8px 10px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .speed-select:focus-visible {
+      border-color: #d39a68;
+      outline: 0;
+    }
+
+    .speed-select:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
     .playback-time {
       min-width: 58px;
       color: var(--muted);
@@ -352,8 +378,16 @@
       </div>
       <div id="playbackControls" class="playback-controls" aria-label="Playback controls" hidden>
         <button type="button" data-player-control="back" disabled>-2s</button>
-        <button type="button" data-player-control="pause" disabled>Pause</button>
-        <button type="button" data-player-control="play" disabled>Play</button>
+        <button id="playPauseButton" type="button" data-player-control="toggle-playback" disabled>Pause</button>
+        <select id="speedSelect" class="speed-select" aria-label="Demo speed" disabled>
+          <option value="25">0.25x</option>
+          <option value="50">0.5x</option>
+          <option value="75">0.75x</option>
+          <option value="100" selected>1x</option>
+          <option value="150">1.5x</option>
+          <option value="200">2x</option>
+          <option value="400">4x</option>
+        </select>
         <button type="button" data-player-control="forward" disabled>+2s</button>
         <span id="playback-time" class="playback-time">--:--</span>
       </div>
@@ -378,17 +412,19 @@
     var loadingControlsElement = document.getElementById("loadingControls");
     var playbackControlsElement = document.getElementById("playbackControls");
     var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
+    var playPauseButton = document.getElementById("playPauseButton");
+    var speedSelect = document.getElementById("speedSelect");
     var playbackTimeElement = document.getElementById("playback-time");
     var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     var PLAYER_VERTICAL_MARGIN = 36;
     var INITIAL_VOLUME = 0.05;
     var currentVolume = INITIAL_VOLUME;
     var previousAudibleVolume = INITIAL_VOLUME;
+    var playbackPaused = false;
+    var playbackSpeed = 100;
     var overlayHideTimer = 0;
     var ENGINE_CONTROL_COMMANDS = {
       back: "demo_jump -2",
-      pause: "demo_setspeed 0",
-      play: "demo_setspeed 100",
       forward: "demo_jump +2"
     };
     var BUILT_IN_PACKAGES = [
@@ -502,7 +538,7 @@
       var contrast = clampNumber(config.contrast, 0.25, 4, DEFAULT_RENDER_CONFIG.contrast);
       var boost = clampNumber(config.contrastBoost, 0.25, 4, DEFAULT_RENDER_CONFIG.contrastBoost);
       var brightness = clampNumber(config.brightness, -0.5, 0.5, DEFAULT_RENDER_CONFIG.brightness);
-      var cssBrightness = clampNumber(Math.pow(1 / gamma, 0.55) * (1 + brightness), 0.2, 3, 1);
+      var cssBrightness = clampNumber(Math.pow(gamma, 0.55) * (1 + brightness), 0.2, 3, 1);
       var cssContrast = clampNumber(contrast * Math.pow(boost, 0.25), 0.25, 4, 1);
 
       if (Math.abs(cssBrightness - 1) < 0.01 && Math.abs(cssContrast - 1) < 0.01) {
@@ -821,13 +857,8 @@
     }
 
     function viewportSize() {
-      var viewport = window.visualViewport;
       var widths = [window.innerWidth, document.documentElement.clientWidth];
       var heights = [window.innerHeight, document.documentElement.clientHeight];
-      if (viewport) {
-        widths.push(viewport.width);
-        heights.push(viewport.height);
-      }
       if (window.frameElement) {
         var frameRect = window.frameElement.getBoundingClientRect();
         if (frameRect.width) {
@@ -889,9 +920,6 @@
     }
 
     window.addEventListener("resize", fitPlayerToWindow);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", fitPlayerToWindow);
-    }
     fitPlayerToWindow();
 
     function showError(message) {
@@ -944,11 +972,12 @@
       controlButtons.forEach(function(button) {
         button.disabled = !enabled;
       });
-      [volumeToggle, volumeSlider, fullscreenButton].forEach(function(control) {
+      [volumeToggle, volumeSlider, fullscreenButton, speedSelect].forEach(function(control) {
         if (control) {
           control.disabled = !enabled;
         }
       });
+      updatePlayPauseButton();
       updateFullscreenButton();
       updateVolumeControls();
     }
@@ -1116,6 +1145,46 @@
       }
     }
 
+    function updatePlayPauseButton() {
+      if (!playPauseButton) {
+        return;
+      }
+      playPauseButton.textContent = playbackPaused ? "Play" : "Pause";
+      playPauseButton.setAttribute("aria-label", playbackPaused ? "Play demo" : "Pause demo");
+      playPauseButton.title = playbackPaused ? "Play" : "Pause";
+    }
+
+    function setPlaybackPaused(paused, sendCommand) {
+      playbackPaused = !!paused;
+      updatePlayPauseButton();
+      if (sendCommand) {
+        sendEngineCommand("demo_setspeed " + (playbackPaused ? 0 : playbackSpeed));
+      }
+    }
+
+    function setPlaybackSpeed(value, sendCommand) {
+      var speed = Number(value);
+      if (!Number.isFinite(speed) || speed <= 0) {
+        speed = 100;
+      }
+      playbackSpeed = speed;
+      if (speedSelect && speedSelect.value !== String(speed)) {
+        speedSelect.value = String(speed);
+      }
+      if (sendCommand && !playbackPaused) {
+        sendEngineCommand("demo_setspeed " + playbackSpeed);
+      }
+    }
+
+    function handlePlaybackButton(button) {
+      var action = button && button.getAttribute("data-player-control");
+      if (action === "toggle-playback") {
+        setPlaybackPaused(!playbackPaused, true);
+        return;
+      }
+      sendEngineCommand(ENGINE_CONTROL_COMMANDS[action]);
+    }
+
     function getFullscreenElement() {
       return document.fullscreenElement || document.webkitFullscreenElement || null;
     }
@@ -1209,6 +1278,32 @@
       return true;
     }
 
+    function handleSpeedKeyboard(event) {
+      if (!speedSelect || event.target !== speedSelect || event.type !== "keydown" || speedSelect.disabled) {
+        return false;
+      }
+
+      var index = speedSelect.selectedIndex;
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        index -= 1;
+      } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        index += 1;
+      } else if (event.key === "Home") {
+        index = 0;
+      } else if (event.key === "End") {
+        index = speedSelect.options.length - 1;
+      } else {
+        return false;
+      }
+
+      index = Math.max(0, Math.min(speedSelect.options.length - 1, index));
+      if (index !== speedSelect.selectedIndex) {
+        speedSelect.selectedIndex = index;
+        setPlaybackSpeed(speedSelect.value, true);
+      }
+      return true;
+    }
+
     function handleButtonKeyboard(event) {
       if (event.type !== "keydown" || !isKeyboardActivation(event)) {
         return false;
@@ -1221,7 +1316,7 @@
 
       var playbackButton = target.closest("[data-player-control]");
       if (playbackButton && !playbackButton.disabled) {
-        sendEngineCommand(ENGINE_CONTROL_COMMANDS[playbackButton.getAttribute("data-player-control")]);
+        handlePlaybackButton(playbackButton);
         return true;
       }
 
@@ -1241,7 +1336,7 @@
     }
 
     function blockEngineKeyboardEvent(event) {
-      var handledControl = handleSliderKeyboard(event) || handleButtonKeyboard(event);
+      var handledControl = handleSliderKeyboard(event) || handleSpeedKeyboard(event) || handleButtonKeyboard(event);
       if (handledControl) {
         event.preventDefault();
       }
@@ -1319,9 +1414,19 @@
 
       button.addEventListener("click", function(event) {
         stopControlEvent(event);
-        sendEngineCommand(ENGINE_CONTROL_COMMANDS[button.getAttribute("data-player-control")]);
+        handlePlaybackButton(button);
       });
     });
+
+    if (speedSelect) {
+      ["pointerdown", "pointerup", "mousedown", "mouseup", "click"].forEach(function(type) {
+        speedSelect.addEventListener(type, stopOverlayPointerEvent);
+      });
+      speedSelect.addEventListener("change", function(event) {
+        event.stopPropagation();
+        setPlaybackSpeed(speedSelect.value, true);
+      });
+    }
 
     if (playerViewport) {
       ["pointermove", "touchstart"].forEach(function(type) {
@@ -1420,6 +1525,16 @@
             "+set", "scr_scoreboard_showfrags", "0",
             "+set", "scr_scoreboard_showflags", "0",
             "+set", "cl_nocsqc", "1",
+            "+set", "r_shadow_realtime_dlight", "0",
+            "+set", "r_shadow_realtime_dlight_shadows", "0",
+            "+set", "r_shadow_realtime_world", "0",
+            "+set", "r_shadow_realtime_world_shadows", "0",
+            "+set", "r_shadow_realtime_world_importlightentitiesfrommap", "0",
+            "+set", "r_shadow_shadowmapping", "0",
+            "+set", "r_shadow_raytrace", "0",
+            "+set", "r_shadow_playershadows", "0",
+            "+set", "r_shadows", "0",
+            "+set", "r_deluxemapping", "0",
             "+set", "snd_samplebits", "32",
             "+set", "volume", String(INITIAL_VOLUME),
             "+exec", "fte.cfg",

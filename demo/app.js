@@ -3666,10 +3666,8 @@
         }
 
         var idealHeight = Math.round(width * 0.75 + DEMO_PLAYER_VERTICAL_CHROME);
-        var viewport = window.visualViewport;
-        var viewportHeight = viewport ? viewport.height : window.innerHeight;
-        var panelTop = demoPlayerPanel.getBoundingClientRect().top;
-        var availableHeight = viewportHeight - Math.max(0, panelTop) - DEMO_PLAYER_VIEWPORT_MARGIN;
+        var viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+        var availableHeight = viewportHeight - DEMO_PLAYER_VIEWPORT_MARGIN;
         var height = Math.min(idealHeight, DEMO_PLAYER_MAX_HEIGHT);
         var minimumHeight = DEMO_PLAYER_MIN_HEIGHT;
 
@@ -3695,10 +3693,6 @@
     }
 
     window.addEventListener('resize', resizeEmbeddedPlayer);
-    window.addEventListener('scroll', resizeEmbeddedPlayer, { passive: true });
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', resizeEmbeddedPlayer);
-    }
     if (window.ResizeObserver && demoPlayerPanel) {
         new ResizeObserver(resizeEmbeddedPlayer).observe(demoPlayerPanel);
     }
