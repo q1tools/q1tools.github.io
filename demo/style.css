@@ -28,13 +28,17 @@
 .demo-player-panel {
     padding: 0;
     overflow: hidden;
+    width: min(1440px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    margin-left: 50%;
+    transform: translateX(-50%);
 }
 
 .demo-player-frame {
     display: block;
     width: 100%;
     min-height: 640px;
-    height: min(760px, calc(100vh - 120px));
+    height: var(--demo-player-frame-height, 760px);
     border: 0;
     background: #0b0c0c;
 }

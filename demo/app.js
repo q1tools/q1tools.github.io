@@ -29,6 +29,9 @@
     const captimeContent = document.getElementById('captimeContent');
     const DEMO_PLAYER_URL = 'qtubetest/play.html';
     const DEMO_PLAYER_STORAGE_PREFIX = 'q1tools-demo-player:';
+    const DEMO_PLAYER_MIN_HEIGHT = 640;
+    const DEMO_PLAYER_MAX_HEIGHT = 1280;
+    const DEMO_PLAYER_VERTICAL_CHROME = 132;
     const PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
@@ -3651,15 +3654,36 @@
         }
     }
 
+    function resizeEmbeddedPlayer() {
+        if (!demoPlayerPanel || !demoPlayerFrame || demoPlayerPanel.hidden) {
+            return;
+        }
+
+        var width = demoPlayerPanel.getBoundingClientRect().width;
+        if (!width) {
+            return;
+        }
+
+        var height = Math.round(width * 0.75 + DEMO_PLAYER_VERTICAL_CHROME);
+        height = Math.max(DEMO_PLAYER_MIN_HEIGHT, Math.min(DEMO_PLAYER_MAX_HEIGHT, height));
+        demoPlayerFrame.style.setProperty('--demo-player-frame-height', height + 'px');
+    }
+
     function navigateEmbeddedPlayer(url) {
         if (!demoPlayerPanel || !demoPlayerFrame) {
             return false;
         }
 
         demoPlayerPanel.hidden = false;
+        resizeEmbeddedPlayer();
         demoPlayerFrame.src = url;
         demoPlayerPanel.scrollIntoView({ block: 'start', behavior: 'smooth' });
         return true;
+    }
+
+    window.addEventListener('resize', resizeEmbeddedPlayer);
+    if (window.ResizeObserver && demoPlayerPanel) {
+        new ResizeObserver(resizeEmbeddedPlayer).observe(demoPlayerPanel);
     }
 
     function normalizeMapBaseName(value) {

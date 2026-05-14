@@ -88,18 +88,30 @@
       background: #000;
     }
 
-    .statusbar {
-      width: var(--player-width, 640px);
-      max-width: 100%;
-      min-height: 22px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
     .controls {
       width: var(--player-width, 640px);
       max-width: 100%;
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .loading-controls {
+      width: 100%;
+      min-height: 35px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .playback-controls {
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: center;
       gap: 8px;
@@ -185,17 +197,20 @@
       <canvas class="emscripten" id="canvas" width="640" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     </div>
 
-    <div class="controls" aria-label="Playback controls">
-      <button type="button" data-player-control="back" disabled>-2s</button>
-      <button type="button" data-player-control="pause" disabled>Pause</button>
-      <button type="button" data-player-control="play" disabled>Play</button>
-      <button type="button" data-player-control="forward" disabled>+2s</button>
-      <span id="playback-time" class="playback-time">--:--</span>
-    </div>
-
-    <div class="statusbar">
-      <div id="status">Preparing player...</div>
-      <progress value="0" max="100" id="progress" hidden></progress>
+    <div class="controls" aria-live="polite">
+      <div id="loadingControls" class="loading-controls">
+        <div id="status">Preparing player...</div>
+        <progress value="0" max="100" id="progress" hidden></progress>
+      </div>
+      <div id="playbackControls" class="playback-controls" aria-label="Playback controls" hidden>
+        <button type="button" data-player-control="back" disabled>-2s</button>
+        <button type="button" data-player-control="pause" disabled>Pause</button>
+        <button type="button" data-player-control="play" disabled>Play</button>
+        <button type="button" data-player-control="forward" disabled>+2s</button>
+        <button type="button" data-player-control="volumeDown" disabled>Vol -</button>
+        <button type="button" data-player-control="volumeUp" disabled>Vol +</button>
+        <span id="playback-time" class="playback-time">--:--</span>
+      </div>
     </div>
     <div id="error" class="error" hidden></div>
   </main>
@@ -222,6 +237,8 @@
     var errorElement = document.getElementById("error");
     var canvas = document.getElementById("canvas");
     var sizeElement = document.querySelector(".size");
+    var loadingControlsElement = document.getElementById("loadingControls");
+    var playbackControlsElement = document.getElementById("playbackControls");
     var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
     var playbackTimeElement = document.getElementById("playback-time");
     var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
@@ -229,7 +246,9 @@
       back: "demo_jump -2",
       pause: "demo_setspeed 0",
       play: "demo_setspeed 100",
-      forward: "demo_jump +2"
+      forward: "demo_jump +2",
+      volumeDown: "inc volume -0.05",
+      volumeUp: "inc volume 0.05"
     };
     var BUILT_IN_PACKAGES = [
       {
@@ -584,9 +603,8 @@
       var verticalPadding = parseFloat(shellStyle.paddingTop) + parseFloat(shellStyle.paddingBottom);
       var topbarHeight = document.querySelector(".topbar").getBoundingClientRect().height;
       var controlsHeight = document.querySelector(".controls").getBoundingClientRect().height;
-      var statusHeight = document.querySelector(".statusbar").getBoundingClientRect().height;
       var gap = parseFloat(shellStyle.gap) || 0;
-      var reservedHeight = verticalPadding + topbarHeight + controlsHeight + statusHeight + gap * 3;
+      var reservedHeight = verticalPadding + topbarHeight + controlsHeight + gap * 2;
       var maxWidth = Math.max(280, window.innerWidth - 40);
       var maxHeight = Math.max(180, window.innerHeight - reservedHeight);
       var width = Math.min(maxWidth, maxHeight * 4 / 3);
@@ -602,6 +620,12 @@
     fitPlayerToWindow();
 
     function showError(message) {
+      if (playbackControlsElement) {
+        playbackControlsElement.hidden = true;
+      }
+      if (loadingControlsElement) {
+        loadingControlsElement.hidden = true;
+      }
       statusElement.hidden = true;
       progressElement.hidden = true;
       errorElement.textContent = message;
@@ -630,6 +654,12 @@
     }
 
     function setPlaybackControlsEnabled(enabled) {
+      if (loadingControlsElement) {
+        loadingControlsElement.hidden = enabled;
+      }
+      if (playbackControlsElement) {
+        playbackControlsElement.hidden = !enabled;
+      }
       controlButtons.forEach(function(button) {
         button.disabled = !enabled;
       });
@@ -847,8 +877,8 @@
               if (Module.sched === undefined) {
                 showError("Unable to initialise the FTE runtime.");
               } else {
-                fitPlayerToWindow();
                 setPlaybackControlsEnabled(true);
+                fitPlayerToWindow();
                 updatePlaybackTime();
                 setStatus("");
               }
