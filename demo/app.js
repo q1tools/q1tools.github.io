@@ -62,6 +62,7 @@
     let demoPlayerParsedFiles = [];
     let demoMatchHudTimer = 0;
     let demoMatchHudItem = null;
+    let embeddedShowscoresDown = false;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -3857,6 +3858,123 @@
         demoMatchHudTimer = window.setInterval(updateDemoMatchHudOverlay, DEMO_MATCH_HUD_REFRESH_MS);
     }
 
+    function embeddedPlayerVisible() {
+        return !!(demoPlayerPanel && demoPlayerFrame && !demoPlayerPanel.hidden && demoPlayerFrame.contentWindow);
+    }
+
+    function embeddedPlayerMessage(payload) {
+        if (!embeddedPlayerVisible() || !payload) {
+            return false;
+        }
+        payload.type = 'q1tools-demo-player-command';
+        demoPlayerFrame.contentWindow.postMessage(payload, '*');
+        return true;
+    }
+
+    function embeddedPlayerCommand(command, showOverlay) {
+        if (!command) {
+            return false;
+        }
+        return embeddedPlayerMessage({
+            command: command,
+            showOverlay: !!showOverlay
+        });
+    }
+
+    function embeddedPlayerShortcut(shortcut, payload) {
+        payload = payload || {};
+        payload.shortcut = shortcut;
+        payload.showOverlay = true;
+        return embeddedPlayerMessage(payload);
+    }
+
+    function embeddedPlayerDuration() {
+        var item = demoPlayerParsedFiles[0];
+        var data = item && item.data;
+        if (!data) {
+            return 0;
+        }
+        return totalTimelineDuration(data) || parsePositiveDuration(data.duration);
+    }
+
+    function isEditableShortcutTarget(target) {
+        var tagName;
+        var type;
+        if (!target) {
+            return false;
+        }
+        tagName = String(target.tagName || '').toLowerCase();
+        type = String(target.type || '').toLowerCase();
+        return target.isContentEditable ||
+            tagName === 'select' ||
+            tagName === 'textarea' ||
+            (tagName === 'input' && /^(?:text|search|url|tel|email|password|number)$/i.test(type));
+    }
+
+    function releaseEmbeddedShowscores() {
+        if (!embeddedShowscoresDown) {
+            return;
+        }
+        embeddedShowscoresDown = false;
+        embeddedPlayerCommand('-showscores', false);
+    }
+
+    function handleEmbeddedPlayerKeyboard(event) {
+        var duration;
+        var targetSeconds;
+
+        if (!embeddedPlayerVisible() || event.altKey || event.ctrlKey || event.metaKey || isEditableShortcutTarget(event.target)) {
+            return;
+        }
+
+        if (event.key === 'Tab') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (event.type === 'keydown' && !embeddedShowscoresDown) {
+                embeddedShowscoresDown = true;
+                embeddedPlayerCommand('+showscores', true);
+            } else if (event.type === 'keyup') {
+                releaseEmbeddedShowscores();
+            }
+            return;
+        }
+
+        if (event.type !== 'keydown' || event.repeat) {
+            return;
+        }
+
+        if (event.key === ',' || event.key === '<' || event.key === '.' || event.key === '>') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            embeddedPlayerShortcut('demo_nudge', {
+                direction: (event.key === ',' || event.key === '<') ? '-1' : '+1'
+            });
+            return;
+        }
+
+        if (event.key === '0') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            embeddedPlayerShortcut('demo_jump', {
+                seconds: 0
+            });
+            return;
+        }
+
+        if (/^[1-9]$/.test(event.key)) {
+            duration = embeddedPlayerDuration();
+            if (duration <= 0) {
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            targetSeconds = Math.max(0, Math.round(duration * (Number(event.key) / 10)));
+            embeddedPlayerShortcut('demo_jump', {
+                seconds: targetSeconds
+            });
+        }
+    }
+
     function resizeEmbeddedPlayer() {
         if (!demoPlayerPanel || !demoPlayerFrame || demoPlayerPanel.hidden) {
             return;
@@ -3889,6 +4007,7 @@
         }
 
         demoPlayerPanel.hidden = false;
+        releaseEmbeddedShowscores();
         stopDemoMatchHudOverlay();
         resizeEmbeddedPlayer();
         demoPlayerFrame.src = url;
@@ -3919,6 +4038,12 @@
     }
 
     window.addEventListener('resize', resizeEmbeddedPlayer);
+    window.addEventListener('blur', releaseEmbeddedShowscores);
+    ['keydown', 'keyup', 'keypress'].forEach(function (type) {
+        window.addEventListener(type, handleEmbeddedPlayerKeyboard, {
+            capture: true
+        });
+    });
     if (window.ResizeObserver && demoPlayerPanel) {
         new ResizeObserver(resizeEmbeddedPlayer).observe(demoPlayerPanel);
     }
@@ -4534,6 +4659,7 @@
         folderAnalysisContent.innerHTML = '';
         captimePanel.hidden = true;
         captimeContent.innerHTML = '';
+        releaseEmbeddedShowscores();
         stopDemoMatchHudOverlay();
         demoPlayerParsedFiles = [];
         renderResults([]);
