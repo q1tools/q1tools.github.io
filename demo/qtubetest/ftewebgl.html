@@ -52,23 +52,25 @@ var cfg = "qw/fte.cfg?" + Math.floor(Date.now())
 var Module = {
 	files:
 	{	//these can be arraybuffers(you'll need a helper to define those) or promises(fte will block till they complete), or strings (which will be interpretted as urls and downloaded before any C code is run)
-		//note that the code below will skip the file-drop prompt if there's any files specified here (or there's a #foo.fmf file specified)
-		"default.fmf": "default.fmf",
-		"id1/data.pk3": "qw/data.pk3",
-		"id1/config.cfg": "id1/config.cfg",
-		"id1/fragfile.dat": "id1/fragfile.dat",
-		"id1/skins/2base.pcx": "qw/skins/2base.pcx",
-		"id1/skins/red.png": "qw/skins/red.png",
-		"id1/skins/blue.png": "qw/skins/blue.png",
-		"id1/skins/2baseboth.pcx": "qw/skins/2baseboth.pcx",
-		"id1/skins/2basepent.pcx": "qw/skins/2basepent.pcx",
-		"id1/skins/2basequad.pcx": "qw/skins/2basequad.pcx",
-		"ctf/fte.cfg": cfg,
-		"qw/fte.cfg": cfg,
-		"qw/csaddon.dat": "qw/csaddon.dat",
-                "qw/qwprogs.qvm": "qw/20240909-210239_2b31159_qwprogs.qvm",
-		//"qw/particles/balltexture.png": "qw/ball.png", 
-	},
+			//note that the code below will skip the file-drop prompt if there's any files specified here (or there's a #foo.fmf file specified)
+			"default.fmf": "default.fmf",
+			"id1/demo.cfg": cfg,
+			"id1/config.cfg": "id1/config.cfg",
+			"id1/fragfile.dat": "id1/fragfile.dat",
+			"ctf/fte.cfg": cfg,
+			"qw/fte.cfg": cfg,
+			//"qw/particles/balltexture.png": "qw/ball.png",
+		},
+	arguments: [
+		"+set", "vid_hardwaregamma", "2",
+		"+set", "vid_srgb", "0",
+		"+set", "gl_load24bit", "0",
+		"+set", "plug_sbar", "0",
+		"+set", "hud_miniscores_show", "0",
+		"+set", "hud_tracking_show", "0",
+		"+set", "sbar_teamstatus", "0",
+		"+exec", "fte.cfg"
+	],
 	print: function(msg)
 	{	//stdout...
 		console.log(msg);

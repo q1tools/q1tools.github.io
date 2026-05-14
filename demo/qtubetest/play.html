@@ -311,7 +311,7 @@
     </div>
 
     <div class="viewport">
-      <canvas class="emscripten" id="canvas" width="640" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+      <canvas class="emscripten" id="canvas" width="640" height="480" tabindex="-1" aria-hidden="true" oncontextmenu="event.preventDefault()"></canvas>
       <div id="playerOverlay" class="player-overlay" aria-label="Player overlay controls" hidden>
         <div class="volume-control">
           <button id="volumeToggle" class="overlay-button volume-toggle" type="button" aria-label="Mute" title="Mute" disabled>
@@ -417,27 +417,121 @@
         providesPak1Maps: false
       }
     ];
-    var demoConfig = [
-      "set plug_sbar 0",
-      "cvarreset hud_*",
-      "cl_sbar 1",
-      "scr_centersbar 1",
-      "hud_miniscores_show 0",
-      "gl_load24bit 0",
-      "scr_scoreboard_newstyle 0",
-      "scr_scoreboard_showfrags 0",
-      "r_tracker_frags 0",
-      "msg_filter_frags 1",
-      "cl_maxfps_slop 0",
-      "bind d \"demo_setspeed 100\"",
-      "bind t \"demo_setspeed 0\"",
-      "bind leftarrow \"demo_jump -2\"",
-      "bind rightarrow \"demo_jump +2\"",
-      "alias f_specmapend \"demo_setspeed 0\""
-    ].join("\n") + "\n";
+    var demoConfigSource = "qw/fte.cfg?" + Date.now();
+    var DEFAULT_RENDER_CONFIG = {
+      gamma: 1,
+      contrast: 1,
+      contrastBoost: 1,
+      brightness: 0
+    };
 
     function cleanValue(value) {
       return String(value || "").trim().replace(/^["']|["']$/g, "").trim();
+    }
+
+    function clampNumber(value, min, max, fallback) {
+      var number = Number(value);
+      if (!Number.isFinite(number)) {
+        return fallback;
+      }
+      return Math.max(min, Math.min(max, number));
+    }
+
+    function stripFteComment(line) {
+      var quoted = false;
+      for (var i = 0; i < line.length; i++) {
+        var char = line.charAt(i);
+        if (char === "\"" && line.charAt(i - 1) !== "\\") {
+          quoted = !quoted;
+        } else if (!quoted && char === "/" && line.charAt(i + 1) === "/") {
+          return line.slice(0, i);
+        }
+      }
+      return line;
+    }
+
+    function parseFteConfigAssignments(text) {
+      var assignments = {};
+      String(text || "").split(/\r?\n/).forEach(function(rawLine) {
+        var line = stripFteComment(rawLine).trim();
+        var match;
+        var command;
+        var name;
+        var value;
+
+        if (!line) {
+          return;
+        }
+
+        match = line.match(/^(\S+)(?:\s+(.+))?$/);
+        if (!match) {
+          return;
+        }
+
+        command = match[1].toLowerCase();
+        value = match[2] || "";
+        if (command === "set" || command === "seta" || command === "seta_weak") {
+          match = value.match(/^(\S+)(?:\s+(.+))?$/);
+          if (!match) {
+            return;
+          }
+          name = match[1].toLowerCase();
+          value = match[2] || "";
+        } else {
+          name = command;
+        }
+
+        assignments[name] = cleanValue(value);
+      });
+      return assignments;
+    }
+
+    function configNumber(assignments, names, fallback) {
+      for (var i = 0; i < names.length; i++) {
+        var raw = assignments[names[i]];
+        var match = cleanValue(raw).match(/^-?(?:\d+\.?\d*|\.\d+)/);
+        if (match) {
+          return Number(match[0]);
+        }
+      }
+      return fallback;
+    }
+
+    function applyCanvasRenderConfig(config) {
+      var gamma = clampNumber(config.gamma, 0.2, 3, DEFAULT_RENDER_CONFIG.gamma);
+      var contrast = clampNumber(config.contrast, 0.25, 4, DEFAULT_RENDER_CONFIG.contrast);
+      var boost = clampNumber(config.contrastBoost, 0.25, 4, DEFAULT_RENDER_CONFIG.contrastBoost);
+      var brightness = clampNumber(config.brightness, -0.5, 0.5, DEFAULT_RENDER_CONFIG.brightness);
+      var cssBrightness = clampNumber(Math.pow(1 / gamma, 0.55) * (1 + brightness), 0.2, 3, 1);
+      var cssContrast = clampNumber(contrast * Math.pow(boost, 0.25), 0.25, 4, 1);
+
+      if (Math.abs(cssBrightness - 1) < 0.01 && Math.abs(cssContrast - 1) < 0.01) {
+        canvas.style.filter = "";
+        return;
+      }
+
+      canvas.style.filter = "brightness(" + cssBrightness.toFixed(3) + ") contrast(" + cssContrast.toFixed(3) + ")";
+    }
+
+    function loadCanvasRenderConfig() {
+      return fetch(demoConfigSource, {
+        cache: "no-store"
+      }).then(function(response) {
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+        return response.text();
+      }).then(function(text) {
+        var assignments = parseFteConfigAssignments(text);
+        applyCanvasRenderConfig({
+          gamma: configNumber(assignments, ["gamma", "v_gamma"], DEFAULT_RENDER_CONFIG.gamma),
+          contrast: configNumber(assignments, ["contrast", "v_contrast"], DEFAULT_RENDER_CONFIG.contrast),
+          contrastBoost: configNumber(assignments, ["v_contrastboost", "contrastboost"], DEFAULT_RENDER_CONFIG.contrastBoost),
+          brightness: configNumber(assignments, ["brightness", "v_brightness"], DEFAULT_RENDER_CONFIG.brightness)
+        });
+      }).catch(function(error) {
+        console.warn("Unable to apply canvas gamma from fte.cfg:", error);
+      });
     }
 
     function decodePathSegment(value) {
@@ -477,14 +571,6 @@
       } catch (_error) {
         return [];
       }
-    }
-
-    function asciiArrayBuffer(text) {
-      var bytes = new Uint8Array(text.length);
-      for (var i = 0; i < text.length; i++) {
-        bytes[i] = text.charCodeAt(i) & 255;
-      }
-      return bytes.buffer;
     }
 
     function sanitizeVirtualFileName(value, fallback) {
@@ -910,10 +996,9 @@
     function baseFiles() {
       var files = {
         "default.fmf": "default.fmf",
-        "id1/demo.cfg": asciiArrayBuffer(demoConfig),
-        "qw/fte.cfg": asciiArrayBuffer(demoConfig),
-        "ctf/fte.cfg": asciiArrayBuffer(demoConfig),
-        "id1/data.pk3": "qw/data.pk3",
+        "id1/demo.cfg": demoConfigSource,
+        "qw/fte.cfg": demoConfigSource,
+        "ctf/fte.cfg": demoConfigSource,
         "id1/fragfile.dat": "id1/fragfile.dat"
       };
 
@@ -990,7 +1075,7 @@
         return;
       }
 
-      if (!options || options.focus !== false) {
+      if (options && options.focus === true) {
         focusCanvas();
       }
       if (typeof FTEC !== "undefined" && FTEC && typeof FTEC.cbufadd === "function") {
@@ -1094,6 +1179,73 @@
         fitPlayerToWindow();
       }
       showOverlayTemporarily();
+    }
+
+    function isKeyboardActivation(event) {
+      return event.key === "Enter" || event.key === " ";
+    }
+
+    function handleSliderKeyboard(event) {
+      if (!volumeSlider || event.target !== volumeSlider || event.type !== "keydown" || volumeSlider.disabled) {
+        return false;
+      }
+
+      var step = Number(volumeSlider.step) || 0.01;
+      var value = currentVolume;
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        value -= step;
+      } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        value += step;
+      } else if (event.key === "Home") {
+        value = 0;
+      } else if (event.key === "End") {
+        value = 1;
+      } else {
+        return false;
+      }
+
+      setVolume(value, true);
+      showOverlayTemporarily();
+      return true;
+    }
+
+    function handleButtonKeyboard(event) {
+      if (event.type !== "keydown" || !isKeyboardActivation(event)) {
+        return false;
+      }
+
+      var target = event.target;
+      if (!target || typeof target.closest !== "function") {
+        return false;
+      }
+
+      var playbackButton = target.closest("[data-player-control]");
+      if (playbackButton && !playbackButton.disabled) {
+        sendEngineCommand(ENGINE_CONTROL_COMMANDS[playbackButton.getAttribute("data-player-control")]);
+        return true;
+      }
+
+      if (volumeToggle && target.closest("#volumeToggle") === volumeToggle && !volumeToggle.disabled) {
+        setVolume(currentVolume > 0 ? 0 : (previousAudibleVolume || INITIAL_VOLUME), true);
+        showOverlayTemporarily();
+        return true;
+      }
+
+      if (fullscreenButton && target.closest("#fullscreenButton") === fullscreenButton && !fullscreenButton.disabled) {
+        toggleFullscreen();
+        showOverlayTemporarily();
+        return true;
+      }
+
+      return false;
+    }
+
+    function blockEngineKeyboardEvent(event) {
+      var handledControl = handleSliderKeyboard(event) || handleButtonKeyboard(event);
+      if (handledControl) {
+        event.preventDefault();
+      }
+      event.stopImmediatePropagation();
     }
 
     function formatClock(seconds) {
@@ -1229,6 +1381,11 @@
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    ["keydown", "keyup", "keypress"].forEach(function(type) {
+      window.addEventListener(type, blockEngineKeyboardEvent, {
+        capture: true
+      });
+    });
     setVolume(INITIAL_VOLUME, false);
 
     if (!selectedDemo) {
@@ -1238,7 +1395,8 @@
       document.getElementById("demo-title").textContent = selectedDemo.title;
 
       setStatus("Checking map assets...");
-      prepareFilesForDemo(selectedDemo).then(function(files) {
+      Promise.all([loadCanvasRenderConfig(), prepareFilesForDemo(selectedDemo)]).then(function(results) {
+        var files = results[1];
         var Module = {
           arguments: [
             "-nohome",
@@ -1247,9 +1405,24 @@
             "+set", "vid_fullscreen", "0",
             "+set", "vid_width", "640",
             "+set", "vid_height", "480",
-            "+set", "gl_font", "graybugs",
+            "+set", "vid_hardwaregamma", "2",
+            "+set", "vid_srgb", "0",
+            "+set", "gl_load24bit", "0",
+            "+set", "plug_sbar", "0",
+            "+set", "cl_sbar", "1",
+            "+set", "viewsize", "100",
+            "+set", "scr_centersbar", "1",
+            "+set", "hud_miniscores_show", "0",
+            "+set", "hud_tracking_show", "0",
+            "+set", "sbar_teamstatus", "0",
+            "+set", "scr_scoreboard_newstyle", "0",
+            "+set", "scr_scoreboard_teamscores", "0",
+            "+set", "scr_scoreboard_showfrags", "0",
+            "+set", "scr_scoreboard_showflags", "0",
+            "+set", "cl_nocsqc", "1",
             "+set", "snd_samplebits", "32",
             "+set", "volume", String(INITIAL_VOLUME),
+            "+exec", "fte.cfg",
             "+playdemo", selectedDemo.file
           ],
           files: files,
