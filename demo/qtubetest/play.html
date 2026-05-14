@@ -38,8 +38,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      gap: 12px;
-      padding: 22px 20px 24px;
+      gap: 6px;
+      padding: 16px 20px 18px;
     }
 
     .topbar {
@@ -218,19 +218,6 @@
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
   <script src="quake106.js?v=20260506a"></script>
   <script>
-    var DEMOS = {
-      "castlev2_05-05-2026-200214_dm.dem": {
-        title: "castlev2_05-05-2026-200214_dm.dem",
-        file: "castlev2_05-05-2026-200214_dm.dem",
-        map: "castlev2.bsp"
-      },
-      "ztndm3_05-05-2026-211054_dm.dem": {
-        title: "ztndm3_05-05-2026-211054_dm.dem",
-        file: "ztndm3_05-05-2026-211054_dm.dem",
-        map: "ztndm3.bsp"
-      }
-    };
-
     var params = new URLSearchParams(window.location.search);
     var statusElement = document.getElementById("status");
     var progressElement = document.getElementById("progress");
@@ -570,23 +557,8 @@
       }
     }
 
-    function selectedBuiltInSpec() {
-      var selectedName = params.get("demo") || "castlev2_05-05-2026-200214_dm.dem";
-      var demo = DEMOS[selectedName];
-      if (!demo) {
-        return null;
-      }
-
-      return normalizeDemoSpec({
-        title: demo.title,
-        file: demo.file,
-        source: "id1/" + demo.file,
-        map: demo.map
-      }, selectedName);
-    }
-
-    var selectedName = params.get("demo") || params.get("source") || params.get("launch") || "castlev2_05-05-2026-200214_dm.dem";
-    var selectedDemo = specFromSession() || specFromQuery() || selectedBuiltInSpec();
+    var selectedName = params.get("demo") || params.get("source") || params.get("launch") || "";
+    var selectedDemo = specFromSession() || specFromQuery();
 
     function requestEngineResize() {
       if (typeof window.onresize !== "function") {
@@ -598,25 +570,58 @@
       });
     }
 
-    function fitPlayerToWindow() {
+    function viewportSize() {
+      var viewport = window.visualViewport;
+      return {
+        width: viewport ? viewport.width : window.innerWidth,
+        height: viewport ? viewport.height : window.innerHeight
+      };
+    }
+
+    function setPlayerSize(width) {
+      var roundedWidth = Math.floor(width);
+      var roundedHeight = Math.floor(roundedWidth * 3 / 4);
+
+      document.documentElement.style.setProperty("--player-width", roundedWidth + "px");
+      document.documentElement.style.setProperty("--player-height", roundedHeight + "px");
+      sizeElement.textContent = roundedWidth + "x" + roundedHeight;
+    }
+
+    function reservedPlayerHeight() {
       var shellStyle = getComputedStyle(document.querySelector(".shell"));
       var verticalPadding = parseFloat(shellStyle.paddingTop) + parseFloat(shellStyle.paddingBottom);
       var topbarHeight = document.querySelector(".topbar").getBoundingClientRect().height;
       var controlsHeight = document.querySelector(".controls").getBoundingClientRect().height;
       var gap = parseFloat(shellStyle.gap) || 0;
-      var reservedHeight = verticalPadding + topbarHeight + controlsHeight + gap * 2;
-      var maxWidth = Math.max(280, window.innerWidth - 40);
-      var maxHeight = Math.max(180, window.innerHeight - reservedHeight);
-      var width = Math.min(maxWidth, maxHeight * 4 / 3);
-      var height = width * 3 / 4;
 
-      document.documentElement.style.setProperty("--player-width", Math.floor(width) + "px");
-      document.documentElement.style.setProperty("--player-height", Math.floor(height) + "px");
-      sizeElement.textContent = Math.floor(width) + "x" + Math.floor(height);
+      return verticalPadding + topbarHeight + controlsHeight + gap;
+    }
+
+    function fitPlayerToWindow() {
+      var viewport = viewportSize();
+      var maxWidth = Math.max(160, viewport.width - 40);
+      var width = maxWidth;
+
+      for (var pass = 0; pass < 4; pass++) {
+        setPlayerSize(width);
+        var availableHeight = Math.max(120, viewport.height - reservedPlayerHeight());
+        var nextWidth = Math.min(maxWidth, availableHeight * 4 / 3);
+
+        if (Math.abs(nextWidth - width) < 1) {
+          width = nextWidth;
+          break;
+        }
+        width = nextWidth;
+      }
+
+      setPlayerSize(width);
       requestEngineResize();
     }
 
     window.addEventListener("resize", fitPlayerToWindow);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", fitPlayerToWindow);
+    }
     fitPlayerToWindow();
 
     function showError(message) {
@@ -826,6 +831,29 @@
       event.stopPropagation();
     }
 
+    function stopWheelEvent(event) {
+      event.stopImmediatePropagation();
+    }
+
+    function stopCanvasClickEvent(event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+
+    ["wheel", "mousewheel", "DOMMouseScroll"].forEach(function(type) {
+      canvas.addEventListener(type, stopWheelEvent, {
+        capture: true,
+        passive: false
+      });
+    });
+
+    ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "auxclick", "contextmenu"].forEach(function(type) {
+      canvas.addEventListener(type, stopCanvasClickEvent, {
+        capture: true,
+        passive: false
+      });
+    });
+
     controlButtons.forEach(function(button) {
       ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
         button.addEventListener(type, stopControlEvent);
@@ -838,7 +866,7 @@
     });
 
     if (!selectedDemo) {
-      showError("Unknown demo: " + selectedName);
+      showError(selectedName ? "Unknown demo: " + selectedName : "No demo selected. Drop a .dem in the /demo tool to play it.");
     } else {
       document.title = selectedDemo.title + " - FTE Demo Player";
       document.getElementById("demo-title").textContent = selectedDemo.title;

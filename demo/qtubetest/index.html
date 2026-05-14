@@ -53,12 +53,6 @@
       letter-spacing: 0;
     }
 
-    .demo-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
     .demo-card {
       display: grid;
       gap: 16px;
@@ -124,9 +118,6 @@
         font-size: 28px;
       }
 
-      .demo-list {
-        grid-template-columns: 1fr;
-      }
     }
   </style>
 </head>
@@ -136,41 +127,16 @@
       <h1>Quake Demo Player</h1>
     </header>
 
-    <section class="demo-list" aria-label="Demo files">
+    <section aria-label="Demo player">
       <article class="demo-card">
         <div>
-          <h2>castlev2</h2>
-          <p class="filename">castlev2_05-05-2026-200214_dm.dem</p>
+          <h2>Drop a demo to play it</h2>
+          <p class="filename">Use the /demo tool to launch this player with a .dem file.</p>
         </div>
-        <p class="meta">Map: castlev2.bsp</p>
-        <a class="launch" href="play.html?demo=castlev2_05-05-2026-200214_dm.dem" target="_blank" rel="noopener">Play Demo</a>
-      </article>
-
-      <article class="demo-card">
-        <div>
-          <h2>ztndm3</h2>
-          <p class="filename">ztndm3_05-05-2026-211054_dm.dem</p>
-        </div>
-        <p class="meta">Map: ztndm3.bsp</p>
-        <a class="launch" href="play.html?demo=ztndm3_05-05-2026-211054_dm.dem" target="_blank" rel="noopener">Play Demo</a>
+        <p class="meta">Maps are loaded from /maps, built-in packages, or packages dropped with the demo.</p>
+        <a class="launch" href="../">Open Demo Tool</a>
       </article>
     </section>
   </main>
-
-  <script>
-    document.querySelectorAll(".launch").forEach(function(link) {
-      link.addEventListener("click", function(event) {
-        var demoName = new URL(link.href).searchParams.get("demo") || "demo";
-        var windowName = "fte-" + demoName.replace(/[^a-z0-9]+/gi, "-");
-        var player = window.open(link.href, windowName, "width=704,height=620,resizable=yes,scrollbars=yes");
-
-        if (player) {
-          event.preventDefault();
-          player.opener = null;
-          player.focus();
-        }
-      });
-    });
-  </script>
 </body>
 </html>

@@ -31,7 +31,7 @@
     const DEMO_PLAYER_STORAGE_PREFIX = 'q1tools-demo-player:';
     const DEMO_PLAYER_MIN_HEIGHT = 640;
     const DEMO_PLAYER_MAX_HEIGHT = 1280;
-    const DEMO_PLAYER_VERTICAL_CHROME = 132;
+    const DEMO_PLAYER_VERTICAL_CHROME = 104;
     const PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
     const PREVIEW_ROOT = '../namemaker/images/chars/quake/';
     const LEGACY_PANTS_TINTS = [
