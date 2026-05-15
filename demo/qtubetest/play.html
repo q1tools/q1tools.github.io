@@ -493,10 +493,10 @@
     ];
     var demoConfigSource = "qw/fte.cfg?" + Date.now();
     var DEFAULT_RENDER_CONFIG = {
-      gamma: 1,
-      contrast: 1,
-      contrastBoost: 1,
-      brightness: 0
+      gamma: 1.65,
+      contrast: 1.08,
+      contrastBoost: 1.16,
+      brightness: 0.1
     };
 
     function cleanValue(value) {
@@ -627,6 +627,7 @@
         });
       }).catch(function(error) {
         console.warn("Unable to apply canvas gamma from fte.cfg:", error);
+        applyCanvasRenderConfig(DEFAULT_RENDER_CONFIG);
       });
     }
 
@@ -1931,6 +1932,7 @@
             "+set", "vid_height", "480",
             "+set", "vid_hardwaregamma", "2",
             "+set", "vid_srgb", "0",
+            "+set", "v_gammainverted", "1",
             "+set", "gl_load24bit", "0",
             "+set", "plug_sbar", "0",
             "+set", "cl_sbar", "1",
@@ -1948,16 +1950,33 @@
             "+set", "scr_scoreboard_showfrags", "0",
             "+set", "scr_scoreboard_showflags", "0",
             "+set", "cl_nocsqc", "1",
+            "+set", "r_bloom", "0",
+            "+set", "r_coronas", "0",
+            "+set", "r_dynamic", "0",
+            "+set", "r_vertexdlights", "0",
+            "+set", "r_loadlit", "0",
+            "+set", "r_loadsurfenvmaps", "0",
+            "+set", "r_glsl_pbr", "0",
+            "+set", "r_glsl_offsetmapping", "0",
+            "+set", "r_glsl_offsetmapping_reliefmapping", "0",
             "+set", "r_shadow_realtime_dlight", "0",
             "+set", "r_shadow_realtime_dlight_shadows", "0",
+            "+set", "r_shadow_realtime_dlight_ambient", "0",
+            "+set", "r_shadow_realtime_dlight_diffuse", "0",
+            "+set", "r_shadow_realtime_dlight_specular", "0",
             "+set", "r_shadow_realtime_world", "0",
             "+set", "r_shadow_realtime_world_shadows", "0",
+            "+set", "r_shadow_realtime_world_lightmaps", "1",
             "+set", "r_shadow_realtime_world_importlightentitiesfrommap", "0",
             "+set", "r_shadow_shadowmapping", "0",
             "+set", "r_shadow_raytrace", "0",
             "+set", "r_shadow_playershadows", "0",
             "+set", "r_shadows", "0",
             "+set", "r_deluxemapping", "0",
+            "+set", "r_shadow_bumpscale_basetexture", "0",
+            "+set", "r_shadow_bumpscale_bumpmap", "0",
+            "+set", "r_shadow_heightscale_basetexture", "0",
+            "+set", "r_shadow_heightscale_bumpmap", "0",
             "+set", "snd_samplebits", "32",
             "+set", "volume", String(INITIAL_VOLUME),
             "+exec", "fte.cfg",

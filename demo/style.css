@@ -72,7 +72,8 @@
         linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.18)),
         var(--team-bg, #795f50);
     color: #f8f5ee;
-    font-family: "Arial Black", Impact, system-ui, sans-serif;
+    font-family: 'q1', "Arial Black", Impact, system-ui, sans-serif;
+    font-weight: 400;
     font-size: 18px;
     line-height: 1;
     letter-spacing: 0;
