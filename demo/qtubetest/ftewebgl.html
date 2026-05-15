@@ -55,6 +55,7 @@ var Module = {
 			//note that the code below will skip the file-drop prompt if there's any files specified here (or there's a #foo.fmf file specified)
 			"default.fmf": "default.fmf",
 			"id1/demo.cfg": cfg,
+			"id1/fte.cfg": cfg,
 			"id1/config.cfg": "id1/config.cfg",
 			"id1/fragfile.dat": "id1/fragfile.dat",
 			"ctf/fte.cfg": cfg,
@@ -74,8 +75,17 @@ var Module = {
 		"+set", "scr_autoid_armor", "0",
 		"+set", "scr_autoid_weapon", "0",
 		"+set", "scr_autoid_weapon_mask", "0",
+		"+set", "gl_overbright", "2",
+		"+set", "r_dynamic", "0",
+		"+set", "r_vertexdlights", "0",
+		"+set", "r_loadlit", "0",
+		"+set", "r_lightmap_saturation", "0",
+		"+set", "r_bloom", "0",
+		"+set", "r_coronas", "0",
+		"+set", "r_glsl_offsetmapping", "0",
 		"+set", "r_shadow_realtime_dlight", "0",
 		"+set", "r_shadow_realtime_dlight_shadows", "0",
+		"+set", "r_shadow_realtime_dlight_specular", "0",
 		"+set", "r_shadow_realtime_world", "0",
 		"+set", "r_shadow_realtime_world_shadows", "0",
 		"+set", "r_shadow_realtime_world_importlightentitiesfrommap", "0",
@@ -84,7 +94,7 @@ var Module = {
 		"+set", "r_shadow_playershadows", "0",
 		"+set", "r_shadows", "0",
 		"+set", "r_deluxemapping", "0",
-		"+exec", "fte.cfg"
+		"+exec", "demo.cfg"
 	],
 	print: function(msg)
 	{	//stdout...

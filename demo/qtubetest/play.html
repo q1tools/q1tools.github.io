@@ -493,10 +493,10 @@
     ];
     var demoConfigSource = "qw/fte.cfg?" + Date.now();
     var DEFAULT_RENDER_CONFIG = {
-      gamma: 1.65,
-      contrast: 1.08,
-      contrastBoost: 1.16,
-      brightness: 0.1
+      gamma: 2,
+      contrast: 0.9,
+      contrastBoost: 1,
+      brightness: 0.12
     };
 
     function cleanValue(value) {
@@ -1218,6 +1218,7 @@
       var files = {
         "default.fmf": "default.fmf",
         "id1/demo.cfg": demoConfigSource,
+        "id1/fte.cfg": demoConfigSource,
         "qw/fte.cfg": demoConfigSource,
         "ctf/fte.cfg": demoConfigSource,
         "id1/fragfile.dat": "id1/fragfile.dat"
@@ -1950,8 +1951,17 @@
             "+set", "scr_scoreboard_showfrags", "0",
             "+set", "scr_scoreboard_showflags", "0",
             "+set", "cl_nocsqc", "1",
+            "+set", "gl_overbright", "2",
+            "+set", "r_dynamic", "0",
+            "+set", "r_vertexdlights", "0",
+            "+set", "r_loadlit", "0",
+            "+set", "r_lightmap_saturation", "0",
+            "+set", "r_bloom", "0",
+            "+set", "r_coronas", "0",
+            "+set", "r_glsl_offsetmapping", "0",
             "+set", "r_shadow_realtime_dlight", "0",
             "+set", "r_shadow_realtime_dlight_shadows", "0",
+            "+set", "r_shadow_realtime_dlight_specular", "0",
             "+set", "r_shadow_realtime_world", "0",
             "+set", "r_shadow_realtime_world_shadows", "0",
             "+set", "r_shadow_realtime_world_importlightentitiesfrommap", "0",
@@ -1962,7 +1972,7 @@
             "+set", "r_deluxemapping", "0",
             "+set", "snd_samplebits", "32",
             "+set", "volume", String(INITIAL_VOLUME),
-            "+exec", "fte.cfg",
+            "+exec", "demo.cfg",
             "+playdemo", selectedDemo.file
           ],
           files: files,
