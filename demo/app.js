@@ -3725,7 +3725,82 @@
         }
     }
 
+    function demoInfoValue(info, names) {
+        var index;
+        var key;
+        var keys;
+        var normalizedNames;
+
+        if (!info) {
+            return '';
+        }
+        normalizedNames = names.map(function (name) {
+            return String(name).replace(/^\*/, '').toLowerCase();
+        });
+        for (index = 0; index < names.length; index += 1) {
+            key = names[index];
+            if (Object.prototype.hasOwnProperty.call(info, key)) {
+                return cleanDemlValue(info[key]);
+            }
+        }
+        keys = Object.keys(info);
+        for (index = 0; index < keys.length; index += 1) {
+            key = keys[index];
+            if (normalizedNames.indexOf(String(key).replace(/^\*/, '').toLowerCase()) !== -1) {
+                return cleanDemlValue(info[key]);
+            }
+        }
+        return '';
+    }
+
+    function demoInfoNumber(info, names) {
+        var value = Number.parseFloat(demoInfoValue(info, names));
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function demoHasTeamScorePrints(data) {
+        return !!(data && Array.isArray(data.prints) && data.prints.some(function (entry) {
+            var text = cleanDemlValue(entry && entry.text);
+            return /^The\s+\w+\s+team\s+has\s+-?\d+\s+frags$/i.test(text) ||
+                /\b\w+\s+team\s+has\s+won\b/i.test(text) ||
+                /\bteam\s+score\b/i.test(text);
+        }));
+    }
+
+    function demoUserInfoTeamNames(data) {
+        var names = new Set();
+
+        if (!data || !Array.isArray(data.playerUserInfo)) {
+            return names;
+        }
+        data.playerUserInfo.forEach(function (info) {
+            var team = demoInfoValue(info, ['team']);
+            var normalized = team.toLowerCase();
+            if (!normalized || normalized === 'none' || normalized === 'spectator' || normalized === 'spec') {
+                return;
+            }
+            names.add(normalized);
+        });
+        return names;
+    }
+
+    function demoLooksLikeTeamGame(data) {
+        if (!data) {
+            return false;
+        }
+        if (demoInfoNumber(data.serverInfo, ['teamplay', 'team_play', 'g_teamplay']) > 0) {
+            return true;
+        }
+        if (demoHasTeamScorePrints(data)) {
+            return true;
+        }
+        return demoUserInfoTeamNames(data).size >= 2;
+    }
+
     function demoTeamScoreSnapshots(item) {
+        if (!demoLooksLikeTeamGame(item && item.data)) {
+            return [];
+        }
         return (item && item.data && Array.isArray(item.data.teamScores) ? item.data.teamScores : []).filter(function (snapshot) {
             return snapshot && Array.isArray(snapshot.teams) && snapshot.teams.length >= 2;
         });
