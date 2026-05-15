@@ -493,10 +493,10 @@
     ];
     var demoConfigSource = "qw/fte.cfg?" + Date.now();
     var DEFAULT_RENDER_CONFIG = {
-      gamma: 2,
-      contrast: 0.9,
+      gamma: 1.25,
+      contrast: 1,
       contrastBoost: 1,
-      brightness: 0.12
+      brightness: 0.02
     };
 
     function cleanValue(value) {
@@ -598,8 +598,8 @@
       var contrast = clampNumber(config.contrast, 0.25, 4, DEFAULT_RENDER_CONFIG.contrast);
       var boost = clampNumber(config.contrastBoost, 0.25, 4, DEFAULT_RENDER_CONFIG.contrastBoost);
       var brightness = clampNumber(config.brightness, -0.5, 0.5, DEFAULT_RENDER_CONFIG.brightness);
-      var cssBrightness = clampNumber(Math.pow(gamma, 0.55) * (1 + brightness), 0.2, 3, 1);
-      var cssContrast = clampNumber(contrast * Math.pow(boost, 0.25), 0.25, 4, 1);
+      var cssBrightness = clampNumber(1 + ((gamma - 1) * 0.22) + brightness, 0.75, 1.16, 1);
+      var cssContrast = clampNumber(contrast * Math.pow(boost, 0.15), 0.85, 1.15, 1);
 
       if (Math.abs(cssBrightness - 1) < 0.01 && Math.abs(cssContrast - 1) < 0.01) {
         canvas.style.filter = "";
@@ -1218,7 +1218,6 @@
       var files = {
         "default.fmf": "default.fmf",
         "id1/demo.cfg": demoConfigSource,
-        "id1/fte.cfg": demoConfigSource,
         "qw/fte.cfg": demoConfigSource,
         "ctf/fte.cfg": demoConfigSource,
         "id1/fragfile.dat": "id1/fragfile.dat"
@@ -1951,17 +1950,8 @@
             "+set", "scr_scoreboard_showfrags", "0",
             "+set", "scr_scoreboard_showflags", "0",
             "+set", "cl_nocsqc", "1",
-            "+set", "gl_overbright", "2",
-            "+set", "r_dynamic", "0",
-            "+set", "r_vertexdlights", "0",
-            "+set", "r_loadlit", "0",
-            "+set", "r_lightmap_saturation", "0",
-            "+set", "r_bloom", "0",
-            "+set", "r_coronas", "0",
-            "+set", "r_glsl_offsetmapping", "0",
             "+set", "r_shadow_realtime_dlight", "0",
             "+set", "r_shadow_realtime_dlight_shadows", "0",
-            "+set", "r_shadow_realtime_dlight_specular", "0",
             "+set", "r_shadow_realtime_world", "0",
             "+set", "r_shadow_realtime_world_shadows", "0",
             "+set", "r_shadow_realtime_world_importlightentitiesfrommap", "0",
@@ -1972,7 +1962,7 @@
             "+set", "r_deluxemapping", "0",
             "+set", "snd_samplebits", "32",
             "+set", "volume", String(INITIAL_VOLUME),
-            "+exec", "demo.cfg",
+            "+exec", "fte.cfg",
             "+playdemo", selectedDemo.file
           ],
           files: files,
