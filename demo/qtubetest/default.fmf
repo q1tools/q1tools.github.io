@@ -4,26 +4,4 @@ protocolname "none"
 basegame id1
 disablehomedir 1
 
-+set gl_load24bit 0
-+set vid_hardwaregamma 2
-+set vid_srgb 0
-+set v_gammainverted 1
-+set plug_sbar 0
-+set hud_miniscores_show 0
-+set hud_tracking_show 0
-+set sbar_teamstatus 0
-+set scr_autoid_health 0
-+set scr_autoid_armor 0
-+set scr_autoid_weapon 0
-+set scr_autoid_weapon_mask 0
-+set r_shadow_realtime_dlight 0
-+set r_shadow_realtime_dlight_shadows 0
-+set r_shadow_realtime_world 0
-+set r_shadow_realtime_world_shadows 0
-+set r_shadow_realtime_world_importlightentitiesfrommap 0
-+set r_shadow_shadowmapping 0
-+set r_shadow_raytrace 0
-+set r_shadow_playershadows 0
-+set r_shadows 0
-+set r_deluxemapping 0
-+exec demo.cfg
++exec fte.cfg
