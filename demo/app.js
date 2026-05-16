@@ -3893,7 +3893,7 @@
         for (i = 0; i < text.length; i++) {
             ch = text.charAt(i);
             if (ch >= '0' && ch <= '9') {
-                code = 18 + (ch.charCodeAt(0) - 48);
+                code = ch.charCodeAt(0);
                 html += '<img class="demo-match-hud-digit" alt="' + ch + '" src="' + PREVIEW_ROOT + String(code).padStart(3, '0') + '.gif">';
             }
         }

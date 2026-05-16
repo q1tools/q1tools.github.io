@@ -1610,8 +1610,36 @@
       showOverlayTemporarily();
     }
 
+    function currentEngineDemoTime() {
+      try {
+        if (typeof Module !== "undefined" && Module && typeof Module.getDemoTime === "function") {
+          var value = Number(Module.getDemoTime());
+          if (Number.isFinite(value) && value >= 0) {
+            return value;
+          }
+        }
+      } catch (_error) {
+        // Engine not ready yet.
+      }
+      return null;
+    }
+
     function jumpDemoToTime(seconds) {
-      sendEngineCommand("demo_jump " + Math.max(0, Math.round(Number(seconds) || 0)));
+      var target = Math.max(0, Math.round(Number(seconds) || 0));
+      var current = currentEngineDemoTime();
+      // Absolute `demo_jump <abs>` is unreliable for NetQuake protocol 15 demos in
+      // ftewebgl; the relative form works consistently for both NQ and QW. Convert
+      // the absolute target into a +/- delta from the engine's current demo time.
+      if (current !== null) {
+        var delta = target - Math.round(current);
+        if (delta === 0) {
+          showOverlayTemporarily();
+          return;
+        }
+        sendEngineCommand("demo_jump " + (delta > 0 ? "+" : "-") + Math.abs(delta));
+      } else {
+        sendEngineCommand("demo_jump " + target);
+      }
       showOverlayTemporarily();
     }
 
