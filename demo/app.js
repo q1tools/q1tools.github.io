@@ -4068,13 +4068,7 @@
         if (event.key === '`' || event.key === '~' || event.code === 'Backquote') {
             event.preventDefault();
             event.stopImmediatePropagation();
-            embeddedConsoleOpen = !embeddedConsoleOpen;
             embeddedPlayerCommand('toggleconsole', true);
-            if (demoMatchHudOverlay && embeddedConsoleOpen) {
-                demoMatchHudOverlay.hidden = true;
-            } else {
-                updateDemoMatchHudOverlay();
-            }
             return;
         }
 
@@ -4182,6 +4176,23 @@
 
     window.addEventListener('resize', resizeEmbeddedPlayer);
     window.addEventListener('blur', releaseEmbeddedShowscores);
+    window.addEventListener('message', function (event) {
+        var data = event && event.data;
+        if (!data || data.type !== 'q1tools-demo-player-event') {
+            return;
+        }
+        if (event.source !== (demoPlayerFrame && demoPlayerFrame.contentWindow)) {
+            return;
+        }
+        if (data.event === 'console-state') {
+            embeddedConsoleOpen = !!data.open;
+            if (embeddedConsoleOpen && demoMatchHudOverlay) {
+                demoMatchHudOverlay.hidden = true;
+            } else {
+                updateDemoMatchHudOverlay();
+            }
+        }
+    });
     ['keydown', 'keyup', 'keypress'].forEach(function (type) {
         window.addEventListener(type, handleEmbeddedPlayerKeyboard, {
             capture: true

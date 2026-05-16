@@ -1700,6 +1700,20 @@
       return event.key === "`" || event.key === "~" || event.code === "Backquote";
     }
 
+    function notifyConsoleState() {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: "q1tools-demo-player-event",
+            event: "console-state",
+            open: !!consoleOpen
+          }, "*");
+        }
+      } catch (_error) {
+        // parent may be cross-origin in some embeds; ignore.
+      }
+    }
+
     function toggleConsole() {
       consoleOpen = !consoleOpen;
       if (consoleOpen) {
@@ -1707,6 +1721,7 @@
         focusCanvas();
       }
       sendEngineCommand("toggleconsole");
+      notifyConsoleState();
     }
 
     function isPauseToggleKey(event) {
@@ -1726,6 +1741,15 @@
 
       if (consoleOpen) {
         // Console is open; let keystrokes flow through to the engine so the user can type.
+        // preventDefault on keydown suppresses the synthetic keypress event (FTE listens to
+        // both, which produced double letters) and blocks browser defaults like spacebar
+        // scrolling. Swallow keypress outright so it never reaches FTE.
+        if (event.type === "keydown") {
+          event.preventDefault();
+        } else if (event.type === "keypress") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
         return;
       }
 
