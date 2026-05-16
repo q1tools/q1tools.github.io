@@ -64,23 +64,35 @@
     align-items: center;
     justify-content: flex-end;
     min-width: 48px;
-    height: 24px;
-    padding: 0 8px;
+    height: 28px;
+    padding: 0 6px;
     border-radius: 2px;
     border: 1px solid rgba(0, 0, 0, 0.58);
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.18)),
         var(--team-bg, #795f50);
     color: #f8f5ee;
-    font-family: 'q1', "Arial Black", Impact, system-ui, sans-serif;
-    font-weight: 400;
-    font-size: 18px;
     line-height: 1;
-    letter-spacing: 0;
-    text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.82);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
         0 2px 5px rgba(0, 0, 0, 0.38);
+}
+
+.demo-match-hud-digit {
+    display: block;
+    width: 18px;
+    height: 18px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.82));
+}
+
+.demo-match-hud-sign {
+    font-family: 'q1', "Arial Black", Impact, system-ui, sans-serif;
+    font-size: 20px;
+    line-height: 1;
+    margin-right: 2px;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.82);
 }
 
 .demo-player-info {

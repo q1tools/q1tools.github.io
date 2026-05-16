@@ -459,6 +459,7 @@
     var showscoresDown = false;
     var keyboardShowscoresDown = false;
     var pointerShowscoresDown = false;
+    var consoleOpen = false;
     var longPressTimer = 0;
     var longPressPointerId = null;
     var ENGINE_CONTROL_COMMANDS = {
@@ -1667,7 +1668,49 @@
       return false;
     }
 
+    function isConsoleToggleKey(event) {
+      return event.key === "`" || event.key === "~" || event.code === "Backquote";
+    }
+
+    function toggleConsole() {
+      consoleOpen = !consoleOpen;
+      if (consoleOpen) {
+        releaseAllShowscores();
+        focusCanvas();
+      }
+      sendEngineCommand("toggleconsole");
+    }
+
+    function isPauseToggleKey(event) {
+      return event.key === " " || event.key === "Spacebar" || event.code === "Space";
+    }
+
     function blockEngineKeyboardEvent(event) {
+      if (isConsoleToggleKey(event) && !event.altKey && !event.ctrlKey && !event.metaKey && !isTextInputTarget(event.target)) {
+        if (event.type === "keydown" && !event.repeat) {
+          toggleConsole();
+          showOverlayTemporarily();
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      if (consoleOpen) {
+        // Console is open; let keystrokes flow through to the engine so the user can type.
+        return;
+      }
+
+      if (isPauseToggleKey(event) && !event.altKey && !event.ctrlKey && !event.metaKey && !isTextInputTarget(event.target)) {
+        if (event.type === "keydown" && !event.repeat) {
+          setPlaybackPaused(!playbackPaused, true);
+          showOverlayTemporarily();
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
       var handledControl = handleShowscoresKeyboard(event) || handlePercentSeekKeyboard(event) || handleSliderKeyboard(event) || handleSpeedKeyboard(event) || handleButtonKeyboard(event);
       if (handledControl) {
         event.preventDefault();
@@ -1894,10 +1937,14 @@
         releaseShowscores("keyboard");
       } else if (data.command === "+showscores") {
         holdShowscores("keyboard");
+      } else if (data.command === "toggleconsole") {
+        toggleConsole();
       } else if (data.shortcut === "demo_nudge") {
         nudgeDemoFrame(data.direction === "-1" ? "-1" : "+1");
       } else if (data.shortcut === "demo_jump") {
         jumpDemoToTime(data.seconds);
+      } else if (data.shortcut === "demo_toggle_pause") {
+        setPlaybackPaused(!playbackPaused, true);
       } else {
         sendEngineCommand(String(data.command || ""));
       }

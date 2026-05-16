@@ -63,6 +63,9 @@
     let demoMatchHudTimer = 0;
     let demoMatchHudItem = null;
     let embeddedShowscoresDown = false;
+    let embeddedConsoleOpen = false;
+    let demoMatchHudLastTime = null;
+    let demoMatchHudStuckTicks = 0;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -3873,6 +3876,30 @@
         }
     }
 
+    function demoMatchHudDigitsHtml(value) {
+        var text = String(Number.isFinite(value) ? value : 0);
+        var html = '';
+        var negative = false;
+        var i;
+        var ch;
+        var code;
+        if (text.charAt(0) === '-') {
+            negative = true;
+            text = text.slice(1);
+        }
+        if (negative) {
+            html += '<span class="demo-match-hud-sign">-</span>';
+        }
+        for (i = 0; i < text.length; i++) {
+            ch = text.charAt(i);
+            if (ch >= '0' && ch <= '9') {
+                code = 18 + (ch.charCodeAt(0) - 48);
+                html += '<img class="demo-match-hud-digit" alt="' + ch + '" src="' + PREVIEW_ROOT + String(code).padStart(3, '0') + '.gif">';
+            }
+        }
+        return html;
+    }
+
     function renderDemoMatchHudSnapshot(snapshot) {
         if (!demoMatchHudOverlay || !snapshot || !Array.isArray(snapshot.teams) || snapshot.teams.length < 2) {
             return;
@@ -3886,7 +3913,7 @@
             var color = Number(team.color);
             var score = Number(team.score);
             var bg = demoMatchHudColor(color);
-            return '<div class="demo-match-hud-team" style="--team-bg: ' + escapeAttribute(bg) + ';" title="Team color ' + escapeAttribute(color) + '">' + escapeHtml(Number.isFinite(score) ? score : 0) + '</div>';
+            return '<div class="demo-match-hud-team" style="--team-bg: ' + escapeAttribute(bg) + ';" title="Team color ' + escapeAttribute(color) + '">' + demoMatchHudDigitsHtml(score) + '</div>';
         }).join('');
         demoMatchHudOverlay.hidden = false;
     }
@@ -3894,13 +3921,31 @@
     function updateDemoMatchHudOverlay() {
         var snapshots;
         var snapshot;
+        var time;
 
         if (!demoMatchHudOverlay || !demoMatchHudItem) {
             return;
         }
 
+        if (embeddedConsoleOpen) {
+            demoMatchHudOverlay.hidden = true;
+            return;
+        }
+
+        time = currentEmbeddedDemoTime();
+        if (Number.isFinite(time) && demoMatchHudLastTime !== null && time === demoMatchHudLastTime) {
+            demoMatchHudStuckTicks += 1;
+        } else {
+            demoMatchHudStuckTicks = 0;
+        }
+        demoMatchHudLastTime = time;
+        if (demoMatchHudStuckTicks >= 2) {
+            demoMatchHudOverlay.hidden = true;
+            return;
+        }
+
         snapshots = demoTeamScoreSnapshots(demoMatchHudItem);
-        snapshot = demoMatchHudSnapshotAtTime(snapshots, currentEmbeddedDemoTime());
+        snapshot = demoMatchHudSnapshotAtTime(snapshots, time);
         if (!snapshot) {
             demoMatchHudOverlay.hidden = true;
             demoMatchHudOverlay.innerHTML = '';
@@ -3916,6 +3961,8 @@
             demoMatchHudTimer = 0;
         }
         demoMatchHudItem = null;
+        demoMatchHudLastTime = null;
+        demoMatchHudStuckTicks = 0;
         if (demoMatchHudOverlay) {
             demoMatchHudOverlay.hidden = true;
             demoMatchHudOverlay.innerHTML = '';
@@ -4018,6 +4065,26 @@
             return;
         }
 
+        if (event.key === '`' || event.key === '~' || event.code === 'Backquote') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            embeddedConsoleOpen = !embeddedConsoleOpen;
+            embeddedPlayerCommand('toggleconsole', true);
+            if (demoMatchHudOverlay && embeddedConsoleOpen) {
+                demoMatchHudOverlay.hidden = true;
+            } else {
+                updateDemoMatchHudOverlay();
+            }
+            return;
+        }
+
+        if (event.key === ' ' || event.code === 'Space' || event.key === 'Spacebar') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            embeddedPlayerShortcut('demo_toggle_pause');
+            return;
+        }
+
         if (event.key === ',' || event.key === '<' || event.key === '.' || event.key === '>') {
             event.preventDefault();
             event.stopImmediatePropagation();
@@ -4083,6 +4150,7 @@
 
         demoPlayerPanel.hidden = false;
         releaseEmbeddedShowscores();
+        embeddedConsoleOpen = false;
         stopDemoMatchHudOverlay();
         resizeEmbeddedPlayer();
         demoPlayerFrame.src = url;
