@@ -127,9 +127,17 @@ const DATA = {
           name: "TyrQuake",
           url: "https://github.com/sezero/tyrquake",
           children: [
-            { name: "Libretro TyrQuake", url: "https://github.com/libretro/tyrquake" }
+            {
+              name: "Libretro TyrQuake",
+              url: "https://github.com/libretro/tyrquake",
+              children: [
+                { name: "webrcade-app-tyrquake", url: "https://github.com/webrcade/webrcade-app-tyrquake" }
+              ]
+            }
           ]
         },
+        { name: "SoftQuake", url: "https://github.com/voidstar-dev/SoftQuake" },
+        { name: "Metal-Quake", url: "https://github.com/mstits/Metal-Quake" },
         {
           name: "CleanQuake",
           children: [
@@ -186,7 +194,9 @@ const DATA = {
             { name: "PyQuake-M", url: "https://github.com/timbergeron/pyquake-m" }
           ]
         },
+        { name: "temple-quake", url: "https://github.com/JRickey/temple-quake" },
         { name: "Qwasm", url: "https://github.com/GMH-Code/Qwasm" },
+        { name: "NexQuake", url: "https://github.com/0xBrsm/NexQuake" },
         {
           name: "quakegeneric",
           url: "https://github.com/erysdren/quakegeneric",
@@ -336,6 +346,7 @@ const DATA = {
         },
         { name: "three-quake", url: "https://github.com/mrdoob/three-quake" },
         { name: "Qwasm", url: "https://github.com/GMH-Code/Qwasm" },
+        { name: "quake-rb", url: "https://github.com/khasinski/quake" },
         { name: "Hexen II", url: "https://en.wikipedia.org/wiki/Hexen_II" },
         { name: "QMB", url: "https://github.com/OrphicAbyss/QMB" },
         { name: "EngineX", url: "https://github.com/timbergeron/Engine-X" },
