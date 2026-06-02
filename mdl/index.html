@@ -80,6 +80,13 @@
               <input id="svg-model-scale" type="number" value="64" min="1" max="512" step="1">
             </div>
 
+            <h3>Mesh</h3>
+            <div class="svg-import-grid">
+              <label for="svg-simplify">Simplify <span id="svg-simplify-value">Lossless</span></label>
+              <input id="svg-simplify" type="range" min="0" max="100" step="1" value="0">
+            </div>
+            <p class="hint">Lossless keeps the detail the 8-bit MDL can store. Drag right to request a lower polycount; sharp features stay protected.</p>
+
             <div class="control-row">
               <button id="svg-import-generate" type="button" disabled>Generate from SVG</button>
             </div>

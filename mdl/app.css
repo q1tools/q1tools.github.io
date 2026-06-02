@@ -1273,6 +1273,11 @@ label.obj-tools-axis.axis-z { color: var(--axis-z); }
   font-size: 12px;
 }
 
+.svg-import-grid input[type="range"] {
+  width: 100%;
+  margin-top: 0;
+}
+
 .svg-import-grid input[type="number"],
 .svg-import-grid input[type="text"],
 .svg-import-grid select,

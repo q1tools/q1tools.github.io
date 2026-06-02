@@ -220,6 +220,8 @@
     svgSkinWidth: document.getElementById("svg-skin-width"),
     svgSkinHeight: document.getElementById("svg-skin-height"),
     svgModelScale: document.getElementById("svg-model-scale"),
+    svgSimplify: document.getElementById("svg-simplify"),
+    svgSimplifyValue: document.getElementById("svg-simplify-value"),
     svgImportGenerate: document.getElementById("svg-import-generate"),
     svgImportStatus: document.getElementById("svg-import-status"),
     gfResults: document.getElementById("gf-results"),
@@ -581,6 +583,20 @@
     dom.svgImportGenerate.addEventListener("click", () => {
       generateModelFromPendingSvg();
     });
+
+    if (dom.svgSimplify) {
+      updateSimplifyLabel();
+      // Update the readout while dragging, but only re-extrude on release: the
+      // cached SVG is reused (no font refetch), yet a full rebuild per tick would
+      // thrash the camera/playback reset in activateGeneratedModel.
+      dom.svgSimplify.addEventListener("input", updateSimplifyLabel);
+      dom.svgSimplify.addEventListener("change", () => {
+        updateSimplifyLabel();
+        if (state.svgPendingText) {
+          generateModelFromPendingSvg();
+        }
+      });
+    }
 
     let faSearchTimer = 0;
     dom.faSearch.addEventListener("input", () => {
@@ -4453,6 +4469,175 @@
     return out;
   }
 
+  function pointToSegmentDistanceSquared(px, py, ax, ay, bx, by) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq <= 1e-20) {
+      const ex = px - ax, ey = py - ay;
+      return ex * ex + ey * ey;
+    }
+    let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const ex = px - cx, ey = py - cy;
+    return ex * ex + ey * ey;
+  }
+
+  // Ramer-Douglas-Peucker simplification for a closed contour [x0,y0,x1,y1,...].
+  // The flattener emits curve detail finer than the MDL byte-quantized output can
+  // represent; removing vertices within `tolerance` of their chord drops that
+  // redundant detail, which avoids degenerate sliver triangles after packing and
+  // keeps triangulation robust within the exported model's packed resolution.
+  function simplifyClosedContour(points, tolerance, forcedKeepIndices = null) {
+    const n = points.length / 2;
+    if (n < 5 || !(tolerance > 0)) {
+      return points.slice();
+    }
+    const tolSq = tolerance * tolerance;
+
+    // Anchor on vertex 0 and the vertex farthest from it so the closed loop is
+    // split into two open chains that RDP can simplify without collapsing.
+    let far = 0;
+    let farDist = -1;
+    for (let i = 1; i < n; i++) {
+      const dx = points[i * 2] - points[0];
+      const dy = points[i * 2 + 1] - points[1];
+      const d = dx * dx + dy * dy;
+      if (d > farDist) {
+        farDist = d;
+        far = i;
+      }
+    }
+    if (far === 0) {
+      return points.slice();
+    }
+
+    const keep = new Array(n).fill(false);
+    const anchors = new Set([0, far]);
+    if (forcedKeepIndices) {
+      for (const index of forcedKeepIndices) {
+        if (index >= 0 && index < n) anchors.add(index);
+      }
+    }
+    const sortedAnchors = Array.from(anchors).sort((a, b) => a - b);
+    if (sortedAnchors.length < 2) {
+      return points.slice();
+    }
+    for (const index of sortedAnchors) {
+      keep[index] = true;
+    }
+
+    // Iterative RDP over virtual index ranges; vertex(i) = points[(i % n)].
+    const stack = [];
+    for (let i = 0; i < sortedAnchors.length; i++) {
+      const lo = sortedAnchors[i];
+      let hi = sortedAnchors[(i + 1) % sortedAnchors.length];
+      if (hi <= lo) hi += n;
+      stack.push([lo, hi]);
+    }
+    while (stack.length) {
+      const [lo, hi] = stack.pop();
+      if (hi <= lo + 1) continue;
+      const a = lo % n;
+      const b = hi % n;
+      const ax = points[a * 2], ay = points[a * 2 + 1];
+      const bx = points[b * 2], by = points[b * 2 + 1];
+      let maxDist = -1;
+      let idx = -1;
+      for (let i = lo + 1; i < hi; i++) {
+        const v = i % n;
+        const d = pointToSegmentDistanceSquared(points[v * 2], points[v * 2 + 1], ax, ay, bx, by);
+        if (d > maxDist) {
+          maxDist = d;
+          idx = i;
+        }
+      }
+      if (maxDist > tolSq && idx >= 0) {
+        keep[idx % n] = true;
+        stack.push([lo, idx], [idx, hi]);
+      }
+    }
+
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      if (keep[i]) out.push(points[i * 2], points[i * 2 + 1]);
+    }
+    return out.length >= 6 ? out : points.slice();
+  }
+
+  function getContourExtremeIndices(points) {
+    const count = points.length / 2;
+    const indices = new Set();
+    if (count < 1) return indices;
+
+    let minXIndex = 0, maxXIndex = 0, minYIndex = 0, maxYIndex = 0;
+    let minX = points[0], maxX = points[0], minY = points[1], maxY = points[1];
+    for (let i = 1; i < count; i++) {
+      const x = points[i * 2];
+      const y = points[i * 2 + 1];
+      if (x < minX) { minX = x; minXIndex = i; }
+      if (x > maxX) { maxX = x; maxXIndex = i; }
+      if (y < minY) { minY = y; minYIndex = i; }
+      if (y > maxY) { maxY = y; maxYIndex = i; }
+    }
+
+    indices.add(minXIndex);
+    indices.add(maxXIndex);
+    indices.add(minYIndex);
+    indices.add(maxYIndex);
+    return indices;
+  }
+
+  function getContourFeatureIndices(points) {
+    const count = points.length / 2;
+    const indices = getContourExtremeIndices(points);
+    if (count < 3) {
+      return indices;
+    }
+
+    const cornerCosThreshold = Math.cos(Math.PI / 7.2); // Preserve turns of 25 degrees or sharper.
+    for (let i = 0; i < count; i++) {
+      const prev = (i - 1 + count) % count;
+      const next = (i + 1) % count;
+      const ax = points[i * 2] - points[prev * 2];
+      const ay = points[i * 2 + 1] - points[prev * 2 + 1];
+      const bx = points[next * 2] - points[i * 2];
+      const by = points[next * 2 + 1] - points[i * 2 + 1];
+      const lenA = Math.hypot(ax, ay);
+      const lenB = Math.hypot(bx, by);
+      if (lenA <= SVG_CONTOUR_EPSILON || lenB <= SVG_CONTOUR_EPSILON) {
+        continue;
+      }
+
+      const cos = (ax * bx + ay * by) / (lenA * lenB);
+      if (cos < cornerCosThreshold) {
+        indices.add(i);
+      }
+    }
+    return indices;
+  }
+
+  function isSafeSimplifiedContour(originalPoints, simplifiedPoints) {
+    if (simplifiedPoints.length < 6) {
+      return false;
+    }
+
+    const originalArea = contourSignedArea(originalPoints);
+    const simplifiedArea = contourSignedArea(simplifiedPoints);
+    const originalSign = Math.sign(originalArea);
+    const simplifiedSign = Math.sign(simplifiedArea);
+    if (originalSign && simplifiedSign && originalSign !== simplifiedSign) {
+      return false;
+    }
+    const interior = getContourInteriorPoint(originalPoints);
+    if (!pointInContour(interior[0], interior[1], simplifiedPoints)) {
+      return false;
+    }
+    return Math.abs(simplifiedArea) > SVG_CONTOUR_EPSILON;
+  }
+
   function getContourCentroid(points) {
     let cx = 0;
     let cy = 0;
@@ -6338,6 +6523,130 @@
     return loops;
   }
 
+  // Simplify each contour to the resolution the MDL format can actually store.
+  // Final vertices are packed to one byte per axis, so detail finer than
+  // (axisRange / 255) is lost on export. Removing it up front cuts redundant
+  // vertices and the degenerate sliver triangles that over-tessellated outlines
+  // produce.
+  function simplifyContoursToQuantization(contours, strengthMultiplier = 1) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const contour of contours) {
+      const pts = contour.points;
+      for (let i = 0; i < pts.length; i += 2) {
+        if (pts[i] < minX) minX = pts[i];
+        if (pts[i] > maxX) maxX = pts[i];
+        if (pts[i + 1] < minY) minY = pts[i + 1];
+        if (pts[i + 1] > maxY) maxY = pts[i + 1];
+      }
+    }
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+    if (!(rangeX > 0) || !(rangeY > 0)) {
+      return null;
+    }
+    // Half the smaller per-axis quantization step is the lossless floor: anything
+    // closer to its chord than this is below the model's packed output resolution.
+    // The strength multiplier (>= 1) scales past that floor to trade detail for a
+    // lower polycount when the user asks for it.
+    const tolerance = Math.min(rangeX, rangeY) / 255 * 0.5 * Math.max(1, strengthMultiplier);
+    const stats = {
+      beforePoints: 0,
+      afterPoints: 0,
+      simplifiedContours: 0,
+      contourCount: contours.length,
+    };
+    for (const contour of contours) {
+      const originalPoints = contour.points;
+      const beforeCount = originalPoints.length / 2;
+      const simplified = simplifyClosedContour(originalPoints, tolerance, getContourFeatureIndices(originalPoints));
+      let nextPoints = originalPoints;
+      if (simplified.length < originalPoints.length && isSafeSimplifiedContour(originalPoints, simplified)) {
+        nextPoints = simplified;
+        contour.points = simplified;
+        contour.windingSign = contourSignedArea(simplified) >= 0 ? 1 : -1;
+        stats.simplifiedContours++;
+      }
+
+      stats.beforePoints += beforeCount;
+      stats.afterPoints += nextPoints.length / 2;
+    }
+    stats.removedPoints = stats.beforePoints - stats.afterPoints;
+    return stats.removedPoints > 0 ? stats : null;
+  }
+
+  function getPackedPosition(positions, vertexIndex, scale, origin) {
+    const offset = vertexIndex * 3;
+    return [
+      packAliasCoord(positions[offset + 0], scale[0], origin[0]),
+      packAliasCoord(positions[offset + 1], scale[1], origin[1]),
+      packAliasCoord(positions[offset + 2], scale[2], origin[2]),
+    ];
+  }
+
+  function packedPositionsEqual(a, b) {
+    return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  }
+
+  function isRenderablePackedTriangle(triangle, positions, scale, origin) {
+    const [ia, ib, ic] = triangle.vertIndex;
+    const a = getPackedPosition(positions, ia, scale, origin);
+    const b = getPackedPosition(positions, ib, scale, origin);
+    const c = getPackedPosition(positions, ic, scale, origin);
+    if (packedPositionsEqual(a, b) || packedPositionsEqual(a, c) || packedPositionsEqual(b, c)) {
+      return false;
+    }
+
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const cx = uy * vz - uz * vy;
+    const cy = uz * vx - ux * vz;
+    const cz = ux * vy - uy * vx;
+    return cx !== 0 || cy !== 0 || cz !== 0;
+  }
+
+  function removePackedDegenerateTriangles(triangles, positions, scale, origin, frontCapTriangleCount = 0) {
+    const frontCapTriangles = [];
+    const restTriangles = [];
+    let removedFrontCapTriangles = 0;
+    let removedTriangles = 0;
+
+    for (let i = 0; i < triangles.length; i++) {
+      const triangle = triangles[i];
+      if (isRenderablePackedTriangle(triangle, positions, scale, origin)) {
+        if (i < frontCapTriangleCount) {
+          frontCapTriangles.push(triangle);
+        } else {
+          restTriangles.push(triangle);
+        }
+      } else {
+        removedTriangles++;
+        if (i < frontCapTriangleCount) {
+          removedFrontCapTriangles++;
+        }
+      }
+    }
+
+    if (!removedTriangles) {
+      return {
+        triangles,
+        frontCapTriangleCount,
+        cleanup: null,
+      };
+    }
+
+    const nextTriangles = frontCapTriangles.concat(restTriangles);
+    return {
+      triangles: nextTriangles,
+      frontCapTriangleCount: frontCapTriangles.length,
+      cleanup: {
+        beforeTriangles: triangles.length,
+        afterTriangles: nextTriangles.length,
+        removedTriangles,
+        removedFrontCapTriangles,
+      },
+    };
+  }
+
   // ── Model assembly from SVG ─────────────────────────────────────────────────
 
   async function buildModelFromSvg(svgText, options) {
@@ -6351,9 +6660,15 @@
       useContourSkin = false,
       preferEarcut = false,
       skinFillRgb24 = 0x000000,
+      simplifyContours = false,
+      simplifyStrength = 1,
     } = options;
 
     const { contours, viewBox } = parseSvgToContours(svgText);
+    let contourOptimization = null;
+    if (simplifyContours) {
+      contourOptimization = simplifyContoursToQuantization(contours, simplifyStrength);
+    }
     const classifiedContours = classifyContoursByNesting(contours);
     const sourceContours = classifiedContours;
     const sourceViewBox = useContourSkin
@@ -6460,10 +6775,11 @@
       skinHeight,
     );
 
-    // Build triangles
-    const triangles = [];
+    // Build raw triangles; the exported MDL stores packed byte coordinates, so
+    // a final cleanup pass runs after export scale/origin are known.
+    const rawTriangles = [];
     for (let i = 0; i < extrusion.indices.length; i += 3) {
-      triangles.push({
+      rawTriangles.push({
         facesfront: 1,
         vertIndex: [extrusion.indices[i], extrusion.indices[i + 1], extrusion.indices[i + 2]],
       });
@@ -6493,11 +6809,20 @@
       (pMax[1] - pMin[1]) / 2,
       (pMax[2] - pMin[2]) / 2,
     );
+    const triangleCleanupResult = removePackedDegenerateTriangles(
+      rawTriangles,
+      positions,
+      mdlScale,
+      pMin,
+      capTriangulation.indices.length / 3,
+    );
+    const triangles = triangleCleanupResult.triangles;
+    const geometryCleanup = triangleCleanupResult.cleanup;
     const mapExportData = bevelActual === 0
       ? {
           kind: "flat-prism",
           capVertexCount: capTriangulation.vertices.length / 2,
-          capTriangleCount: capTriangulation.indices.length / 3,
+          capTriangleCount: triangleCleanupResult.frontCapTriangleCount,
           textureName: "__TB_empty",
         }
       : null;
@@ -6520,6 +6845,8 @@
       flags: importWarning ? (1 << 14) : 0,
       size: 0,
       importWarning,
+      contourOptimization,
+      geometryCleanup,
       mapExportData,
       skinOverlayLoops,
       skins: [{
@@ -6933,6 +7260,42 @@
     return sourceKind === "svg";
   }
 
+  // Maps the 0-100 "Simplify" slider to a multiplier on the lossless tolerance
+  // floor. 0 stays at 1x (nothing visible removed); higher values scale the
+  // tolerance geometrically up to SIMPLIFY_MAX_MULTIPLIER for low-poly output.
+  const SIMPLIFY_MAX_MULTIPLIER = 32;
+
+  function getSimplifyStrength() {
+    if (!dom.svgSimplify) return 1;
+    const raw = clamp(parseFloat(dom.svgSimplify.value) || 0, 0, 100);
+    if (raw <= 0) return 1;
+    return Math.pow(SIMPLIFY_MAX_MULTIPLIER, raw / 100);
+  }
+
+  function updateSimplifyLabel() {
+    if (!dom.svgSimplifyValue) return;
+    const strength = getSimplifyStrength();
+    dom.svgSimplifyValue.textContent = strength <= 1.0001 ? "Lossless" : `${strength.toFixed(1)}×`;
+  }
+
+  function describeContourOptimization(stats) {
+    if (!stats?.removedPoints) {
+      return "";
+    }
+    const before = Math.round(stats.beforePoints);
+    const after = Math.round(stats.afterPoints);
+    const removed = Math.round(stats.removedPoints);
+    const percent = before > 0 ? Math.round((removed / before) * 100) : 0;
+    return ` Outline cleanup reduced source points ${before} -> ${after} (-${percent}%).`;
+  }
+
+  function describeGeometryCleanup(stats) {
+    if (!stats?.removedTriangles) {
+      return "";
+    }
+    return ` Mesh cleanup removed ${Math.round(stats.removedTriangles)} collapsed ${stats.removedTriangles === 1 ? "triangle" : "triangles"}.`;
+  }
+
   async function loadSvgText(text, sourceName, pendingOptions = null) {
     try {
       const doc = new DOMParser().parseFromString(text, "image/svg+xml");
@@ -6972,6 +7335,7 @@
 
     try {
       const pendingOptions = state.svgPendingOptions ? { ...state.svgPendingOptions } : {};
+      const simplifyStrength = getSimplifyStrength();
 
       const options = {
         thickness: parseFloat(dom.svgThickness.value) || 16,
@@ -6982,15 +7346,19 @@
         modelScale: parseFloat(dom.svgModelScale.value) || 64,
         useContourSkin: !!pendingOptions.useContourSkin,
         preferEarcut: pendingOptions.sourceKind === "font",
+        simplifyContours: true,
+        simplifyStrength,
         skinFillRgb24: Number.isFinite(pendingOptions.skinFillRgb24) ? pendingOptions.skinFillRgb24 : 0x000000,
       };
       state.svgPendingOptions = pendingOptions;
 
       const model = await buildModelFromSvg(state.svgPendingText, options);
       activateGeneratedModel(model, state.svgPendingName);
+      const contourNote = describeContourOptimization(model.contourOptimization);
+      const geometryNote = describeGeometryCleanup(model.geometryCleanup);
       dom.svgImportStatus.textContent = model.importWarning
-        ? `\nGenerated MDL with fallback: ${model.numVerts} verts, ${model.numTris} tris. ${model.importWarning}`
-        : `\nGenerated MDL: ${model.numVerts} verts, ${model.numTris} tris.`;
+        ? `\nGenerated MDL with fallback: ${model.numVerts} verts, ${model.numTris} tris. ${model.importWarning}${contourNote}${geometryNote}`
+        : `\nGenerated MDL: ${model.numVerts} verts, ${model.numTris} tris.${contourNote}${geometryNote}`;
       dom.svgImportGenerate.disabled = !isSvgManualGenerateSource(pendingOptions);
     } catch (error) {
       console.error(error);
