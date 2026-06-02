@@ -11,8 +11,14 @@
   const PALETTE_CANVAS_SIZE = 256;
   const UV_EXPORT_TARGET_SIZE = 1024;
   const GENERATED_SOLID_SKIN_SIZE = 16;
+  const MDL_IDENT_IDPO = "IDPO";
+  const MDL_IDENT_MD16 = "MD16";
   const ALIAS_ONSEAM = 0x20;
+  const VANILLA_MAX_ALIAS_VERTS = 1024;
+  const VANILLA_MAX_ALIAS_POSES = 256;
   const QSSM_MAX_ALIAS_VERTS = 0x7fff;
+  const QSSM_MAX_ALIAS_POSES = 1024;
+  const QSSM_MAX_SKINS = 32;
   const QSSM_SKIN_ANIM_TEXTURE_SLOTS = 4;
   const FRAME_INTERVAL_EPSILON = 0.0005;
   const ALIAS_VERTEX_NORMALS = new Float32Array([
@@ -1426,6 +1432,7 @@
 
     dom.propertiesGrid.appendChild(buildPropertyCard("Model Contents", [
       ["Path", model.path],
+      ["Format", describeModelFormat(model)],
       ["Skins", String(model.skins.length)],
       ["Frames", String(model.numFrames)],
       ["Poses", String(model.poses.length)],
@@ -1636,24 +1643,35 @@
     heading.textContent = "Sync Type";
     section.appendChild(heading);
 
-    const checkbox = document.createElement("label");
-    checkbox.className = "checkbox property-checkbox";
+    const label = document.createElement("label");
+    label.className = "property-input-row";
 
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.id = "prop-sync-rand";
-    input.checked = syncType === 1;
+    const labelText = document.createElement("span");
+    labelText.className = "property-input-label";
+    labelText.textContent = "Mode";
+    label.appendChild(labelText);
 
-    const text = document.createElement("span");
-    text.textContent = "Rand";
-
-    checkbox.appendChild(input);
-    checkbox.appendChild(text);
-    section.appendChild(checkbox);
+    const select = document.createElement("select");
+    select.id = "prop-sync-type";
+    Object.entries(SYNC_TYPE_LABELS).forEach(([value, text]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = `${text} (${value})`;
+      select.appendChild(option);
+    });
+    if (!Object.prototype.hasOwnProperty.call(SYNC_TYPE_LABELS, syncType)) {
+      const option = document.createElement("option");
+      option.value = String(syncType);
+      option.textContent = `Unknown (${syncType})`;
+      select.appendChild(option);
+    }
+    select.value = String(syncType);
+    label.appendChild(select);
+    section.appendChild(label);
 
     const hint = document.createElement("p");
     hint.className = "hint property-hint";
-    hint.textContent = `Unchecked = Sync (0), checked = Rand (1). Current value: ${describeSyncType(syncType)}.`;
+    hint.textContent = "QSS-M also accepts Frame Time (2), which syncs animation to .frame changes.";
     section.appendChild(hint);
 
     return section;
@@ -2134,7 +2152,7 @@
     }
 
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) {
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) {
       return;
     }
 
@@ -2160,8 +2178,8 @@
         setSaveStatus("Eye position updated. Save .mdl to export changes.");
         didChange = true;
         break;
-      case "prop-sync-rand":
-        state.model.synctype = target.checked ? 1 : 0;
+      case "prop-sync-type":
+        state.model.synctype = parseInt(target.value, 10);
         state.model.syncType = state.model.synctype;
         populateProperties(state.model);
         setSaveStatus("Sync type updated. Save .mdl to export changes.");
@@ -3406,14 +3424,24 @@
       );
     }
 
-    if (model.numVerts > 2048) {
+    if (model.numVerts > VANILLA_MAX_ALIAS_VERTS && model.numVerts <= QSSM_MAX_ALIAS_VERTS) {
       pushValidationFinding(
         findings,
-        "warning",
-        "High vertex count",
-        `Model has ${model.numVerts} vertices. Some Quake engines limit models to 2048 vertices.`
+        "info",
+        "Vertex count exceeds vanilla Quake",
+        `Model has ${model.numVerts} vertices. Vanilla Quake-era loaders commonly cap alias vertices at ${VANILLA_MAX_ALIAS_VERTS}; QSS-M accepts up to ${QSSM_MAX_ALIAS_VERTS}.`
       );
     }
+
+    if (model.poses.length > VANILLA_MAX_ALIAS_POSES && model.poses.length <= QSSM_MAX_ALIAS_POSES) {
+      pushValidationFinding(
+        findings,
+        "info",
+        "Pose count exceeds vanilla modelgen",
+        `Model has ${model.poses.length} loaded pose${model.poses.length === 1 ? "" : "s"}. Original modelgen used a ${VANILLA_MAX_ALIAS_POSES}-frame limit; QSS-M accepts up to ${QSSM_MAX_ALIAS_POSES} alias poses.`
+      );
+    }
+
     if (model.numTris > 4096) {
       pushValidationFinding(
         findings,
@@ -3720,12 +3748,39 @@
   }
 
   function validateQssmAliasCompatibility(model, findings) {
+    if (model.format === "md16" || model.ident === MDL_IDENT_MD16) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "MD16 will export as vanilla IDPO",
+        "This QuakeForge MD16 model was read with 16-bit coordinate precision. Save .mdl currently writes vanilla IDPO v6, so saved geometry will be repacked into 8-bit MDL coordinates."
+      );
+    }
+
     if (model.numVerts > QSSM_MAX_ALIAS_VERTS) {
       pushValidationFinding(
         findings,
         "error",
         "QSS-M alias vertex limit exceeded",
         `QSS-M accepts up to ${QSSM_MAX_ALIAS_VERTS} source alias vertices. This model has ${model.numVerts}.`
+      );
+    }
+
+    if (model.poses.length > QSSM_MAX_ALIAS_POSES) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "QSS-M alias pose limit exceeded",
+        `QSS-M accepts up to ${QSSM_MAX_ALIAS_POSES} alias poses. This model has ${model.poses.length}.`
+      );
+    }
+
+    if (model.skins.length > QSSM_MAX_SKINS) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "QSS-M alias skin limit exceeded",
+        `QSS-M accepts up to ${QSSM_MAX_SKINS} alias skins. This model has ${model.skins.length}.`
       );
     }
 
@@ -4334,6 +4389,13 @@
       return `${label} (${value})`;
     }
     return `Unknown (${value})`;
+  }
+
+  function describeModelFormat(model) {
+    if (model.format === "md16" || model.ident === MDL_IDENT_MD16) {
+      return "QuakeForge MD16";
+    }
+    return "IDPO v6";
   }
 
   function formatFlags(flags) {
@@ -7990,8 +8052,9 @@
 
     const ident = readASCII(view, offset, 4);
     offset += 4;
-    if (ident !== "IDPO") {
-      throw new Error(`Expected IDPO header, got ${ident}`);
+    const isMd16 = ident === MDL_IDENT_MD16;
+    if (ident !== MDL_IDENT_IDPO && !isMd16) {
+      throw new Error(`Expected IDPO or MD16 header, got ${ident}`);
     }
 
     const version = view.getInt32(offset, true);
@@ -8095,7 +8158,7 @@
       offset += 4;
 
       if (frameType === 0) {
-        const parsed = parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin);
+        const parsed = parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin, isMd16);
         poses.push({
           name: parsed.name,
           positions: parsed.positions,
@@ -8123,7 +8186,7 @@
         const poseIndices = [];
         const poseNames = [];
         for (let i = 0; i < groupCount; i++) {
-          const parsed = parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin);
+          const parsed = parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin, isMd16);
           poses.push({
             name: parsed.name,
             positions: parsed.positions,
@@ -8144,6 +8207,8 @@
 
     return {
       path,
+      ident,
+      format: isMd16 ? "md16" : "idpo",
       version,
       scale,
       scaleOrigin,
@@ -8167,13 +8232,31 @@
     };
   }
 
-  function parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin) {
+  function parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin, isMd16 = false) {
     offset += 4; // bbox min
     offset += 4; // bbox max
     const name = readASCII(view, offset, 16).replace(/\0.*$/, "");
     offset += 16;
 
     const positions = new Float32Array(numVerts * 3);
+    if (isMd16) {
+      const highOffset = offset;
+      const lowOffset = offset + numVerts * 4;
+      for (let i = 0; i < numVerts; i++) {
+        const highBase = highOffset + i * 4;
+        const lowBase = lowOffset + i * 4;
+        positions[i * 3 + 0] = scale[0] * (bytes[highBase + 0] + bytes[lowBase + 0] / 256) + scaleOrigin[0];
+        positions[i * 3 + 1] = scale[1] * (bytes[highBase + 1] + bytes[lowBase + 1] / 256) + scaleOrigin[1];
+        positions[i * 3 + 2] = scale[2] * (bytes[highBase + 2] + bytes[lowBase + 2] / 256) + scaleOrigin[2];
+      }
+
+      return {
+        name,
+        positions,
+        offset: offset + numVerts * 8,
+      };
+    }
+
     for (let i = 0; i < numVerts; i++) {
       const packedX = bytes[offset++];
       const packedY = bytes[offset++];
