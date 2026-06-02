@@ -1267,6 +1267,25 @@ label.obj-tools-axis.axis-z { color: var(--axis-z); }
   margin-bottom: 8px;
 }
 
+.solid-skin-color {
+  margin-bottom: 8px;
+}
+
+.solid-skin-color canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: crosshair;
+  image-rendering: pixelated;
+}
+
+.solid-skin-color .hint {
+  margin-top: 4px;
+}
+
 .svg-import-grid label {
   margin: 0;
   color: var(--muted);

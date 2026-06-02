@@ -10,6 +10,13 @@
   const PALETTE_GRID_DIMENSION = 16;
   const PALETTE_CANVAS_SIZE = 256;
   const UV_EXPORT_TARGET_SIZE = 1024;
+  const GENERATED_SOLID_SKIN_SIZE = 16;
+  // Default Quake palette index for the generated solid skin. 250 (0xd70000) is a
+  // fullbright red: QSS-M (Mod_CheckFullbrights, gl_model.c) only treats indices
+  // 224-255 as fullbright, and world-placed models get no minimum light, so a
+  // non-fullbright color (e.g. 76) renders near-black in dim areas. Users can
+  // override this with the in-app skin color picker.
+  const GENERATED_SOLID_SKIN_PALETTE_INDEX = 250;
   const GOOGLE_FONTS_CSS2_URL = "https://fonts.googleapis.com/css2";
   const EARCUT_CDN_URL = "https://cdn.jsdelivr.net/npm/earcut/dist/earcut.min.js";
   const OPENTYPE_CDN_URL = "https://cdn.jsdelivr.net/npm/opentype.js/dist/opentype.min.js";
@@ -217,11 +224,11 @@
     svgThickness: document.getElementById("svg-thickness"),
     svgBevelWidth: document.getElementById("svg-bevel-width"),
     svgBevelSegments: document.getElementById("svg-bevel-segments"),
-    svgSkinWidth: document.getElementById("svg-skin-width"),
-    svgSkinHeight: document.getElementById("svg-skin-height"),
     svgModelScale: document.getElementById("svg-model-scale"),
     svgSimplify: document.getElementById("svg-simplify"),
     svgSimplifyValue: document.getElementById("svg-simplify-value"),
+    svgSkinColorCanvas: document.getElementById("svg-skin-color-canvas"),
+    svgSkinColorLabel: document.getElementById("svg-skin-color-label"),
     svgImportGenerate: document.getElementById("svg-import-generate"),
     svgImportStatus: document.getElementById("svg-import-status"),
     gfResults: document.getElementById("gf-results"),
@@ -234,6 +241,9 @@
 
   const skinPreviewContext = dom.skinPreview.getContext("2d", { alpha: true });
   const skinPaletteContext = dom.skinPaletteCanvas.getContext("2d", { alpha: true });
+  const solidSkinColorContext = dom.svgSkinColorCanvas
+    ? dom.svgSkinColorCanvas.getContext("2d", { alpha: true })
+    : null;
   let earcutLoadPromise = null;
   let opentypeLoadPromise = null;
   let woff2LoadPromise = null;
@@ -279,6 +289,7 @@
     skinPaletteTargetIndex: -1,
     skinPalettePickingTarget: false,
     skinPaletteHoverIndex: -1,
+    solidSkinPaletteIndex: GENERATED_SOLID_SKIN_PALETTE_INDEX,
     recolorEnabled: false,
     topColor: 0,
     bottomColor: 0,
@@ -334,6 +345,7 @@
     updateColorLabels();
     syncDisplayControls();
     updateSkinPaletteEditor();
+    refreshSolidSkinColorPicker();
     updateValidationPanel();
     restoreCachedLocalFonts();
     void maybeWarmLocalFontsCache();
@@ -595,6 +607,12 @@
         if (state.svgPendingText) {
           generateModelFromPendingSvg();
         }
+      });
+    }
+
+    if (dom.svgSkinColorCanvas) {
+      dom.svgSkinColorCanvas.addEventListener("click", (event) => {
+        selectSolidSkinColor(solidSkinIndexFromEvent(event));
       });
     }
 
@@ -1018,6 +1036,7 @@
     dom.paletteStatus.textContent = label;
     state.textureDirty = true;
     updateSkinStatus();
+    refreshSolidSkinColorPicker();
   }
 
   function applyDefaultPalette() {
@@ -5788,6 +5807,38 @@
     return rgbaToIndexedQuakePalette(rgba, palette);
   }
 
+  function addAliasFloodFillGuard(indexed, fillIndex) {
+    if (!indexed || indexed.length < 2) {
+      return indexed;
+    }
+
+    // QuakeSpasm-family renderers flood-fill alias skins from texel 0. A fully
+    // solid skin would be rewritten to black, so keep one unsampled guard texel.
+    indexed[0] = fillIndex === 0 ? 1 : 0;
+    return indexed;
+  }
+
+  function generateSolidSkin(skinWidth, skinHeight, palette, fillRgb24 = 0x000000, paletteIndex = null) {
+    if (Number.isInteger(paletteIndex) && paletteIndex >= 0 && paletteIndex <= 255) {
+      const indexed = new Uint8Array(skinWidth * skinHeight);
+      indexed.fill(paletteIndex);
+      return addAliasFloodFillGuard(indexed, paletteIndex);
+    }
+
+    const rgba = new Uint8Array(skinWidth * skinHeight * 4);
+    const r = (fillRgb24 >> 16) & 0xff;
+    const g = (fillRgb24 >> 8) & 0xff;
+    const b = fillRgb24 & 0xff;
+    for (let i = 0; i < rgba.length; i += 4) {
+      rgba[i + 0] = r;
+      rgba[i + 1] = g;
+      rgba[i + 2] = b;
+      rgba[i + 3] = 255;
+    }
+    const indexed = rgbaToIndexedQuakePalette(rgba, palette);
+    return addAliasFloodFillGuard(indexed, indexed[1] ?? indexed[0]);
+  }
+
   async function ensureEarcutLibrary() {
     const existing = window.earcut;
     if (typeof existing === "function") {
@@ -6650,7 +6701,7 @@
   // ── Model assembly from SVG ─────────────────────────────────────────────────
 
   async function buildModelFromSvg(svgText, options) {
-    const {
+    let {
       thickness = 16,
       bevelWidth = 0,
       bevelSegments = 0,
@@ -6662,7 +6713,13 @@
       skinFillRgb24 = 0x000000,
       simplifyContours = false,
       simplifyStrength = 1,
+      useSolidSkin = true,
+      solidSkinPaletteIndex = GENERATED_SOLID_SKIN_PALETTE_INDEX,
     } = options;
+    if (useSolidSkin) {
+      skinWidth = GENERATED_SOLID_SKIN_SIZE;
+      skinHeight = GENERATED_SOLID_SKIN_SIZE;
+    }
 
     const { contours, viewBox } = parseSvgToContours(svgText);
     let contourOptimization = null;
@@ -6743,15 +6800,18 @@
       positions[i * 3 + 2] = -(srcY - centerY) * scaleFactor;
     }
 
-    // Build stVerts with UV mapping: front/back faces get SVG projection,
-    // side walls use a dedicated opaque swatch to avoid transparent holes.
+    // Generated SVG/Icon/Font MDLs use a tiny solid skin. All texture vertices
+    // sample that same skin, which avoids raster-skin artifacts entirely.
     const stVerts = [];
-    const skinLayout = computeSvgSkinLayout(sourceViewBox, skinWidth, skinHeight);
+    const skinLayout = useSolidSkin ? null : computeSvgSkinLayout(sourceViewBox, skinWidth, skinHeight);
 
     for (let i = 0; i < numVerts; i++) {
       let s;
       let t;
-      if (extrusion.surfaceKinds[i] === "side") {
+      if (useSolidSkin) {
+        s = Math.floor(skinWidth / 2);
+        t = Math.floor(skinHeight / 2);
+      } else if (extrusion.surfaceKinds[i] === "side") {
         s = skinLayout.sideSampleS;
         t = skinLayout.sideSampleT;
       } else {
@@ -6768,12 +6828,14 @@
     }
 
     const skinOverlayContours = importWarning ? sourceContours : capContours;
-    const skinOverlayLoops = buildSvgSkinOverlayLoops(
-      skinOverlayContours,
-      skinLayout,
-      skinWidth,
-      skinHeight,
-    );
+    const skinOverlayLoops = useSolidSkin
+      ? []
+      : buildSvgSkinOverlayLoops(
+          skinOverlayContours,
+          skinLayout,
+          skinWidth,
+          skinHeight,
+        );
 
     // Build raw triangles; the exported MDL stores packed byte coordinates, so
     // a final cleanup pass runs after export scale/origin are known.
@@ -6786,9 +6848,20 @@
     }
 
     // Generate skin
-    const skinPixels = useContourSkin
-      ? generateContourSkin(sourceContours, sourceViewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24)
-      : await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24);
+    let skinPixels;
+    if (useSolidSkin) {
+      skinPixels = generateSolidSkin(
+        skinWidth,
+        skinHeight,
+        state.paletteRGBA,
+        skinFillRgb24,
+        solidSkinPaletteIndex,
+      );
+    } else if (useContourSkin) {
+      skinPixels = generateContourSkin(sourceContours, sourceViewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24);
+    } else {
+      skinPixels = await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24);
+    }
 
     // Compute export packing (scale/origin for 0-255 vertex range)
     const pMin = [Infinity, Infinity, Infinity];
@@ -7272,6 +7345,80 @@
     return Math.pow(SIMPLIFY_MAX_MULTIPLIER, raw / 100);
   }
 
+  // The viewer (and Quake) treat palette indices 224-254 as fullbright, so a skin
+  // using them ignores world lighting and stays visible in dark areas.
+  function isFullbrightPaletteIndex(index) {
+    return index >= 224 && index <= 254;
+  }
+
+  function drawSolidSkinColorPicker() {
+    const canvas = dom.svgSkinColorCanvas;
+    if (!canvas || !solidSkinColorContext || !state.paletteRGBA) return;
+    const palette = state.paletteRGBA;
+    const ctx = solidSkinColorContext;
+    const cell = canvas.width / PALETTE_GRID_DIMENSION;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let index = 0; index < 256; index++) {
+      const x = (index % PALETTE_GRID_DIMENSION) * cell;
+      const y = Math.floor(index / PALETTE_GRID_DIMENSION) * cell;
+      ctx.fillStyle = `rgb(${palette[index * 4]}, ${palette[index * 4 + 1]}, ${palette[index * 4 + 2]})`;
+      ctx.fillRect(x, y, cell, cell);
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+    }
+
+    const sel = clamp(state.solidSkinPaletteIndex, 0, 255);
+    const sx = (sel % PALETTE_GRID_DIMENSION) * cell;
+    const sy = Math.floor(sel / PALETTE_GRID_DIMENSION) * cell;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(sx + 1.5, sy + 1.5, cell - 3, cell - 3);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.98)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sx + 1.5, sy + 1.5, cell - 3, cell - 3);
+  }
+
+  function updateSolidSkinColorLabel() {
+    if (!dom.svgSkinColorLabel) return;
+    const index = clamp(state.solidSkinPaletteIndex, 0, 255);
+    const palette = state.paletteRGBA;
+    let hex = "";
+    if (palette) {
+      const toHex = (v) => v.toString(16).padStart(2, "0");
+      hex = ` #${toHex(palette[index * 4])}${toHex(palette[index * 4 + 1])}${toHex(palette[index * 4 + 2])}`;
+    }
+    const lighting = isFullbrightPaletteIndex(index)
+      ? "fullbright — stays bright in-game"
+      : "lit — darkened by world lighting";
+    dom.svgSkinColorLabel.textContent = `Index ${index}${hex} · ${lighting}`;
+  }
+
+  function refreshSolidSkinColorPicker() {
+    drawSolidSkinColorPicker();
+    updateSolidSkinColorLabel();
+  }
+
+  function solidSkinIndexFromEvent(event) {
+    const canvas = dom.svgSkinColorCanvas;
+    const rect = canvas.getBoundingClientRect();
+    const col = clamp(Math.floor((event.clientX - rect.left) / (rect.width / PALETTE_GRID_DIMENSION)), 0, PALETTE_GRID_DIMENSION - 1);
+    const row = clamp(Math.floor((event.clientY - rect.top) / (rect.height / PALETTE_GRID_DIMENSION)), 0, PALETTE_GRID_DIMENSION - 1);
+    return row * PALETTE_GRID_DIMENSION + col;
+  }
+
+  function selectSolidSkinColor(index) {
+    const clamped = clamp(index, 0, 255);
+    if (clamped === state.solidSkinPaletteIndex) return;
+    state.solidSkinPaletteIndex = clamped;
+    refreshSolidSkinColorPicker();
+    // The cached SVG is reused, so re-extruding only updates the skin color.
+    if (state.svgPendingText) {
+      generateModelFromPendingSvg();
+    }
+  }
+
   function updateSimplifyLabel() {
     if (!dom.svgSimplifyValue) return;
     const strength = getSimplifyStrength();
@@ -7341,14 +7488,16 @@
         thickness: parseFloat(dom.svgThickness.value) || 16,
         bevelWidth: parseFloat(dom.svgBevelWidth.value) || 0,
         bevelSegments: Math.max(0, Math.min(2, parseInt(dom.svgBevelSegments.value, 10) || 0)),
-        skinWidth: Math.max(16, Math.min(1024, parseInt(dom.svgSkinWidth.value, 10) || 1024)),
-        skinHeight: Math.max(16, Math.min(1024, parseInt(dom.svgSkinHeight.value, 10) || 1024)),
+        skinWidth: GENERATED_SOLID_SKIN_SIZE,
+        skinHeight: GENERATED_SOLID_SKIN_SIZE,
         modelScale: parseFloat(dom.svgModelScale.value) || 64,
         useContourSkin: !!pendingOptions.useContourSkin,
+        useSolidSkin: true,
         preferEarcut: pendingOptions.sourceKind === "font",
         simplifyContours: true,
         simplifyStrength,
-        skinFillRgb24: Number.isFinite(pendingOptions.skinFillRgb24) ? pendingOptions.skinFillRgb24 : 0x000000,
+        solidSkinPaletteIndex: state.solidSkinPaletteIndex,
+        skinFillRgb24: Number.isFinite(pendingOptions.skinFillRgb24) ? pendingOptions.skinFillRgb24 : GENERATED_FONT_ICON_FILL_RGB24,
       };
       state.svgPendingOptions = pendingOptions;
 

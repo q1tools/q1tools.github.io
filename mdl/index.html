@@ -66,12 +66,10 @@
             </div>
 
             <h3>Skin</h3>
-            <div class="svg-import-grid">
-              <label for="svg-skin-width">Width</label>
-              <input id="svg-skin-width" type="number" value="1024" min="16" max="1024" step="1">
-
-              <label for="svg-skin-height">Height</label>
-              <input id="svg-skin-height" type="number" value="1024" min="16" max="1024" step="1">
+            <p class="hint">Generated MDLs use a tiny solid-color skin shared by the whole mesh. Pick its color from the Quake palette below.</p>
+            <div class="solid-skin-color">
+              <canvas id="svg-skin-color-canvas" width="256" height="256" aria-label="Skin color palette"></canvas>
+              <div id="svg-skin-color-label" class="hint"></div>
             </div>
 
             <h3>Scale</h3>
