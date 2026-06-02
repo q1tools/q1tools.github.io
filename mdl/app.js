@@ -11,6 +11,175 @@
   const PALETTE_CANVAS_SIZE = 256;
   const UV_EXPORT_TARGET_SIZE = 1024;
   const GENERATED_SOLID_SKIN_SIZE = 16;
+  const ALIAS_ONSEAM = 0x20;
+  const QSSM_MAX_ALIAS_VERTS = 0x7fff;
+  const QSSM_SKIN_ANIM_TEXTURE_SLOTS = 4;
+  const FRAME_INTERVAL_EPSILON = 0.0005;
+  const ALIAS_VERTEX_NORMALS = new Float32Array([
+    -0.525731, 0.000000, 0.850651,
+    -0.442863, 0.238856, 0.864188,
+    -0.295242, 0.000000, 0.955423,
+    -0.309017, 0.500000, 0.809017,
+    -0.162460, 0.262866, 0.951056,
+    0.000000, 0.000000, 1.000000,
+    0.000000, 0.850651, 0.525731,
+    -0.147621, 0.716567, 0.681718,
+    0.147621, 0.716567, 0.681718,
+    0.000000, 0.525731, 0.850651,
+    0.309017, 0.500000, 0.809017,
+    0.525731, 0.000000, 0.850651,
+    0.295242, 0.000000, 0.955423,
+    0.442863, 0.238856, 0.864188,
+    0.162460, 0.262866, 0.951056,
+    -0.681718, 0.147621, 0.716567,
+    -0.809017, 0.309017, 0.500000,
+    -0.587785, 0.425325, 0.688191,
+    -0.850651, 0.525731, 0.000000,
+    -0.864188, 0.442863, 0.238856,
+    -0.716567, 0.681718, 0.147621,
+    -0.688191, 0.587785, 0.425325,
+    -0.500000, 0.809017, 0.309017,
+    -0.238856, 0.864188, 0.442863,
+    -0.425325, 0.688191, 0.587785,
+    -0.716567, 0.681718, -0.147621,
+    -0.500000, 0.809017, -0.309017,
+    -0.525731, 0.850651, 0.000000,
+    0.000000, 0.850651, -0.525731,
+    -0.238856, 0.864188, -0.442863,
+    0.000000, 0.955423, -0.295242,
+    -0.262866, 0.951056, -0.162460,
+    0.000000, 1.000000, 0.000000,
+    0.000000, 0.955423, 0.295242,
+    -0.262866, 0.951056, 0.162460,
+    0.238856, 0.864188, 0.442863,
+    0.262866, 0.951056, 0.162460,
+    0.500000, 0.809017, 0.309017,
+    0.238856, 0.864188, -0.442863,
+    0.262866, 0.951056, -0.162460,
+    0.500000, 0.809017, -0.309017,
+    0.850651, 0.525731, 0.000000,
+    0.716567, 0.681718, 0.147621,
+    0.716567, 0.681718, -0.147621,
+    0.525731, 0.850651, 0.000000,
+    0.425325, 0.688191, 0.587785,
+    0.864188, 0.442863, 0.238856,
+    0.688191, 0.587785, 0.425325,
+    0.809017, 0.309017, 0.500000,
+    0.681718, 0.147621, 0.716567,
+    0.587785, 0.425325, 0.688191,
+    0.955423, 0.295242, 0.000000,
+    1.000000, 0.000000, 0.000000,
+    0.951056, 0.162460, 0.262866,
+    0.850651, -0.525731, 0.000000,
+    0.955423, -0.295242, 0.000000,
+    0.864188, -0.442863, 0.238856,
+    0.951056, -0.162460, 0.262866,
+    0.809017, -0.309017, 0.500000,
+    0.681718, -0.147621, 0.716567,
+    0.850651, 0.000000, 0.525731,
+    0.864188, 0.442863, -0.238856,
+    0.809017, 0.309017, -0.500000,
+    0.951056, 0.162460, -0.262866,
+    0.525731, 0.000000, -0.850651,
+    0.681718, 0.147621, -0.716567,
+    0.681718, -0.147621, -0.716567,
+    0.850651, 0.000000, -0.525731,
+    0.809017, -0.309017, -0.500000,
+    0.864188, -0.442863, -0.238856,
+    0.951056, -0.162460, -0.262866,
+    0.147621, 0.716567, -0.681718,
+    0.309017, 0.500000, -0.809017,
+    0.425325, 0.688191, -0.587785,
+    0.442863, 0.238856, -0.864188,
+    0.587785, 0.425325, -0.688191,
+    0.688191, 0.587785, -0.425325,
+    -0.147621, 0.716567, -0.681718,
+    -0.309017, 0.500000, -0.809017,
+    0.000000, 0.525731, -0.850651,
+    -0.525731, 0.000000, -0.850651,
+    -0.442863, 0.238856, -0.864188,
+    -0.295242, 0.000000, -0.955423,
+    -0.162460, 0.262866, -0.951056,
+    0.000000, 0.000000, -1.000000,
+    0.295242, 0.000000, -0.955423,
+    0.162460, 0.262866, -0.951056,
+    -0.442863, -0.238856, -0.864188,
+    -0.309017, -0.500000, -0.809017,
+    -0.162460, -0.262866, -0.951056,
+    0.000000, -0.850651, -0.525731,
+    -0.147621, -0.716567, -0.681718,
+    0.147621, -0.716567, -0.681718,
+    0.000000, -0.525731, -0.850651,
+    0.309017, -0.500000, -0.809017,
+    0.442863, -0.238856, -0.864188,
+    0.162460, -0.262866, -0.951056,
+    0.238856, -0.864188, -0.442863,
+    0.500000, -0.809017, -0.309017,
+    0.425325, -0.688191, -0.587785,
+    0.716567, -0.681718, -0.147621,
+    0.688191, -0.587785, -0.425325,
+    0.587785, -0.425325, -0.688191,
+    0.000000, -0.955423, -0.295242,
+    0.000000, -1.000000, 0.000000,
+    0.262866, -0.951056, -0.162460,
+    0.000000, -0.850651, 0.525731,
+    0.000000, -0.955423, 0.295242,
+    0.238856, -0.864188, 0.442863,
+    0.262866, -0.951056, 0.162460,
+    0.500000, -0.809017, 0.309017,
+    0.716567, -0.681718, 0.147621,
+    0.525731, -0.850651, 0.000000,
+    -0.238856, -0.864188, -0.442863,
+    -0.500000, -0.809017, -0.309017,
+    -0.262866, -0.951056, -0.162460,
+    -0.850651, -0.525731, 0.000000,
+    -0.716567, -0.681718, -0.147621,
+    -0.716567, -0.681718, 0.147621,
+    -0.525731, -0.850651, 0.000000,
+    -0.500000, -0.809017, 0.309017,
+    -0.238856, -0.864188, 0.442863,
+    -0.262866, -0.951056, 0.162460,
+    -0.864188, -0.442863, 0.238856,
+    -0.809017, -0.309017, 0.500000,
+    -0.688191, -0.587785, 0.425325,
+    -0.681718, -0.147621, 0.716567,
+    -0.442863, -0.238856, 0.864188,
+    -0.587785, -0.425325, 0.688191,
+    -0.309017, -0.500000, 0.809017,
+    -0.147621, -0.716567, 0.681718,
+    -0.425325, -0.688191, 0.587785,
+    -0.162460, -0.262866, 0.951056,
+    0.442863, -0.238856, 0.864188,
+    0.162460, -0.262866, 0.951056,
+    0.309017, -0.500000, 0.809017,
+    0.147621, -0.716567, 0.681718,
+    0.000000, -0.525731, 0.850651,
+    0.425325, -0.688191, 0.587785,
+    0.587785, -0.425325, 0.688191,
+    0.688191, -0.587785, 0.425325,
+    -0.955423, 0.295242, 0.000000,
+    -0.951056, 0.162460, 0.262866,
+    -1.000000, 0.000000, 0.000000,
+    -0.850651, 0.000000, 0.525731,
+    -0.955423, -0.295242, 0.000000,
+    -0.951056, -0.162460, 0.262866,
+    -0.864188, 0.442863, -0.238856,
+    -0.951056, 0.162460, -0.262866,
+    -0.809017, 0.309017, -0.500000,
+    -0.864188, -0.442863, -0.238856,
+    -0.951056, -0.162460, -0.262866,
+    -0.809017, -0.309017, -0.500000,
+    -0.681718, 0.147621, -0.716567,
+    -0.681718, -0.147621, -0.716567,
+    -0.850651, 0.000000, -0.525731,
+    -0.688191, 0.587785, -0.425325,
+    -0.587785, 0.425325, -0.688191,
+    -0.425325, 0.688191, -0.587785,
+    -0.425325, -0.688191, -0.587785,
+    -0.587785, -0.425325, -0.688191,
+    -0.688191, -0.587785, -0.425325,
+  ]);
+  const ALIAS_VERTEX_NORMAL_COUNT = ALIAS_VERTEX_NORMALS.length / 3;
   // Default Quake palette index for the generated solid skin. 250 (0xd70000) is a
   // fullbright red: QSS-M (Mod_CheckFullbrights, gl_model.c) only treats indices
   // 224-255 as fullbright, and world-placed models get no minimum light, so a
@@ -98,6 +267,8 @@
     useMeasuredRadius: { id: "use-measured-radius", label: "Use Measured Radius" },
     normalizeFrameIntervals: { id: "normalize-frame-intervals", label: "Normalize Frame Intervals" },
     normalizeSkinIntervals: { id: "normalize-skin-intervals", label: "Normalize Skin Intervals" },
+    repairSeamFlags: { id: "repair-seam-flags", label: "Repair Seam Flags" },
+    useUniformFrameTiming: { id: "use-uniform-frame-timing", label: "Use Uniform Frame Timing" },
   };
 
   const dom = {
@@ -2070,6 +2241,12 @@
       case VALIDATION_FIXES.normalizeSkinIntervals.id:
         normalizeSkinIntervals();
         break;
+      case VALIDATION_FIXES.repairSeamFlags.id:
+        repairSeamFlags();
+        break;
+      case VALIDATION_FIXES.useUniformFrameTiming.id:
+        useUniformFrameTiming();
+        break;
       default:
         break;
     }
@@ -2152,6 +2329,89 @@
     updateSkinStatus();
     updateValidationPanel();
     setSaveStatus(`Normalized ${normalized} animated skin entr${normalized === 1 ? "y" : "ies"}. Save .mdl to export changes.`);
+  }
+
+  function repairSeamFlags() {
+    if (!state.model?.stVerts?.length) {
+      return;
+    }
+
+    const seamUsage = analyzeAliasSeamUsage(state.model);
+    let repairedMissing = 0;
+    let normalizedValues = 0;
+
+    state.model.stVerts.forEach((st) => {
+      if (!st) {
+        return;
+      }
+      if (st.onseam !== 0 && st.onseam !== ALIAS_ONSEAM) {
+        st.onseam = ALIAS_ONSEAM;
+        normalizedValues += 1;
+      }
+    });
+
+    seamUsage.frontHalfSharedMissingSeamIndices.forEach((vertexIndex) => {
+      const st = state.model.stVerts[vertexIndex];
+      if (!st || st.onseam === ALIAS_ONSEAM) {
+        return;
+      }
+      st.onseam = ALIAS_ONSEAM;
+      repairedMissing += 1;
+    });
+
+    if (!repairedMissing && !normalizedValues) {
+      setSaveStatus("No seam flags needed repair.");
+      return;
+    }
+
+    state.model.render = buildRenderData(state.model);
+    populateProperties(state.model);
+    updateSkinStatus();
+    updateValidationPanel();
+    uploadModelBuffers();
+    state.textureDirty = true;
+    state.geometryDirty = true;
+
+    const parts = [];
+    if (repairedMissing) {
+      parts.push(`marked ${repairedMissing} front-half shared vertex${repairedMissing === 1 ? "" : "es"}`);
+    }
+    if (normalizedValues) {
+      parts.push(`normalized ${normalizedValues} non-standard seam value${normalizedValues === 1 ? "" : "s"}`);
+    }
+    setSaveStatus(`Repaired seam flags: ${parts.join("; ")}. Save .mdl to export changes.`);
+  }
+
+  function useUniformFrameTiming() {
+    if (!state.model?.topFrames?.length) {
+      return;
+    }
+
+    let updated = 0;
+    state.model.topFrames.forEach((frame) => {
+      const poseCount = frame.poseIndices?.length || 0;
+      if (poseCount <= 1 && frame.type !== "group") {
+        return;
+      }
+
+      const durations = deriveDurations(frame.intervals, poseCount);
+      if (!durations.length || durations.every((duration) => Math.abs(duration - durations[0]) <= FRAME_INTERVAL_EPSILON)) {
+        return;
+      }
+
+      const uniformDuration = Math.max(durations[0] || DEFAULT_FRAME_DURATION, 0.001);
+      frame.intervals = deriveIntervalsFromDurations(new Array(poseCount).fill(uniformDuration));
+      updated += 1;
+    });
+
+    if (!updated) {
+      setSaveStatus("No frame groups needed uniform timing.");
+      return;
+    }
+
+    state.playing = false;
+    rebuildFrameGroupsPreservingSelection();
+    setSaveStatus(`Made ${updated} frame group${updated === 1 ? "" : "s"} use uniform QSS-M-style timing. Save .mdl to export changes.`);
   }
 
   function rebuildFrameGroupsPreservingSelection() {
@@ -3035,6 +3295,7 @@
     validateSkinConsistency(model, findings);
     validateFrameConsistency(model, findings);
     validateTopologyConsistency(model, findings);
+    validateQssmAliasCompatibility(model, findings);
     validatePackedGeometry(model, findings);
     validateBoundingRadius(model, findings);
 
@@ -3321,6 +3582,7 @@
     let duplicateIndexTriangles = 0;
     let invalidFacesfront = 0;
     const validTriangles = [];
+    const referencedVerts = new Uint8Array(Math.max(model.numVerts, 0));
 
     model.triangles.forEach((triangle, triIndex) => {
       const [a, b, c] = triangle.vertIndex || [];
@@ -3340,6 +3602,16 @@
       }
 
       validTriangles.push([triIndex, a, b, c]);
+      referencedVerts[a] = 1;
+      referencedVerts[b] = 1;
+      referencedVerts[c] = 1;
+    });
+
+    let unreferencedVerts = 0;
+    referencedVerts.forEach((isReferenced) => {
+      if (!isReferenced) {
+        unreferencedVerts += 1;
+      }
     });
 
     if (outOfBoundsSt) {
@@ -3384,6 +3656,15 @@
         "info",
         "Triangle facesfront flags contain non-standard values",
         `${invalidFacesfront} triangle${invalidFacesfront === 1 ? "" : "s"} use facesfront values other than 0 or 1.`
+      );
+    }
+
+    if (unreferencedVerts) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Vertices are not used by valid triangles",
+        `${unreferencedVerts} vertex entr${unreferencedVerts === 1 ? "y is" : "ies are"} not referenced by any valid triangle. Original modelgen rejects vertices with no non-degenerate triangles attached, and export will have to fall back to default lighting normals for them.`
       );
     }
 
@@ -3436,6 +3717,129 @@
         `${degenerateHits} degenerate triangle instance${degenerateHits === 1 ? "" : "s"} were found across ${degenerateTriangles.size} triangle${degenerateTriangles.size === 1 ? "" : "s"} and ${degeneratePoses.size} pose${degeneratePoses.size === 1 ? "" : "s"}.${exampleText}`
       );
     }
+  }
+
+  function validateQssmAliasCompatibility(model, findings) {
+    if (model.numVerts > QSSM_MAX_ALIAS_VERTS) {
+      pushValidationFinding(
+        findings,
+        "error",
+        "QSS-M alias vertex limit exceeded",
+        `QSS-M accepts up to ${QSSM_MAX_ALIAS_VERTS} source alias vertices. This model has ${model.numVerts}.`
+      );
+    }
+
+    const seamUsage = analyzeAliasSeamUsage(model);
+    if (seamUsage.nonStandardSeamIndices.length) {
+      pushValidationFinding(
+        findings,
+        "info",
+        "Onseam flags contain non-standard values",
+        `${seamUsage.nonStandardSeamIndices.length} texture vertex${seamUsage.nonStandardSeamIndices.length === 1 ? "" : "es"} use non-zero seam values other than ${ALIAS_ONSEAM}. QSS-M treats any non-zero value as a seam, but the MDL format defines ${ALIAS_ONSEAM}.`,
+        [VALIDATION_FIXES.repairSeamFlags]
+      );
+    }
+
+    if (seamUsage.frontHalfSharedMissingSeamIndices.length) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Front-half shared vertices are missing seam flags",
+        `${seamUsage.frontHalfSharedMissingSeamIndices.length} texture vertex${seamUsage.frontHalfSharedMissingSeamIndices.length === 1 ? "" : "es"} are used by both front and back triangles, have front-half skin coordinates, and lack ALIAS_ONSEAM. QSS-M only applies the back-skin half-width offset when this flag is set, so those vertices may sample the wrong side of the skin.`,
+        [VALIDATION_FIXES.repairSeamFlags]
+      );
+    }
+
+    const animatedSkinGroups = model.skins.filter((skin) => skin.frames?.length > 1 || skin.type === "group");
+    if (animatedSkinGroups.length) {
+      pushValidationFinding(
+        findings,
+        "info",
+        "QSS-M uses fixed-rate skin animation",
+        `${animatedSkinGroups.length} animated skin entr${animatedSkinGroups.length === 1 ? "y" : "ies"} detected. QSS-M ignores skin interval values and cycles skin animation at 10 Hz.`
+      );
+    }
+
+    const oversizedSkinGroups = animatedSkinGroups.filter((skin) => (skin.frames?.length || 0) > QSSM_SKIN_ANIM_TEXTURE_SLOTS);
+    if (oversizedSkinGroups.length) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Animated skin groups exceed QSS-M texture slots",
+        `${oversizedSkinGroups.length} animated skin entr${oversizedSkinGroups.length === 1 ? "y has" : "ies have"} more than ${QSSM_SKIN_ANIM_TEXTURE_SLOTS} frames. QSS-M stores skin animation in four texture slots, so later frames overwrite earlier modulo slots.`
+      );
+    }
+
+    const nonUniformFrameGroups = countNonUniformFrameTimingGroups(model);
+    if (nonUniformFrameGroups) {
+      pushValidationFinding(
+        findings,
+        "info",
+        "Frame group uses non-uniform pose timing",
+        `${nonUniformFrameGroups} frame group${nonUniformFrameGroups === 1 ? "" : "s"} use non-uniform pose durations. QSS-M stores only the first frame-group interval and uses it as a uniform pose duration during playback.`,
+        [VALIDATION_FIXES.useUniformFrameTiming]
+      );
+    }
+  }
+
+  function analyzeAliasSeamUsage(model) {
+    const usage = Array.from({ length: Math.max(model.numVerts || 0, 0) }, () => ({
+      front: false,
+      back: false,
+    }));
+
+    model.triangles.forEach((triangle) => {
+      const isFront = !!triangle.facesfront;
+      (triangle.vertIndex || []).forEach((vertexIndex) => {
+        if (!Number.isInteger(vertexIndex) || vertexIndex < 0 || vertexIndex >= usage.length) {
+          return;
+        }
+        if (isFront) {
+          usage[vertexIndex].front = true;
+        } else {
+          usage[vertexIndex].back = true;
+        }
+      });
+    });
+
+    const nonStandardSeamIndices = [];
+    const frontHalfSharedMissingSeamIndices = [];
+    const halfSkinWidth = model.skinWidth / 2;
+    model.stVerts.forEach((st, vertexIndex) => {
+      if (!st) {
+        return;
+      }
+      if (st.onseam !== 0 && st.onseam !== ALIAS_ONSEAM) {
+        nonStandardSeamIndices.push(vertexIndex);
+      }
+      if (usage[vertexIndex]?.front && usage[vertexIndex]?.back && !st.onseam && st.s + halfSkinWidth < model.skinWidth) {
+        frontHalfSharedMissingSeamIndices.push(vertexIndex);
+      }
+    });
+
+    return {
+      nonStandardSeamIndices,
+      frontHalfSharedMissingSeamIndices,
+    };
+  }
+
+  function countNonUniformFrameTimingGroups(model) {
+    return (model.topFrames || []).reduce((count, frame) => {
+      const poseCount = frame.poseIndices?.length || 0;
+      if (poseCount <= 1 && frame.type !== "group") {
+        return count;
+      }
+
+      const durations = deriveDurations(frame.intervals, poseCount);
+      if (durations.length <= 1) {
+        return count;
+      }
+
+      const firstDuration = durations[0];
+      return durations.some((duration) => Math.abs(duration - firstDuration) > FRAME_INTERVAL_EPSILON)
+        ? count + 1
+        : count;
+    }, 0);
   }
 
   function validatePackedGeometry(model, findings) {
@@ -7798,7 +8202,10 @@
           poseIndices: [index],
           intervals: [DEFAULT_FRAME_DURATION],
         }));
-    const packedPoses = model.poses.map((pose) => packPoseVertices(pose.positions, model.scale, model.scaleOrigin));
+    const packedPoses = model.poses.map((pose) => {
+      const lightnormalIndices = computeAliasLightnormalIndices(pose.positions, model.triangles, model.numVerts);
+      return packPoseVertices(pose.positions, model.scale, model.scaleOrigin, lightnormalIndices);
+    });
 
     appendFixedASCII(chunks, "IDPO", 4);
     appendInt32LE(chunks, model.version || 6);
@@ -7879,15 +8286,61 @@
     return concatChunks(chunks);
   }
 
-  function packPoseVertices(positions, scale, scaleOrigin) {
+  function packPoseVertices(positions, scale, scaleOrigin, lightnormalIndices = null) {
     const packed = new Uint8Array((positions.length / 3) * 4);
-    for (let i = 0, out = 0; i < positions.length; i += 3, out += 4) {
+    for (let i = 0, vertexIndex = 0, out = 0; i < positions.length; i += 3, vertexIndex++, out += 4) {
       packed[out + 0] = packAliasCoord(positions[i + 0], scale[0], scaleOrigin[0]);
       packed[out + 1] = packAliasCoord(positions[i + 1], scale[1], scaleOrigin[1]);
       packed[out + 2] = packAliasCoord(positions[i + 2], scale[2], scaleOrigin[2]);
-      packed[out + 3] = 0;
+      packed[out + 3] = clamp(lightnormalIndices?.[vertexIndex] ?? 0, 0, ALIAS_VERTEX_NORMAL_COUNT - 1);
     }
     return packed;
+  }
+
+  function computeAliasLightnormalIndices(positions, triangles, numVerts) {
+    const vertexCount = Math.max(0, Math.min(numVerts | 0, Math.floor(positions.length / 3)));
+    const triangleIndices = [];
+    triangles.forEach((triangle) => {
+      const [a, b, c] = triangle.vertIndex || [];
+      if (![a, b, c].every((index) => Number.isInteger(index) && index >= 0 && index < vertexCount)) {
+        return;
+      }
+      if (a === b || b === c || c === a) {
+        return;
+      }
+      triangleIndices.push(a, b, c);
+    });
+
+    const normals = computeSmoothNormals(positions, triangleIndices);
+    const lightnormalIndices = new Uint8Array(vertexCount);
+    for (let vertexIndex = 0; vertexIndex < vertexCount; vertexIndex++) {
+      const offset = vertexIndex * 3;
+      const nx = normals[offset + 0];
+      const ny = normals[offset + 1];
+      const nz = normals[offset + 2];
+      if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nz) || Math.hypot(nx, ny, nz) < 1e-6) {
+        lightnormalIndices[vertexIndex] = 0;
+        continue;
+      }
+      lightnormalIndices[vertexIndex] = findClosestAliasNormalIndex(nx, ny, nz);
+    }
+    return lightnormalIndices;
+  }
+
+  function findClosestAliasNormalIndex(nx, ny, nz) {
+    let bestIndex = 0;
+    let bestDot = -Infinity;
+    for (let i = 0, normalIndex = 0; i < ALIAS_VERTEX_NORMALS.length; i += 3, normalIndex++) {
+      const dot =
+        nx * ALIAS_VERTEX_NORMALS[i + 0] +
+        ny * ALIAS_VERTEX_NORMALS[i + 1] +
+        nz * ALIAS_VERTEX_NORMALS[i + 2];
+      if (dot > bestDot) {
+        bestDot = dot;
+        bestIndex = normalIndex;
+      }
+    }
+    return bestIndex;
   }
 
   function packAliasCoord(value, scale, origin) {
