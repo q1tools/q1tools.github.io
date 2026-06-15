@@ -332,8 +332,15 @@
                 </span>
             </label>
         </div>
-        
-        
+
+        <hr style="border-color: #555; margin: 10px 0;">
+        <div class="checkbox-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="showTextures">
+                <span>Show BSP textures</span>
+            </label>
+        </div>
+
         <div id="status" class="status" style="display: none;"></div>
         
         <div class="svg-container" id="svgContainer"></div>
@@ -492,7 +499,10 @@
             let showFlags = true;
             let showRedFlag = true;
             let showBlueFlag = true;
-            
+
+            // Texture display option
+            let showTextures = false;
+
             // Generate SVG button
             generateButton.addEventListener('click', async () => {
                 try {
@@ -529,7 +539,9 @@
                     showFlags = document.getElementById('showFlags').checked;
                     showRedFlag = document.getElementById('showRedFlag').checked;
                     showBlueFlag = document.getElementById('showBlueFlag').checked;
-                    
+
+                    showTextures = document.getElementById('showTextures').checked;
+
                     // Read BSP file
                     const bspData = await readFile(bspFile);
                     
@@ -1019,11 +1031,35 @@
                                     quakePalette
                                 );
                                 
+                                let dataURL = null;
+                                if (showTextures) {
+                                    try {
+                                        const canvas = document.createElement('canvas');
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                        const ctx = canvas.getContext('2d');
+                                        const imgData = ctx.createImageData(width, height);
+                                        for (let p = 0; p < width * height; p++) {
+                                            const palIdx = bspView.getUint8(pixelDataOffset + p);
+                                            const rgb = quakePalette[palIdx];
+                                            const off = p * 4;
+                                            imgData.data[off] = rgb[0];
+                                            imgData.data[off + 1] = rgb[1];
+                                            imgData.data[off + 2] = rgb[2];
+                                            imgData.data[off + 3] = 255;
+                                        }
+                                        ctx.putImageData(imgData, 0, 0);
+                                        dataURL = canvas.toDataURL('image/png');
+                                    } catch (e) {
+                                        // Fall back to no texture image
+                                    }
+                                }
                                 miptex.push({
                                     name: name,
                                     width: width,
                                     height: height,
-                                    averageColor: averageColor
+                                    averageColor: averageColor,
+                                    dataURL: dataURL
                                 });
                                 continue;
                             }
@@ -1332,6 +1368,10 @@
                         if (ti.miptexIndex >= 0 && ti.miptexIndex < miptex.length && miptex[ti.miptexIndex]) {
                             face.textureName = miptex[ti.miptexIndex].name;
                             face.textureColor = miptex[ti.miptexIndex].averageColor;
+                            face.miptexIndex = ti.miptexIndex;
+                            face.textureDataURL = miptex[ti.miptexIndex].dataURL || null;
+                            face.textureWidth = miptex[ti.miptexIndex].width || 0;
+                            face.textureHeight = miptex[ti.miptexIndex].height || 0;
                         }
                     }
                 }
@@ -1740,7 +1780,30 @@
                                                                     0 0 0 1 0"/>
                     </filter>
                     `;
-                    
+
+                    // Generate texture patterns if showTextures is enabled
+                    if (showTextures) {
+                        const seenTextures = new Map();
+                        for (const face of faces) {
+                            if (face.textureDataURL && face.miptexIndex !== undefined && !seenTextures.has(face.miptexIndex)) {
+                                seenTextures.set(face.miptexIndex, {
+                                    dataURL: face.textureDataURL,
+                                    width: face.textureWidth,
+                                    height: face.textureHeight
+                                });
+                            }
+                        }
+                        for (const [idx, tex] of seenTextures) {
+                            const pw = tex.width * scale;
+                            const ph = tex.height * scale;
+                            if (pw > 0 && ph > 0) {
+                                svg += `<pattern id="tex-${idx}" patternUnits="userSpaceOnUse" width="${pw.toFixed(2)}" height="${ph.toFixed(2)}">\n`;
+                                svg += `<image href="${tex.dataURL}" width="${pw.toFixed(2)}" height="${ph.toFixed(2)}" image-rendering="pixelated" />\n`;
+                                svg += `</pattern>\n`;
+                            }
+                        }
+                    }
+
                     svg += '<g id="bsp">\n';
                     
                     // Safe coordinate transform function
@@ -1830,18 +1893,26 @@
                         
                         // Sort by max Z height (just like bsputil)
                         visibleFaces.sort((a, b) => {
+                            // When showing textures, push sky faces behind everything
+                            if (showTextures) {
+                                const aIsSky = a.face.textureName && a.face.textureName.toLowerCase().startsWith('sky');
+                                const bIsSky = b.face.textureName && b.face.textureName.toLowerCase().startsWith('sky');
+                                if (aIsSky && !bIsSky) return -1;
+                                if (!aIsSky && bIsSky) return 1;
+                            }
+
                             // Find max Z of face a
                             let maxZA = -Infinity;
                             for (const v of a.vertices) {
                                 maxZA = Math.max(maxZA, v.z);
                             }
-                            
+
                             // Find max Z of face b
                             let maxZB = -Infinity;
                             for (const v of b.vertices) {
                                 maxZB = Math.max(maxZB, v.z);
                             }
-                            
+
                             // Sort ascending by Z (floor to ceiling)
                             return maxZA - maxZB;
                         });
@@ -1972,12 +2043,18 @@
                                         b: Math.floor(color.b * d)
                                     };
                                     
-                                    // Format color with opacity to make colors lighter
-                                    const opacity = 0.85; // 85% opacity makes colors appear lighter
-                                    const fill = `rgba(${darkenedColor.r}, ${darkenedColor.g}, ${darkenedColor.b}, ${colorOpacity})`;
-                                    
-                                    // Add the path to SVG
-                                    svg += `<path d="${pathData}" fill="${fill}" stroke="#333" stroke-width="0.5" />\n`;
+                                    if (showTextures && face.textureDataURL && face.miptexIndex !== undefined) {
+                                        // Use texture pattern fill
+                                        svg += `<path d="${pathData}" fill="url(#tex-${face.miptexIndex})" stroke="#333" stroke-width="0.5" />\n`;
+                                        // Overlay Z-height darkening
+                                        const darkAlpha = (1 - d) * colorOpacity;
+                                        if (darkAlpha > 0.01) {
+                                            svg += `<path d="${pathData}" fill="rgba(0,0,0,${darkAlpha.toFixed(2)})" stroke="none" />\n`;
+                                        }
+                                    } else {
+                                        const fill = `rgba(${darkenedColor.r}, ${darkenedColor.g}, ${darkenedColor.b}, ${colorOpacity})`;
+                                        svg += `<path d="${pathData}" fill="${fill}" stroke="#333" stroke-width="0.5" />\n`;
+                                    }
                                     polygonCount++;
                                 } catch (e) {
                                     // Skip error

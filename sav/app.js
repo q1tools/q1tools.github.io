@@ -2,6 +2,9 @@
     'use strict';
 
     const SAVEGAME_VERSION = 5;
+    const REMASTER_SAVEGAME_VERSION = 6;
+    const SAVEGAME_COMMENT_LENGTH = 39;
+    const SAVEGAME_KILLS_COLUMN = 22;
     const BASIC_SPAWN_PARM_COUNT = 16;
     const VANILLA_LIGHTSTYLE_COUNT = 64;
 
@@ -168,6 +171,39 @@
 
     function decodeSaveComment(comment) {
         return String(comment || '').replace(/_/g, ' ').trim();
+    }
+
+    function normalizeClassicSaveComment(comment) {
+        const text = String(comment || '').replace(/_/g, ' ');
+        const display = new Array(SAVEGAME_COMMENT_LENGTH).fill(' ');
+        const killsIndex = text.indexOf('kills:');
+
+        if (killsIndex === -1) {
+            text.slice(0, SAVEGAME_COMMENT_LENGTH).split('').forEach((character, index) => {
+                display[index] = character;
+            });
+            return display.join('').replace(/ /g, '_');
+        }
+
+        const title = text.slice(0, killsIndex).trimEnd().slice(0, SAVEGAME_KILLS_COLUMN);
+        const kills = text.slice(killsIndex).trimEnd().slice(0, SAVEGAME_COMMENT_LENGTH - SAVEGAME_KILLS_COLUMN);
+
+        title.split('').forEach((character, index) => {
+            display[index] = character;
+        });
+        kills.split('').forEach((character, index) => {
+            display[SAVEGAME_KILLS_COLUMN + index] = character;
+        });
+
+        return display.join('').replace(/ /g, '_');
+    }
+
+    function createClassicSaveText(lines) {
+        const convertedLines = lines.slice();
+        convertedLines[0] = String(SAVEGAME_VERSION);
+        convertedLines.splice(1, 1);
+        convertedLines[1] = normalizeClassicSaveComment(convertedLines[1]);
+        return convertedLines.join('\n');
     }
 
     function extractKills(comment) {
@@ -567,10 +603,12 @@
         if (version === null) {
             throw new Error(`Invalid savegame version "${versionLine}".`);
         }
-        if (version !== SAVEGAME_VERSION) {
-            warnings.push(`Savegame version is ${version}; current QSS/QuakeSpasm saves use ${SAVEGAME_VERSION}.`);
+        if (version !== SAVEGAME_VERSION && version !== REMASTER_SAVEGAME_VERSION) {
+            warnings.push(`Savegame version is ${version}; known QSS-M save versions are ${SAVEGAME_VERSION} and remaster ${REMASTER_SAVEGAME_VERSION}.`);
         }
 
+        const isRemasterSave = version === REMASTER_SAVEGAME_VERSION;
+        const savedGameDir = isRemasterSave ? readLine('saved gamedir').trim() : null;
         const rawComment = readLine('save comment');
         const saveComment = decodeSaveComment(rawComment);
 
@@ -632,6 +670,10 @@
             fileSize: file.size,
             lastModified: file.lastModified,
             version,
+            format: isRemasterSave ? 'Remaster' : 'Classic',
+            savedGameDir,
+            canConvert: isRemasterSave,
+            classicSaveText: isRemasterSave ? createClassicSaveText(lines) : null,
             saveComment,
             rawComment,
             mapName,
@@ -658,6 +700,7 @@
         const valid = items.filter((item) => item.ok);
         const totalEntities = valid.reduce((sum, item) => sum + item.data.entities.length, 0);
         const extendedCount = valid.filter((item) => item.data.extended.present).length;
+        const remasterCount = valid.filter((item) => item.data.version === REMASTER_SAVEGAME_VERSION).length;
         const maps = new Set(valid.map((item) => item.data.mapName).filter(Boolean));
 
         return [
@@ -665,6 +708,7 @@
             { label: 'Parsed successfully', value: valid.length },
             { label: 'Distinct maps', value: maps.size },
             { label: 'Total edicts', value: totalEntities },
+            { label: 'Remaster saves', value: remasterCount },
             { label: 'Extended saves', value: extendedCount }
         ];
     }
@@ -737,7 +781,7 @@
         return warnings.map((warning) => `<span class="pill warn"><i class="fa-solid fa-triangle-exclamation"></i>${escapeHtml(warning)}</span>`).join('');
     }
 
-    function renderSaveCard(item) {
+    function renderSaveCard(item, index) {
         if (!item.ok) {
             return `
                 <article class="save-card">
@@ -768,8 +812,10 @@
             `<span class="pill"><i class="fa-solid fa-map-location-dot"></i>${escapeHtml(data.mapName || 'Unknown map')}</span>`,
             `<span class="pill"><i class="fa-solid fa-gauge"></i>${escapeHtml(data.skillLabel)}</span>`,
             `<span class="pill"><i class="fa-solid fa-clock"></i>${escapeHtml(formatDuration(data.elapsedTime))}</span>`,
+            `<span class="pill"><i class="fa-solid fa-floppy-disk"></i>${escapeHtml(data.format)}</span>`,
+            data.savedGameDir ? `<span class="pill"><i class="fa-solid fa-folder"></i>${escapeHtml(data.savedGameDir)}</span>` : '',
             data.extended.present ? `<span class="pill"><i class="fa-solid fa-layer-group"></i>${escapeHtml(data.extended.header || 'Extended save')}</span>` : '',
-            data.version === SAVEGAME_VERSION ? `<span class="pill"><i class="fa-solid fa-check"></i>Version ${escapeHtml(data.version)}</span>` : `<span class="pill warn"><i class="fa-solid fa-triangle-exclamation"></i>Version ${escapeHtml(data.version)}</span>`,
+            (data.version === SAVEGAME_VERSION || data.version === REMASTER_SAVEGAME_VERSION) ? `<span class="pill"><i class="fa-solid fa-check"></i>Version ${escapeHtml(data.version)}</span>` : `<span class="pill warn"><i class="fa-solid fa-triangle-exclamation"></i>Version ${escapeHtml(data.version)}</span>`,
             headerWarnings
         ].filter(Boolean).join('');
 
@@ -780,6 +826,18 @@
             powerups: [],
             sigils: []
         };
+        const conversionPanel = data.canConvert ? `
+                    <section class="convert-panel">
+                        <div>
+                            <h3>Classic save</h3>
+                            <p>Version ${escapeHtml(SAVEGAME_VERSION)} · ${escapeHtml(SAVEGAME_COMMENT_LENGTH)} character comment</p>
+                        </div>
+                        <button class="download-button" type="button" data-convert-index="${escapeHtml(index)}">
+                            <i class="fa-solid fa-download"></i>
+                            Download .sav
+                        </button>
+                    </section>
+        ` : '';
 
         return `
             <article class="save-card">
@@ -793,6 +851,8 @@
                     </div>
                 </div>
                 <div class="save-body">
+                    ${conversionPanel}
+
                     <section class="metrics">
                         <article class="metric">
                             <div class="metric-label">Level title</div>
@@ -883,6 +943,8 @@
                                 <dl class="kv-grid">
                                     <dt>Raw comment</dt>
                                     <dd>${escapeHtml(data.rawComment || 'Unknown')}</dd>
+                                    <dt>Format</dt>
+                                    <dd>${escapeHtml(data.format)}${data.savedGameDir ? ` · ${escapeHtml(data.savedGameDir)}` : ''}</dd>
                                     <dt>Spawn parms</dt>
                                     <dd>${escapeHtml(data.spawnParms.filter((value) => value !== null && value !== 0).length)} non-zero of ${escapeHtml(data.spawnParms.length)}</dd>
                                     <dt>Vanilla lightstyles</dt>
@@ -936,7 +998,7 @@
         }
 
         resultsPanel.hidden = false;
-        resultsPanel.innerHTML = items.map(renderSaveCard).join('');
+        resultsPanel.innerHTML = items.map((item, index) => renderSaveCard(item, index)).join('');
     }
 
     function refresh() {
@@ -1022,6 +1084,38 @@
         refresh();
     }
 
+    function convertedSaveName(fileName) {
+        return String(fileName || 'save.sav').replace(/(\.sav)?$/i, '_classic.sav');
+    }
+
+    function downloadTextFile(fileName, text) {
+        const blob = new Blob([text], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function handleResultsClick(event) {
+        const button = event.target.closest('[data-convert-index]');
+        if (!button) {
+            return;
+        }
+
+        const item = parsedFiles[Number(button.dataset.convertIndex)];
+        if (!item || !item.ok || !item.data.classicSaveText) {
+            setStatus('No converted save is available for that file.', 'error');
+            return;
+        }
+
+        downloadTextFile(convertedSaveName(item.data.fileName), item.data.classicSaveText);
+        setStatus(`Prepared ${convertedSaveName(item.data.fileName)}.`, 'success');
+    }
+
     function bindDropZone() {
         function activate(active) {
             dropZone.classList.toggle('active', active);
@@ -1063,6 +1157,7 @@
     });
 
     clearButton.addEventListener('click', clearAll);
+    resultsPanel.addEventListener('click', handleResultsClick);
 
     bindDropZone();
     refresh();
