@@ -795,6 +795,23 @@
                         <input type="button" value="&#xf0c5;" class="input-button fa" onclick="copyHexToClipboard();" title="Copy">
                     </div>
 
+                    <div id="escapename">
+                        Escape<br>
+                        <div class="escape-row">
+                            <select id="escapeFormat" title="Escape format" aria-label="Escape format">
+                                <option value="hex">All \xNN</option>
+                                <option value="mixed">Printable + \xNN</option>
+                                <option value="unicode">Unicode \u00NN</option>
+                                <option value="octal">Octal \NNN</option>
+                                <option value="percent">URL %NN</option>
+                                <option value="htmlhex">HTML &amp;#xNN;</option>
+                                <option value="htmldec">HTML &amp;#NN;</option>
+                            </select>
+                            <input id="escapeField" type="text" name="escape" readonly autocomplete="off" spellcheck="false">
+                            <input type="button" value="&#xf0c5;" class="input-button fa" id="escapeCopyButton" onclick="copyEscapeToClipboard();" title="Copy Escape">
+                        </div>
+                    </div>
+
                     <div id="randomContainer">
                         <input type="button" id="randomButton" class="input-button fa" value="&#xf522;" title="Random Name" onclick="generateRandomName();">
                         <span class="random-label">Random</span>
@@ -895,6 +912,7 @@
                 var readableName = translateName(document.oqnm.name.value || '');
                 fontPreview.textContent = readableName || ' ';
                 updateHexField();
+                updateEscapeField();
                 updateFilenameField(readableName);
             }
 
@@ -918,11 +936,102 @@
                 return hex;
             }
 
+            function nameToBytes(name) {
+                var bytes = [];
+                for (var i = 0; i < name.length; i++) {
+                    var c = name.charAt(i);
+                    var code = Object.prototype.hasOwnProperty.call(map, c) ? map[c] : (c.charCodeAt(0) & 0xff);
+                    bytes.push(code & 0xff);
+                }
+                return bytes;
+            }
+
             function updateHexField() {
                 var hexField = document.getElementById('hexField');
                 if (!hexField) return;
                 if (document.activeElement === hexField) return; // don't clobber user typing
                 hexField.value = nameToHex(document.oqnm.name.value || '');
+            }
+
+            function hexInputToBytes(hexInput) {
+                var clean = (hexInput || '').replace(/\s+/g, '').toLowerCase();
+                if (clean.length === 0) return [];
+                if (!/^[0-9a-f]+$/.test(clean) || (clean.length % 2) !== 0) return null;
+
+                var bytes = [];
+                for (var i = 0; i < clean.length && bytes.length < MAX_NAME_LENGTH; i += 2) {
+                    bytes.push(parseInt(clean.substr(i, 2), 16));
+                }
+                return bytes;
+            }
+
+            function byteHex(byteValue) {
+                return (byteValue & 0xff).toString(16).padStart(2, '0');
+            }
+
+            function byteOctal(byteValue) {
+                return (byteValue & 0xff).toString(8).padStart(3, '0');
+            }
+
+            function mixedEscapeByte(byteValue) {
+                if (byteValue === 9) return '\\t';
+                if (byteValue === 10) return '\\n';
+                if (byteValue === 13) return '\\r';
+                if (byteValue === 34) return '\\"';
+                if (byteValue === 92) return '\\\\';
+                if (byteValue >= 32 && byteValue <= 126) return String.fromCharCode(byteValue);
+                return '\\x' + byteHex(byteValue);
+            }
+
+            function bytesToEscape(bytes, format) {
+                var pieces = [];
+                for (var i = 0; i < bytes.length; i++) {
+                    var byteValue = bytes[i] & 0xff;
+                    var hex = byteHex(byteValue);
+                    switch (format) {
+                        case 'mixed':
+                            pieces.push(mixedEscapeByte(byteValue));
+                            break;
+                        case 'unicode':
+                            pieces.push('\\u00' + hex);
+                            break;
+                        case 'octal':
+                            pieces.push('\\' + byteOctal(byteValue));
+                            break;
+                        case 'percent':
+                            pieces.push('%' + hex);
+                            break;
+                        case 'htmlhex':
+                            pieces.push('&#x' + hex + ';');
+                            break;
+                        case 'htmldec':
+                            pieces.push('&#' + byteValue + ';');
+                            break;
+                        case 'hex':
+                        default:
+                            pieces.push('\\x' + hex);
+                            break;
+                    }
+                }
+                return pieces.join('');
+            }
+
+            function getEscapeBytes() {
+                var hexField = document.getElementById('hexField');
+                if (hexField && document.activeElement === hexField) {
+                    var typedBytes = hexInputToBytes(hexField.value);
+                    if (typedBytes === null) return null;
+                    return typedBytes;
+                }
+                return nameToBytes(document.oqnm.name.value || '');
+            }
+
+            function updateEscapeField() {
+                var escapeField = document.getElementById('escapeField');
+                if (!escapeField) return;
+                var escapeFormat = document.getElementById('escapeFormat');
+                var bytes = getEscapeBytes();
+                escapeField.value = bytes === null ? '' : bytesToEscape(bytes, escapeFormat ? escapeFormat.value : 'hex');
             }
 
             // Reverse of `map`: byte code -> unicode char (for hex -> name).
@@ -980,6 +1089,16 @@
                 }
                 navigator.clipboard.writeText(hexField.value)
                     .catch(function (err) { console.error('Failed to copy hex:', err); });
+            }
+
+            function copyEscapeToClipboard() {
+                var escapeField = document.getElementById('escapeField');
+                if (!escapeField || !escapeField.value) {
+                    console.error('No escape text to copy');
+                    return;
+                }
+                navigator.clipboard.writeText(escapeField.value)
+                    .catch(function (err) { console.error('Failed to copy escape text:', err); });
             }
 
             // Random name generator — mixes pregenerated entries from
@@ -1227,6 +1346,9 @@
                     resetDropZone();
                 }
             });
+
+            document.getElementById('hexField').addEventListener('input', updateEscapeField);
+            document.getElementById('escapeFormat').addEventListener('change', updateEscapeField);
 
             function updateNamePreview(content) {
                 // Process lines to extract non-comment text and names within quotes

@@ -239,6 +239,36 @@ input[type="button"] {
     margin-top: 8px;
 }
 
+#escapename {
+    margin-top: 8px;
+}
+
+.escape-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    width: 75%;
+}
+
+#escapeFormat {
+    flex: 0 0 126px;
+    min-width: 0;
+    color: #875848;
+    font-size: 14px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background-color: #b0b0b0;
+}
+
+#escapeField {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: #875848;
+    font-size: 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background-color: #b0b0b0;
+}
+
 #randomContainer {
     margin-top: 22px;
     margin-bottom: 22px;
