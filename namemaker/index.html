@@ -795,6 +795,8 @@
                         <input type="button" value="&#xf0c5;" class="input-button fa" onclick="copyHexToClipboard();" title="Copy">
                     </div>
 
+                    <div id="hoverCharBubble" class="char-number-bubble" aria-live="polite" aria-hidden="true">char ---  0x--  \x--</div>
+
                     <div id="escapename">
                         Escape<br>
                         <div class="escape-row">
@@ -834,12 +836,66 @@
             
             <script>
 
+            function showCharNumberBubble(buttonNumber) {
+                var bubble = document.getElementById('hoverCharBubble');
+                if (!bubble) return;
+                var value = parseInt(buttonNumber, 10);
+                if (!Number.isFinite(value)) {
+                    hideCharNumberBubble();
+                    return;
+                }
+                var hex = value.toString(16).padStart(2, '0');
+                var decimal = value.toString().padStart(3, '0');
+                bubble.textContent = 'char ' + decimal + '  0x' + hex + '  \\x' + hex;
+                bubble.classList.add('is-visible');
+                bubble.setAttribute('aria-hidden', 'false');
+            }
+
+            function hideCharNumberBubble() {
+                var bubble = document.getElementById('hoverCharBubble');
+                if (!bubble) return;
+                bubble.classList.remove('is-visible');
+                bubble.setAttribute('aria-hidden', 'true');
+            }
+
             document.querySelectorAll('area').forEach(area => {
                 area.addEventListener('click', function () {
                     var buttonNumber = this.dataset.buttonNumber;
                     buttonClick(buttonNumber);
                 });
+                area.addEventListener('mouseenter', function () {
+                    showCharNumberBubble(this.dataset.buttonNumber);
+                });
+                area.addEventListener('focus', function () {
+                    showCharNumberBubble(this.dataset.buttonNumber);
+                });
+                area.addEventListener('mouseleave', hideCharNumberBubble);
+                area.addEventListener('blur', hideCharNumberBubble);
             });
+
+            var charmapContainer = document.getElementById('qcharstable');
+            var charmapImage = document.querySelector('.charmap');
+            if (charmapContainer && charmapImage) {
+                function updateCharNumberFromPointer(event) {
+                    var rect = charmapImage.getBoundingClientRect();
+                    if (
+                        event.clientX < rect.left ||
+                        event.clientX >= rect.right ||
+                        event.clientY < rect.top ||
+                        event.clientY >= rect.bottom
+                    ) {
+                        hideCharNumberBubble();
+                        return;
+                    }
+
+                    var col = Math.floor(((event.clientX - rect.left) / rect.width) * 16);
+                    var row = Math.floor(((event.clientY - rect.top) / rect.height) * 16);
+                    showCharNumberBubble((row * 16) + col);
+                }
+
+                document.addEventListener('mousemove', updateCharNumberFromPointer);
+                charmapContainer.addEventListener('mouseleave', hideCharNumberBubble);
+            }
 
             function saveName() {
                 var quakename = document.oqnm.name.value.slice(0, MAX_NAME_LENGTH);
