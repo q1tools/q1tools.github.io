@@ -226,6 +226,12 @@ body.tool-index {
     margin-bottom: clamp(12px, 1.6vw, 18px);
 }
 
+.tool-grid .tool-card-icon {
+    font-size: clamp(72px, 8vw, 118px);
+    line-height: 1;
+    margin-bottom: clamp(12px, 1.6vw, 18px);
+}
+
 body.tool-index footer {
     position: fixed;
 }
@@ -257,6 +263,10 @@ body.tool-index footer {
     .tool-grid .clickable-div img {
         width: 74%;
         max-height: 74%;
+    }
+
+    .tool-grid .tool-card-icon {
+        font-size: clamp(46px, 16vw, 84px);
     }
 
     body.tool-index footer {
