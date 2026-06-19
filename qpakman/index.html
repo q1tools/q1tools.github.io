@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QPakMan Web</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="palettes.js"></script>
+    <script defer src="app.js"></script>
+</head>
+<body>
+    <main class="qpakman-page">
+        <header class="topbar">
+            <a class="back-link" href="../" aria-label="Back to tools"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <div id="quakefontheader">qpakman web</div>
+                <div class="subtitle">PAK, WAD2, MIPTEX, PIC, LMP, WAL, and texture-WAD workflows</div>
+            </div>
+            <a class="source-link" href="https://github.com/bunder/qpakman" target="_blank" rel="noopener">
+                <i class="fa-brands fa-github"></i>
+                <span>qpakman</span>
+            </a>
+        </header>
+
+        <section class="tool-shell">
+            <nav class="mode-tabs" aria-label="QPakMan mode">
+                <button class="mode-tab active" type="button" data-mode="inspect"><i class="fa-solid fa-magnifying-glass"></i><span>Inspect</span></button>
+                <button class="mode-tab" type="button" data-mode="pak"><i class="fa-solid fa-box-archive"></i><span>PAK</span></button>
+                <button class="mode-tab" type="button" data-mode="wad"><i class="fa-solid fa-images"></i><span>WAD</span></button>
+                <button class="mode-tab" type="button" data-mode="maketex"><i class="fa-solid fa-layer-group"></i><span>MakeTex</span></button>
+                <button class="mode-tab" type="button" data-mode="generate"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Generate</span></button>
+            </nav>
+
+            <div class="mode-panel active" id="mode-inspect">
+                <section class="panel input-panel">
+                    <div class="panel-head">
+                        <h2>Archive</h2>
+                        <div class="format-pill" id="archiveFormat">No file</div>
+                    </div>
+                    <label class="drop-zone" id="archiveDrop" tabindex="0">
+                        <input id="archiveInput" type="file" accept=".pak,.PAK,.wad,.WAD" hidden>
+                        <i class="fa-solid fa-file-zipper"></i>
+                        <strong>Drop a PAK or WAD2</strong>
+                        <span>List entries and extract converted output</span>
+                    </label>
+                    <div class="settings-grid">
+                        <label class="field">
+                            <span>Game</span>
+                            <select id="inspectGame"></select>
+                        </label>
+                        <label class="field">
+                            <span>Palette</span>
+                            <input id="inspectPalette" type="file" accept=".lmp,.pal,.txt,.dat">
+                        </label>
+                        <label class="check-field">
+                            <input id="inspectRaw" type="checkbox">
+                            <span>Raw files</span>
+                        </label>
+                    </div>
+                    <div class="action-row">
+                        <button id="downloadSelected" class="action-button primary" type="button" disabled><i class="fa-solid fa-download"></i><span>Selected</span></button>
+                        <button id="downloadAll" class="action-button" type="button" disabled><i class="fa-solid fa-file-zipper"></i><span>All</span></button>
+                    </div>
+                </section>
+
+                <section class="panel result-panel">
+                    <div class="panel-head">
+                        <h2>Directory</h2>
+                        <input id="entryFilter" class="filter-input" type="search" placeholder="Filter entries">
+                    </div>
+                    <div id="archiveSummary" class="summary-strip"></div>
+                    <div class="table-wrap">
+                        <table class="entry-table">
+                            <thead>
+                                <tr>
+                                    <th><input id="selectAllEntries" type="checkbox" aria-label="Select all entries"></th>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Offset</th>
+                                    <th>Size</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody id="entryTableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <div class="mode-panel" id="mode-pak">
+                <section class="panel input-panel">
+                    <div class="panel-head">
+                        <h2>Create PAK</h2>
+                        <div class="format-pill" id="pakCount">0 files</div>
+                    </div>
+                    <label class="drop-zone" id="pakDrop" tabindex="0">
+                        <input id="pakInput" type="file" multiple webkitdirectory hidden>
+                        <i class="fa-solid fa-folder-tree"></i>
+                        <strong>Drop files or a folder</strong>
+                        <span>Paths are sanitized to Quake PAK names</span>
+                    </label>
+                    <div class="settings-grid">
+                        <label class="field">
+                            <span>Output</span>
+                            <input id="pakOutput" type="text" value="pak0.pak">
+                        </label>
+                        <label class="field">
+                            <span>Game</span>
+                            <select id="pakGame"></select>
+                        </label>
+                        <label class="field">
+                            <span>Palette</span>
+                            <input id="pakPalette" type="file" accept=".lmp,.pal,.txt,.dat">
+                        </label>
+                        <label class="check-field">
+                            <input id="pakRaw" type="checkbox">
+                            <span>Raw storage</span>
+                        </label>
+                    </div>
+                    <div class="action-row">
+                        <button id="buildPak" class="action-button primary" type="button" disabled><i class="fa-solid fa-hammer"></i><span>Build PAK</span></button>
+                        <button id="clearPak" class="action-button" type="button" disabled><i class="fa-solid fa-xmark"></i><span>Clear</span></button>
+                    </div>
+                </section>
+                <section class="panel result-panel">
+                    <div class="panel-head">
+                        <h2>PAK Inputs</h2>
+                    </div>
+                    <div id="pakPreview" class="file-list empty">No files selected.</div>
+                </section>
+            </div>
+
+            <div class="mode-panel" id="mode-wad">
+                <section class="panel input-panel">
+                    <div class="panel-head">
+                        <h2>Create WAD2</h2>
+                        <div class="format-pill" id="wadCount">0 images</div>
+                    </div>
+                    <label class="drop-zone" id="wadDrop" tabindex="0">
+                        <input id="wadInput" type="file" accept=".png,.PNG" multiple hidden>
+                        <i class="fa-solid fa-image"></i>
+                        <strong>Drop PNG images</strong>
+                        <span>Create MIPTEX textures or PIC lumps</span>
+                    </label>
+                    <div class="settings-grid">
+                        <label class="field">
+                            <span>Output</span>
+                            <input id="wadOutput" type="text" value="textures.wad">
+                        </label>
+                        <label class="field">
+                            <span>Game</span>
+                            <select id="wadGame"></select>
+                        </label>
+                        <label class="field">
+                            <span>Palette</span>
+                            <input id="wadPalette" type="file" accept=".lmp,.pal,.txt,.dat">
+                        </label>
+                        <label class="check-field">
+                            <input id="wadPic" type="checkbox">
+                            <span>PIC lumps</span>
+                        </label>
+                    </div>
+                    <div class="action-row">
+                        <button id="buildWad" class="action-button primary" type="button" disabled><i class="fa-solid fa-hammer"></i><span>Build WAD</span></button>
+                        <button id="clearWad" class="action-button" type="button" disabled><i class="fa-solid fa-xmark"></i><span>Clear</span></button>
+                    </div>
+                </section>
+                <section class="panel result-panel">
+                    <div class="panel-head">
+                        <h2>WAD Inputs</h2>
+                    </div>
+                    <div id="wadPreview" class="file-list empty">No images selected.</div>
+                </section>
+            </div>
+
+            <div class="mode-panel" id="mode-maketex">
+                <section class="panel input-panel">
+                    <div class="panel-head">
+                        <h2>Make Texture WAD</h2>
+                        <div class="format-pill" id="maketexCount">0 files</div>
+                    </div>
+                    <label class="drop-zone" id="maketexDrop" tabindex="0">
+                        <input id="maketexInput" type="file" accept=".pak,.PAK,.bsp,.BSP,.wad,.WAD" multiple hidden>
+                        <i class="fa-solid fa-map"></i>
+                        <strong>Drop PAK, BSP, or WAD files</strong>
+                        <span>Collect unique embedded MIPTEX lumps</span>
+                    </label>
+                    <div class="settings-grid two">
+                        <label class="field">
+                            <span>Output</span>
+                            <input id="maketexOutput" type="text" value="textures.wad">
+                        </label>
+                    </div>
+                    <div class="action-row">
+                        <button id="buildMaketex" class="action-button primary" type="button" disabled><i class="fa-solid fa-layer-group"></i><span>Build Texture WAD</span></button>
+                        <button id="clearMaketex" class="action-button" type="button" disabled><i class="fa-solid fa-xmark"></i><span>Clear</span></button>
+                    </div>
+                </section>
+                <section class="panel result-panel">
+                    <div class="panel-head">
+                        <h2>MakeTex Inputs</h2>
+                    </div>
+                    <div id="maketexPreview" class="file-list empty">No files selected.</div>
+                </section>
+            </div>
+
+            <div class="mode-panel" id="mode-generate">
+                <section class="panel input-panel">
+                    <div class="panel-head">
+                        <h2>Generate</h2>
+                    </div>
+                    <div class="settings-grid">
+                        <label class="field">
+                            <span>Output</span>
+                            <select id="generateKind">
+                                <option value="invpal.lmp">invpal.lmp</option>
+                                <option value="16to8.dat">16to8.dat</option>
+                                <option value="tinttab.lmp">tinttab.lmp</option>
+                                <option value="tinttab2.lmp">tinttab2.lmp</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span>Game</span>
+                            <select id="generateGame"></select>
+                        </label>
+                        <label class="field">
+                            <span>Palette</span>
+                            <input id="generatePalette" type="file" accept=".lmp,.pal,.txt,.dat">
+                        </label>
+                    </div>
+                    <div class="action-row">
+                        <button id="buildGenerated" class="action-button primary" type="button"><i class="fa-solid fa-download"></i><span>Download</span></button>
+                    </div>
+                </section>
+                <section class="panel result-panel">
+                    <div class="panel-head">
+                        <h2>Output Profile</h2>
+                    </div>
+                    <div id="generatePreview" class="spec-grid"></div>
+                </section>
+            </div>
+        </section>
+
+        <section class="log-panel">
+            <div class="panel-head">
+                <h2>Log</h2>
+                <button id="clearLog" class="icon-button" type="button" aria-label="Clear log"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <pre id="log" aria-live="polite"></pre>
+        </section>
+    </main>
+
+    <div id="footer">
+        Created by woods &nbsp;&nbsp;| &nbsp;&nbsp;<a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </div>
+</body>
+</html>

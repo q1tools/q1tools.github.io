@@ -232,6 +232,14 @@ body.tool-index {
     margin-bottom: clamp(12px, 1.6vw, 18px);
 }
 
+.tool-grid .qpakman-tool-icon {
+    color: #8dd2bd;
+}
+
+.tool-grid .demoscope-tool-icon {
+    color: #d0a85f;
+}
+
 body.tool-index footer {
     position: fixed;
 }
