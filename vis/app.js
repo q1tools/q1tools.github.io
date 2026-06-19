@@ -982,27 +982,23 @@ function computeFastVis(bsp, portalInput, logFn) {
 // VIS DATA COMPRESSION (Quake RLE format)
 // ============================================================
 
-function compressVis(pvs, numLeaves) {
+function compressVis(pvs, numLeaves, numVisLeaves) {
     // Each leaf's PVS starts at leaf 1 (leaf 0 is outside/solid)
-    // The vis data is for leaves 1..numLeaves-1
-    const numVisLeaves = numLeaves - 1;
+    // The vis data is for leaves 1..numVisLeaves (from the BSP model header)
+    if (!Number.isInteger(numVisLeaves) || numVisLeaves < 0 || numVisLeaves >= numLeaves) {
+        throw new Error(`Invalid vis leaf count: ${numVisLeaves}`);
+    }
     const rowBytes = Math.floor((numVisLeaves + 7) / 8);
 
     const compressed = [];
-    const offsets = []; // visofs for each leaf
+    const offsets = new Array(numLeaves).fill(-1); // visofs for each leaf
 
-    for (let leafIdx = 0; leafIdx < numLeaves; leafIdx++) {
-        if (leafIdx === 0) {
-            offsets.push(-1); // Leaf 0 has no vis data
-            continue;
-        }
-
-        const contents = null; // Will be checked by caller
-        offsets.push(compressed.length);
+    for (let leafIdx = 1; leafIdx <= numVisLeaves; leafIdx++) {
+        offsets[leafIdx] = compressed.length;
 
         // Build the row: bit i = can leaf (i+1) be seen from leafIdx?
         const row = new Uint8Array(rowBytes);
-        for (let j = 1; j < numLeaves; j++) {
+        for (let j = 1; j <= numVisLeaves; j++) {
             const bit = j - 1; // 0-based index in the vis row
             if (pvs[leafIdx][j >> 3] & (1 << (j & 7))) {
                 row[bit >> 3] |= (1 << (bit & 7));
@@ -1434,14 +1430,15 @@ async function runVisComputation() {
         const ambientLevels = computeAmbientLevels(bsp, pvs, log);
 
         setProgress(70, 'Compressing vis data...');
-        log('Compressing vis data...');
-        const { data: visData, offsets: visOffsets } = compressVis(pvs, bsp.leaves.length);
+        const numVisLeaves = bsp.models[0].visleafs;
+        log(`Compressing vis data for ${numVisLeaves} vis leaves...`);
+        const { data: visData, offsets: visOffsets } = compressVis(pvs, bsp.leaves.length, numVisLeaves);
         log(`Compressed vis data: ${visData.length} bytes`);
 
         setProgress(80, 'Building leaf data...');
-        // Update leaf visofs with new offsets, skip solid leaves
+        // Update leaf visofs with new offsets, skip solid and non-vis leaves
         for (let i = 0; i < bsp.leaves.length; i++) {
-            if (bsp.leaves[i].contents === CONTENTS_SOLID) {
+            if (i === 0 || i > numVisLeaves || bsp.leaves[i].contents === CONTENTS_SOLID) {
                 visOffsets[i] = -1;
             }
         }
