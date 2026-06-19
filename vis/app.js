@@ -163,10 +163,20 @@ function windingCenter(w) {
 }
 
 function windingPlane(w) {
-    const e1 = v3sub(w[1], w[0]);
-    const e2 = v3sub(w[2], w[0]);
-    const normal = v3normalize(v3cross(e1, e2));
-    const dist = v3dot(normal, w[0]);
+    // Newell's method: robust against collinear/degenerate leading edges.
+    let nx = 0, ny = 0, nz = 0;
+    let cx = 0, cy = 0, cz = 0;
+    const n = w.length;
+    for (let i = 0; i < n; i++) {
+        const cur = w[i];
+        const nxt = w[(i + 1) % n];
+        nx += (cur[1] - nxt[1]) * (cur[2] + nxt[2]);
+        ny += (cur[2] - nxt[2]) * (cur[0] + nxt[0]);
+        nz += (cur[0] - nxt[0]) * (cur[1] + nxt[1]);
+        cx += cur[0]; cy += cur[1]; cz += cur[2];
+    }
+    const normal = v3normalize([nx, ny, nz]);
+    const dist = (normal[0] * cx + normal[1] * cy + normal[2] * cz) / n;
     return { normal, dist };
 }
 
@@ -178,6 +188,38 @@ function readCString(view, offset, maxLen) {
         out += String.fromCharCode(ch);
     }
     return out;
+}
+
+// Locate the BSP leaf (index into bsp.leaves) that contains a point by
+// walking the world model's node tree. Used to robustly determine which
+// leaf sits on each side of a portal.
+function findLeafIndex(bsp, point) {
+    let n = bsp.models[0].headnodes[0];
+    let guard = 0;
+    while (n >= 0 && guard++ < 100000) {
+        const node = bsp.nodes[n];
+        if (!node) return 0;
+        const pl = bsp.planes[node.planeId];
+        const d = point[0] * pl.normal[0] + point[1] * pl.normal[1] + point[2] * pl.normal[2] - pl.dist;
+        n = node.children[d >= 0 ? 0 : 1];
+    }
+    return -(n + 1);
+}
+
+// The node (leaf or cluster index in node-space) on the +normal side of a
+// portal winding, found by probing just off the winding center. leafToNode
+// maps a bsp leaf index to its node index. Returns -1 if inconclusive.
+function portalFrontNode(bsp, winding, leafToNode) {
+    const plane = windingPlane(winding);
+    const c = windingCenter(winding);
+    const probe = [
+        c[0] + plane.normal[0],
+        c[1] + plane.normal[1],
+        c[2] + plane.normal[2]
+    ];
+    const leaf = findLeafIndex(bsp, probe);
+    if (leaf <= 0 || leaf >= bsp.leaves.length) return -1;
+    return leafToNode ? leafToNode(leaf) : leaf;
 }
 
 function computeBoundsCenter(mins, maxs) {
@@ -462,7 +504,8 @@ function parsePRT(text) {
         if (idx >= lines.length) {
             throw new Error(`PRT ended early while reading portal ${i}`);
         }
-        const parts = lines[idx++].trim().split(/\s+/);
+        const line = lines[idx++];
+        const parts = line.trim().split(/\s+/);
         const numPoints = parseInt(parts[0], 10);
         const cluster0 = parseInt(parts[1], 10);
         const cluster1 = parseInt(parts[2], 10);
@@ -473,24 +516,17 @@ function parsePRT(text) {
             throw new Error(`Portal ${i} references an out-of-range cluster`);
         }
 
+        // Coordinates follow the 3-int header. Parentheses may be attached to
+        // numbers ("(1320") or stand alone ("( 1320 ... )"), so strip them and
+        // read a flat list of floats. (qbsp/ericw and other compilers differ.)
+        const coords = line.replace(/[()]/g, ' ').trim().split(/\s+/).slice(3).map(Number);
+        if (coords.length < numPoints * 3) {
+            throw new Error(`Portal ${i} is missing point data`);
+        }
+
         const winding = [];
-        let pi = 3;
         for (let j = 0; j < numPoints; j++) {
-            // Points are in format (x y z)
-            let x, y, z;
-            if (pi + 2 >= parts.length) {
-                throw new Error(`Portal ${i} is missing point data`);
-            }
-            if (parts[pi].startsWith('(')) {
-                x = parseFloat(parts[pi].substring(1));
-                y = parseFloat(parts[pi + 1]);
-                z = parseFloat(parts[pi + 2].replace(')', ''));
-                pi += 3;
-            } else {
-                x = parseFloat(parts[pi++]);
-                y = parseFloat(parts[pi++]);
-                z = parseFloat(parts[pi++]);
-            }
+            const x = coords[j * 3], y = coords[j * 3 + 1], z = coords[j * 3 + 2];
             if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
                 throw new Error(`Portal ${i} contains invalid coordinates`);
             }
@@ -770,100 +806,467 @@ function extractPortals(bsp, logFn) {
 }
 
 // ============================================================
-// FAST VIS COMPUTATION
+// FULL VIS COMPUTATION (port of ericw-tools BasePortalVis + PortalFlow)
+//
+// This is a faithful conservative-then-exact portal-flow visibility
+// solver, equivalent to a level-4 `vis` run. It replaces the old
+// leaf-center flood, which under-marked the PVS and caused geometry to
+// be culled (HOM / void artifacts).  Reference: ericw-tools/vis/flow.cc
 // ============================================================
 
+const VIS_ON_EPSILON = 0.1;
+const VIS_EQUAL_EPSILON = 0.001;
+const PSTAT_NONE = 0;
+const PSTAT_DONE = 1;
+
+function planeDistTo(plane, p) {
+    return p[0] * plane.normal[0] + p[1] * plane.normal[1] + p[2] * plane.normal[2] - plane.dist;
+}
+
+function negPlane(pl) {
+    return { normal: [-pl.normal[0], -pl.normal[1], -pl.normal[2]], dist: -pl.dist };
+}
+
+function windingBounds(pts) {
+    let ox = 0, oy = 0, oz = 0;
+    for (const p of pts) { ox += p[0]; oy += p[1]; oz += p[2]; }
+    const n = pts.length;
+    const origin = [ox / n, oy / n, oz / n];
+    let radius = 0;
+    for (const p of pts) {
+        const d = v3len(v3sub(p, origin));
+        if (d > radius) radius = d;
+    }
+    return { origin, radius };
+}
+
+function makeWinding(pts) {
+    const b = windingBounds(pts);
+    return { pts, origin: b.origin, radius: b.radius };
+}
+
+function flipWinding(w) {
+    return { pts: w.pts.slice().reverse(), origin: w.origin, radius: w.radius };
+}
+
+// Clip a winding by a plane, keeping the FRONT (positive) side.
+// Returns the clipped winding, the input winding unchanged, or null if
+// the winding is entirely behind the plane. origin/radius are carried
+// over from the input (not shrunk) as in ericw-tools.
+function clipWindingPlane(w, split) {
+    if (!w) return null;
+
+    // Fast bounding-sphere reject/accept.
+    const dot = planeDistTo(split, w.origin);
+    if (dot < -w.radius) return null;
+    if (dot > w.radius) return w;
+
+    const pts = w.pts;
+    const n = pts.length;
+    const dists = new Array(n + 1);
+    const sides = new Array(n + 1);
+    let cF = 0, cB = 0, cON = 0;
+
+    for (let i = 0; i < n; i++) {
+        const d = planeDistTo(split, pts[i]);
+        dists[i] = d;
+        if (d > VIS_ON_EPSILON) { sides[i] = 0; cF++; }
+        else if (d < -VIS_ON_EPSILON) { sides[i] = 1; cB++; }
+        else { sides[i] = 2; cON++; }
+    }
+    sides[n] = sides[0];
+    dists[n] = dists[0];
+
+    // Coplanar: don't clip (avoids losing sight through near-coplanar portals).
+    if (cON === n) return w;
+    if (cF === 0) return null;
+    if (cB === 0) return w;
+
+    const out = [];
+    for (let i = 0; i < n; i++) {
+        const p1 = pts[i];
+        if (sides[i] === 2) { out.push(p1); continue; }
+        if (sides[i] === 0) out.push(p1);
+        if (sides[i + 1] === 2 || sides[i + 1] === sides[i]) continue;
+
+        const p2 = pts[(i + 1) % n];
+        const frac = dists[i] / (dists[i] - dists[i + 1]);
+        const mid = [0, 0, 0];
+        for (let j = 0; j < 3; j++) {
+            if (split.normal[j] === 1) mid[j] = split.dist;
+            else if (split.normal[j] === -1) mid[j] = -split.dist;
+            else mid[j] = p1[j] + frac * (p2[j] - p1[j]);
+        }
+        out.push(mid);
+    }
+
+    return { pts: out, origin: w.origin, radius: w.radius };
+}
+
+// Generate separating planes from source+pass and clip target by them.
+// `test` selects normal vs flipped separators (tests 1 and 3 flip).
+// Returns the clipped target winding, or null if fully clipped away.
+function clipToSeparators(source, srcPlane, pass, target, test) {
+    const sp = source.pts;
+    for (let i = 0; i < sp.length; i++) {
+        const l = (i + 1) % sp.length;
+        const v1 = v3sub(sp[l], sp[i]);
+        const pp = pass.pts;
+
+        for (let j = 0; j < pp.length; j++) {
+            const d = planeDistTo(srcPlane, pp[j]);
+            let fliptest;
+            if (d < -VIS_ON_EPSILON) fliptest = true;
+            else if (d > VIS_ON_EPSILON) fliptest = false;
+            else continue; // point lies in source plane
+
+            const v2 = v3sub(pp[j], sp[i]);
+            let normal = v3cross(v1, v2);
+            const len2 = normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2];
+            if (len2 < VIS_ON_EPSILON) continue;
+            const inv = 1 / Math.sqrt(len2);
+            normal = [normal[0] * inv, normal[1] * inv, normal[2] * inv];
+            let sep = {
+                normal,
+                dist: pp[j][0] * normal[0] + pp[j][1] * normal[1] + pp[j][2] * normal[2]
+            };
+            if (fliptest) sep = negPlane(sep);
+
+            // Require all other pass points on the positive side.
+            let count = 0, k = 0;
+            for (; k < pp.length; k++) {
+                if (k === j) continue;
+                const dk = planeDistTo(sep, pp[k]);
+                if (dk < -VIS_ON_EPSILON) break;
+                else if (dk > VIS_ON_EPSILON) count++;
+            }
+            if (k !== pp.length) continue; // not a separating plane
+            if (!count) continue;          // coplanar with separator
+
+            // Flip the normal to keep the back side for tests 1 and 3.
+            if (test & 1) sep = negPlane(sep);
+
+            target = clipWindingPlane(target, sep);
+            if (!target) return null;
+            break;
+        }
+    }
+    return target;
+}
+
+// Level-4 visibility tests. Mutates stack.pass / stack.source.
+// Returns true if the chain still passes, false if blocked.
+function visTests(stack, head, prevstack) {
+    // TEST 0 :: source -> pass -> target
+    stack.pass = clipToSeparators(prevstack.source, head.portalplane, prevstack.pass, stack.pass, 0);
+    if (!stack.pass) return false;
+
+    // TEST 1 :: pass -> source -> target
+    stack.pass = clipToSeparators(prevstack.pass, prevstack.portalplane, prevstack.source, stack.pass, 1);
+    if (!stack.pass) return false;
+
+    // TEST 2 :: target -> pass -> source
+    stack.source = clipToSeparators(stack.pass, stack.portalplane, prevstack.pass, stack.source, 2);
+    if (!stack.source) return false;
+
+    // TEST 3 :: pass -> target -> source
+    stack.source = clipToSeparators(prevstack.pass, prevstack.portalplane, stack.pass, stack.source, 3);
+    if (!stack.source) return false;
+
+    return true;
+}
+
+// Bit helpers for the 32-bit-word leaf bitsets used during the flow.
+function getBit(bits, i) { return bits[i >> 5] & (1 << (i & 31)); }
+function setBit(bits, i) { bits[i >> 5] |= (1 << (i & 31)); }
+
+// Conservative flood: mark every leaf reachable from srcportal.leaf
+// through portals flagged in portalsee. Iterative to avoid stack limits.
+function simpleFlood(srcportal, startLeaf, portalsee, ctx) {
+    const stack = [startLeaf];
+    while (stack.length) {
+        const leafnum = stack.pop();
+        if (getBit(srcportal.mightsee, leafnum)) continue;
+        setBit(srcportal.mightsee, leafnum);
+        srcportal.nummightsee++;
+        const lp = ctx.leafPortals[leafnum];
+        if (!lp) continue;
+        for (const q of lp) {
+            if (portalsee[q.index]) stack.push(q.leaf);
+        }
+    }
+}
+
+// First-order conservative visibility for a single directed portal.
+function basePortalThread(p, ctx) {
+    const w = p.winding;
+    p.mightsee = new Uint32Array(ctx.rowWords);
+    p.nummightsee = 0;
+    const portalsee = new Uint8Array(ctx.numDPortals);
+
+    for (let i = 0; i < ctx.numDPortals; i++) {
+        if (ctx.dportals[i] === p) continue;
+        const tp = ctx.dportals[i];
+        const tw = tp.winding;
+
+        // Quick test - target completely behind us?
+        let d = planeDistTo(p.plane, tw.origin);
+        if (d < -tw.radius) continue;
+
+        let cctp = 0, j;
+        for (j = 0; j < tw.pts.length; j++) {
+            d = planeDistTo(p.plane, tw.pts[j]);
+            if (d > -VIS_ON_EPSILON) cctp++;
+            if (d > VIS_ON_EPSILON) break;
+        }
+        if (j === tw.pts.length) {
+            if (cctp !== tw.pts.length) continue; // no points on front
+        } else cctp = 0;
+
+        // Quick test - we are completely in front of target?
+        d = planeDistTo(tp.plane, w.origin);
+        if (d > w.radius) continue;
+
+        let ccp = 0;
+        for (j = 0; j < w.pts.length; j++) {
+            d = planeDistTo(tp.plane, w.pts[j]);
+            if (d < VIS_ON_EPSILON) ccp++;
+            if (d < -VIS_ON_EPSILON) break;
+        }
+        if (j === w.pts.length) {
+            if (ccp !== w.pts.length) continue; // no points on back
+        } else ccp = 0;
+
+        // Coplanarity check.
+        if (cctp !== 0 || ccp !== 0) {
+            if (v3dot(p.plane.normal, tp.plane.normal) < -0.99) continue;
+        }
+
+        portalsee[i] = 1;
+    }
+
+    simpleFlood(p, p.leaf, portalsee, ctx);
+}
+
+// Flood fill through leafs, clipping windings against portal planes and
+// separating planes to compute exact visibility for one source portal.
+function recursiveLeafFlow(leafnum, ctx, prevstack) {
+    if (ctx.onstack.has(leafnum)) return; // CheckStack: already on this path
+    ctx.onstack.add(leafnum);
+
+    setBit(ctx.leafvis, leafnum);
+
+    const stack = {};
+    prevstack.next = stack;
+
+    const lp = ctx.leafPortals[leafnum];
+    if (lp) {
+        for (const p of lp) {
+            if (!getBit(prevstack.mightsee, p.leaf)) continue;
+
+            // A completed portal has a tighter visbits we can reuse to prune;
+            // otherwise use its looser mightsee bound.
+            const test = (p.status === PSTAT_DONE) ? p.visbits : p.mightsee;
+
+            // might = prevstack.mightsee & test ; skip if nothing new vs leafvis
+            const might = new Uint32Array(ctx.rowWords);
+            let more = false;
+            for (let b = 0; b < ctx.rowWords; b++) {
+                might[b] = prevstack.mightsee[b] & test[b];
+                if (might[b] & ~ctx.leafvis[b]) more = true;
+            }
+            if (!more) continue;
+
+            stack.portalplane = p.plane;
+            const backplane = negPlane(p.plane);
+
+            // Can't go out a coplanar face.
+            const pn = prevstack.portalplane.normal;
+            if (Math.abs(pn[0] - backplane.normal[0]) < VIS_EQUAL_EPSILON &&
+                Math.abs(pn[1] - backplane.normal[1]) < VIS_EQUAL_EPSILON &&
+                Math.abs(pn[2] - backplane.normal[2]) < VIS_EQUAL_EPSILON) {
+                continue;
+            }
+
+            stack.portal = p;
+            stack.mightsee = might;
+
+            // Clip target portal behind the source portal.
+            let passw = clipWindingPlane(p.winding, ctx.head.portalplane);
+            if (!passw) continue;
+
+            if (!prevstack.pass) {
+                // Second leaf: only blockable if coplanar (handled above).
+                stack.pass = passw;
+                stack.source = prevstack.source;
+                recursiveLeafFlow(p.leaf, ctx, stack);
+                continue;
+            }
+
+            // Clip target portal behind the pass portal.
+            passw = clipWindingPlane(passw, prevstack.portalplane);
+            if (!passw) continue;
+
+            // Clip source portal in front of the target portal.
+            const srcw = clipWindingPlane(prevstack.source, backplane);
+            if (!srcw) continue;
+
+            stack.pass = passw;
+            stack.source = srcw;
+
+            if (!visTests(stack, ctx.head, prevstack)) continue;
+
+            recursiveLeafFlow(p.leaf, ctx, stack);
+        }
+    }
+
+    prevstack.next = null;
+    ctx.onstack.delete(leafnum);
+}
+
+function portalFlow(p, ctx) {
+    ctx.leafvis = new Uint32Array(ctx.rowWords);
+    ctx.onstack = new Set();
+    p.visbits = ctx.leafvis;
+
+    const head = {
+        portal: p,
+        source: p.winding,
+        portalplane: p.plane,
+        mightsee: p.mightsee,
+        pass: null,
+        next: null
+    };
+    ctx.head = head;
+
+    recursiveLeafFlow(p.leaf, ctx, head);
+    p.status = PSTAT_DONE;
+}
+
+// Drop-in replacement for the old leaf-center flood. Operates in
+// "node space" (1-based leaf or cluster indices, node 0 unused/solid)
+// and returns pvs[node] as a bitset of visible nodes, matching the
+// format consumed by compressVis / computeAmbientLevels.
 function computePortalPvs(nodeCenters, nodeIsSolid, portals, logFn, label) {
-    const totalNodes = nodeCenters.length;
-    const rowBytes = Math.floor((totalNodes + 7) / 8);
+    const totalNodes = nodeIsSolid.length;
+    const rowWords = (totalNodes + 31) >> 5; // 32-bit words per leaf bitset
     const activeNodes = totalNodes - 1;
 
-    logFn(`Computing fast vis for ${activeNodes} ${label}`);
+    logFn(`Computing full vis for ${activeNodes} ${label}`);
 
-    const nodeAdj = new Map();
-    for (const p of portals) {
-        const { a: l0, b: l1 } = p;
-        if (l0 < 1 || l1 < 1 || l0 >= totalNodes || l1 >= totalNodes) continue;
-        if (!nodeCenters[l0] || !nodeCenters[l1]) continue;
+    // Build directed portals (two per source portal) and per-leaf lists.
+    const dportals = [];
+    const leafPortals = new Array(totalNodes);
 
-        const pl = windingPlane(p.winding);
-        const center = windingCenter(p.winding);
+    for (const sp of portals) {
+        const a = sp.a, b = sp.b;
+        if (a < 1 || b < 1 || a >= totalNodes || b >= totalNodes) continue;
+        if (nodeIsSolid[a] || nodeIsSolid[b]) continue;
+        if (!sp.winding || sp.winding.length < 3) continue;
 
-        if (!nodeAdj.has(l0)) nodeAdj.set(l0, []);
-        if (!nodeAdj.has(l1)) nodeAdj.set(l1, []);
+        // Compute the plane of the shared winding, oriented to point into
+        // leaf a (use the leaf center, since extracted portals don't follow
+        // any winding convention).
+        let pts = sp.winding;
+        let plane = windingPlane(pts);
+        // Orient so the plane normal (and winding geometric normal) points
+        // into leaf a. Prefer the BSP-tree probe (sp.frontNode = node on the
+        // +normal side); fall back to the leaf center if it was inconclusive.
+        let flipForA;
+        if (sp.frontNode === a) flipForA = false;        // +normal already into a
+        else if (sp.frontNode === b) flipForA = true;    // +normal into b, flip
+        else flipForA = nodeCenters[a] && planeDistTo(plane, nodeCenters[a]) < 0;
+        if (flipForA) {
+            pts = pts.slice().reverse();
+            plane = negPlane(plane);
+        }
+        const w = makeWinding(pts); // geometric normal == plane (points into a)
 
-        const d0 = v3dot(nodeCenters[l0], pl.normal) - pl.dist;
-        const fwd = d0 <= 0 ? pl : { normal: v3scale(pl.normal, -1), dist: -pl.dist };
-        const rev = d0 <= 0
-            ? { normal: v3scale(pl.normal, -1), dist: -pl.dist }
-            : pl;
+        // Each directed portal's winding must be wound so its geometric
+        // normal matches its own plane (which points into the destination
+        // leaf). The separator-plane construction in ClipToSeparators relies
+        // on this (source winding geom == +portalplane); getting it backwards
+        // inverts the separators and clips away visible geometry.
 
-        nodeAdj.get(l0).push({ otherLeaf: l1, plane: fwd, portalCenter: center });
-        nodeAdj.get(l1).push({ otherLeaf: l0, plane: rev, portalCenter: center });
+        // Forward portal: lives in leaf a, leads into leaf b (plane into b).
+        const fwd = {
+            index: dportals.length,
+            winding: flipWinding(w), // geom == -plane == into b
+            plane: negPlane(plane),  // into b
+            leaf: b,
+            status: PSTAT_NONE
+        };
+        dportals.push(fwd);
+        (leafPortals[a] || (leafPortals[a] = [])).push(fwd);
+
+        // Backward portal: lives in leaf b, leads into leaf a (plane into a).
+        const bwd = {
+            index: dportals.length,
+            winding: w,        // geom == plane == into a
+            plane: plane,      // into a
+            leaf: a,
+            status: PSTAT_NONE
+        };
+        dportals.push(bwd);
+        (leafPortals[b] || (leafPortals[b] = [])).push(bwd);
     }
 
-    const pvs = Array.from({ length: totalNodes }, () => new Uint8Array(rowBytes));
-    for (let i = 1; i < totalNodes; i++) {
-        if (!nodeIsSolid[i]) {
-            pvs[i][i >> 3] |= (1 << (i & 7));
-        }
+    const ctx = { rowWords, numDPortals: dportals.length, dportals, leafPortals };
+
+    // Phase 1: conservative base visibility (mightsee) per portal.
+    logFn(`  Base vis for ${dportals.length} directed portals...`);
+    for (const p of dportals) basePortalThread(p, ctx);
+
+    // Phase 2: exact portal flow. Process cheapest portals first so their
+    // tighter visbits can be reused to prune later portals.
+    const order = dportals.slice().sort((x, y) => x.nummightsee - y.nummightsee);
+    let done = 0;
+    for (const p of order) {
+        portalFlow(p, ctx);
+        if (++done % 500 === 0) logFn(`  Flowed ${done}/${order.length} portals...`);
     }
 
-    let processedCount = 0;
-    for (let srcLeaf = 1; srcLeaf < totalNodes; srcLeaf++) {
-        if (nodeIsSolid[srcLeaf] || !nodeCenters[srcLeaf]) continue;
-
-        const srcCenter = nodeCenters[srcLeaf];
-        const visible = pvs[srcLeaf];
-        const visited = new Set();
-        visited.add(srcLeaf);
-
-        const srcNeighbors = nodeAdj.get(srcLeaf) || [];
-        const queue = [];
-
-        for (const { otherLeaf, plane } of srcNeighbors) {
-            if (otherLeaf < 1 || otherLeaf >= totalNodes) continue;
-            if (nodeIsSolid[otherLeaf] || !nodeCenters[otherLeaf]) continue;
-            visited.add(otherLeaf);
-            visible[otherLeaf >> 3] |= (1 << (otherLeaf & 7));
-            queue.push({ leaf: otherLeaf, entryPlane: plane });
-        }
-
-        while (queue.length > 0) {
-            const { leaf: curLeaf, entryPlane } = queue.shift();
-            const neighbors = nodeAdj.get(curLeaf) || [];
-
-            for (const { otherLeaf, plane: exitPlane } of neighbors) {
-                if (visited.has(otherLeaf)) continue;
-                if (otherLeaf < 1 || otherLeaf >= totalNodes) continue;
-                if (nodeIsSolid[otherLeaf] || !nodeCenters[otherLeaf]) continue;
-
-                const destCenter = nodeCenters[otherLeaf];
-                const d1 = v3dot(destCenter, entryPlane.normal) - entryPlane.dist;
-                if (d1 < -EPSILON) continue;
-
-                const d2 = v3dot(srcCenter, exitPlane.normal) - exitPlane.dist;
-                if (d2 > EPSILON) continue;
-
-                visited.add(otherLeaf);
-                visible[otherLeaf >> 3] |= (1 << (otherLeaf & 7));
-                queue.push({ leaf: otherLeaf, entryPlane: entryPlane });
+    // Phase 3: assemble per-leaf PVS = union of its portals' visbits + self.
+    const pvsWords = new Array(totalNodes);
+    for (let node = 0; node < totalNodes; node++) {
+        const words = new Uint32Array(rowWords);
+        if (node >= 1 && !nodeIsSolid[node]) {
+            const lp = leafPortals[node];
+            if (lp) {
+                for (const p of lp) {
+                    const vb = p.visbits;
+                    if (!vb) continue;
+                    for (let b = 0; b < rowWords; b++) words[b] |= vb[b];
+                }
             }
+            setBit(words, node); // a leaf always sees itself
         }
+        pvsWords[node] = words;
+    }
 
-        for (let j = 1; j < totalNodes; j++) {
-            if (visible[j >> 3] & (1 << (j & 7))) {
-                pvs[j][srcLeaf >> 3] |= (1 << (srcLeaf & 7));
-            }
-        }
-
-        processedCount++;
-        if (processedCount % 200 === 0) {
-            logFn(`  Processed ${processedCount}/${activeNodes} ${label}...`);
+    // Symmetrize: visibility is mutual, so if A sees B then B sees A. Tiny
+    // numerical differences between the two flow directions can leave the
+    // result slightly asymmetric; OR-ing the transpose closes those gaps
+    // conservatively (only ever adds visibility, never culls).
+    for (let a = 1; a < totalNodes; a++) {
+        const ra = pvsWords[a];
+        for (let b = a + 1; b < totalNodes; b++) {
+            const aSeesB = ra[b >> 5] & (1 << (b & 31));
+            const rb = pvsWords[b];
+            const bSeesA = rb[a >> 5] & (1 << (a & 31));
+            if (aSeesB && !bSeesA) rb[a >> 5] |= (1 << (a & 31));
+            else if (bSeesA && !aSeesB) ra[b >> 5] |= (1 << (b & 31));
         }
     }
 
-    logFn('Fast vis complete');
+    // Return each row as a Uint8 view over its 32-bit words so the downstream
+    // RLE/ambient code keeps its byte-indexed access (little-endian hosts).
+    const pvs = new Array(totalNodes);
+    for (let node = 0; node < totalNodes; node++) {
+        pvs[node] = new Uint8Array(pvsWords[node].buffer);
+    }
+
+    logFn('Full vis complete');
     return pvs;
 }
 
@@ -878,7 +1281,9 @@ function computeLeafFastVis(bsp, portals, logFn) {
     const normalizedPortals = portals.map(p => ({
         winding: p.winding,
         a: p.leaves[0],
-        b: p.leaves[1]
+        b: p.leaves[1],
+        // node space == bsp leaf index here, so leafToNode is the identity.
+        frontNode: portalFrontNode(bsp, p.winding, null)
     }));
 
     return computePortalPvs(nodeCenters, nodeIsSolid, normalizedPortals, logFn, 'vis leaves');
@@ -962,10 +1367,13 @@ function computeFastVisFromPRT(bsp, prt, logFn) {
     }
 
     const { centers, nodeIsSolid } = computeClusterNodeData(bsp, prt);
+    // Map a bsp leaf to its cluster node (cluster index + 1).
+    const leafToNode = (leaf) => prt.leafToCluster[leaf] + 1;
     const clusterPortals = prt.portals.map(p => ({
         winding: p.winding,
         a: p.clusters[0] + 1,
-        b: p.clusters[1] + 1
+        b: p.clusters[1] + 1,
+        frontNode: portalFrontNode(bsp, p.winding, leafToNode)
     }));
     const clusterPvs = computePortalPvs(centers, nodeIsSolid, clusterPortals, logFn, 'clusters');
     return expandClusterPvsToLeaves(bsp, prt, clusterPvs);
