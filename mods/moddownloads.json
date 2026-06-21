@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "updated": "2026-06-21",
+  "mods": [
+    {
+      "id": "agjam",
+      "title": "Antigravity Jam",
+      "tag": "agjam-1.2",
+      "install_dir": "agjam",
+      "size": "126 MB",
+      "asset": {
+        "filename": "antigravityjam1.2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/agjam-1.2/antigravityjam1.2.zip",
+        "sha256": "685c20c5e9d82615afbe3f1828d521823fb1e2f5df3a5de09f069ec99a1aea90",
+        "size": "126 MB"
+      }
+    },
+    {
+      "id": "ad",
+      "title": "Arcane Dimensions 1.80 + Patch 1",
+      "tag": "ad-v1.80p1",
+      "install_dir": "ad",
+      "size": "306 MB",
+      "asset": {
+        "filename": "ad_v1_80p1final.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/ad-v1.80p1/ad_v1_80p1final.zip",
+        "sha256": "7ad993da6c760c446ca31fad71e9f5b6c9eee99b6354f161aa746b572fe70a7d",
+        "size": "306 MB"
+      }
+    },
+    {
+      "id": "blockquake",
+      "title": "Block Quake",
+      "tag": "blockquake-l",
+      "install_dir": "blockquake",
+      "size": "9.58 MB",
+      "asset": {
+        "filename": "blockquake.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/blockquake-l/blockquake.zip",
+        "sha256": "e535eb1c9918e76c4fa330732c835f306f4e4f6939bbb3053ecae1cd11ddd760",
+        "size": "9.58 MB"
+      }
+    },
+    {
+      "id": "bonk",
+      "title": "Bonk Jam",
+      "tag": "bonk-1.0",
+      "install_dir": "bonk",
+      "size": "358 MB",
+      "asset": {
+        "filename": "bonkjam.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/bonk-1.0/bonkjam.zip",
+        "sha256": "5157acb20be50e453ae38335c5cbc60cff2a09457855f153b44dbff6b6c35ced",
+        "size": "358 MB"
+      }
+    },
+    {
+      "id": "dwell",
+      "title": "Dwell",
+      "tag": "dwell-2p2",
+      "install_dir": "dwell",
+      "size": "367 MB",
+      "asset": {
+        "filename": "dwellv2p2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/dwell-2p2/dwellv2p2.zip",
+        "sha256": "15bbc5dc0eb3fee5763835cea1aa62ab263545ca8c04aaa019982d45d1e8d11d",
+        "size": "367 MB"
+      }
+    },
+    {
+      "id": "enyo",
+      "title": "Slave Zero X: Episode Enyo",
+      "tag": "enyo-20240115",
+      "install_dir": "enyo",
+      "size": "133 MB",
+      "asset": {
+        "filename": "enyo_hd_20240115.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/enyo-20240115/enyo_hd_20240115.zip",
+        "sha256": "45ddd187e07af6b3d43a5f9f5597172e43aae7cebe73cdd2a5057ad6a36f570e",
+        "size": "133 MB"
+      }
+    },
+    {
+      "id": "hwjam2",
+      "title": "Halloween Jam 2",
+      "tag": "hwjam2-1",
+      "install_dir": "hwjam2",
+      "size": "210 MB",
+      "asset": {
+        "filename": "hwjam2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/hwjam2-1/hwjam2.zip",
+        "sha256": "30bd31b62ed817924e3c5594c44eb592d7575f4ac1e002f3a6bfb06077e2a4eb",
+        "size": "210 MB"
+      }
+    },
+    {
+      "id": "immortal",
+      "title": "The Immortal Lock",
+      "tag": "immortal-1.9",
+      "install_dir": "immortal",
+      "size": "357 MB",
+      "asset": {
+        "filename": "immortal_v1_9.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/immortal-1.9/immortal_v1_9.zip",
+        "sha256": "a04aee22a146df6dd97db37932c7c96028307dab4f6f96e15944bd0e5006bd5b",
+        "size": "357 MB"
+      }
+    },
+    {
+      "id": "limjam",
+      "title": "Liminal Spaces Jam",
+      "tag": "limjam-3",
+      "install_dir": "limjam",
+      "size": "487 MB",
+      "asset": {
+        "filename": "limjam.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/limjam-3/limjam.zip",
+        "sha256": "b936d086fece844fbf88dc0681011b80513f92aa3542474e3d8d2b6540cec409",
+        "size": "487 MB"
+      }
+    },
+    {
+      "id": "meatjam",
+      "title": "Meat Jam",
+      "tag": "meatjam-1.4",
+      "install_dir": "meatjam",
+      "size": "580 MB",
+      "asset": {
+        "filename": "meatjam_v1_4.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/meatjam-1.4/meatjam_v1_4.zip",
+        "sha256": "469c03ff2ccbb3d139a1e8e820177023d6fecebc9dfcd60df55d351777ce51d4",
+        "size": "580 MB"
+      }
+    },
+    {
+      "id": "mc_q30th_jam",
+      "title": "Quake 30th Anniversary Jam",
+      "tag": "mc_q30th_jam-67",
+      "install_dir": "mc_q30th_jam",
+      "size": "144 MB",
+      "asset": {
+        "filename": "mc_q30th_jam.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mc_q30th_jam-67/mc_q30th_jam.zip",
+        "sha256": "195a2fe426b99d6642866d4e6fbca06c0e0ad9175e9d7eb936eff2a62bc4e5b6",
+        "size": "144 MB"
+      }
+    },
+    {
+      "id": "peril3.0",
+      "title": "Peril",
+      "tag": "peril3.0-c",
+      "install_dir": "peril3.0",
+      "size": "1.7 GB",
+      "asset": {
+        "filename": "peril3.0c.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/peril3.0-c/peril3.0c.zip",
+        "sha256": "4e7a4ebe590974771d066c54bc7196e4205e3a783de7254f5b165de992a402c1",
+        "size": "1.7 GB"
+      }
+    },
+    {
+      "id": "qbj1",
+      "title": "Quake Brutalist Jam I 1.05",
+      "tag": "qbj1-1.0.5",
+      "install_dir": "qbj1",
+      "size": "562 MB",
+      "asset": {
+        "filename": "qbj_1.05.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/qbj1-1.0.5/qbj_1.05.zip",
+        "sha256": "7a5521754973bcdb4bb8f4568a464cbb3ef5df70d28e365d04d841005d7245f3",
+        "size": "562 MB"
+      }
+    },
+    {
+      "id": "qbj2",
+      "title": "Quake Brutalist Jam II 1.2",
+      "tag": "qbj2-1.2",
+      "install_dir": "qbj2",
+      "size": "554 MB",
+      "asset": {
+        "filename": "qbj2_1.2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/qbj2-1.2/qbj2_1.2.zip",
+        "sha256": "f2b77ee6fc001e0d7e9ab8dbe7642ee3b85e9a8c9162c2f480e3f1cc0ad157dd",
+        "size": "554 MB"
+      }
+    },
+    {
+      "id": "qbj3",
+      "title": "Quake Brutalist Jam III 1.3",
+      "tag": "qbj3-1.3",
+      "install_dir": "qbj3",
+      "size": "2.5 GB",
+      "parts": [
+        {
+          "filename": "qbj3_1.3.zip.part-aaa",
+          "url": "https://github.com/q1tools/q1tools.github.io/releases/download/qbj3-1.3/qbj3_1.3.zip.part-aaa",
+          "sha256": "8b442fe7da4d4ab426bc43e4eb5e72985bef9f36b221c0d65fc13e1d48ed2915",
+          "size": "1.86 GB"
+        },
+        {
+          "filename": "qbj3_1.3.zip.part-aab",
+          "url": "https://github.com/q1tools/q1tools.github.io/releases/download/qbj3-1.3/qbj3_1.3.zip.part-aab",
+          "sha256": "934a78404654431b43ea78a45d2d6ecb5152ebf77bab581103b4b484edc9b26c",
+          "size": "665 MB"
+        }
+      ]
+    },
+    {
+      "id": "rk",
+      "title": "Raven Keep 1.0.1",
+      "tag": "rk-1.0.1",
+      "install_dir": "rk",
+      "size": "150 MB",
+      "asset": {
+        "filename": "ravenkeep.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/rk-1.0.1/ravenkeep.zip",
+        "sha256": "cf64625b4cd222a440a4fbb53766b6f1efc7e7b3fce38ca0b61e6835b9b55977",
+        "size": "150 MB"
+      }
+    },
+    {
+      "id": "rm1.2",
+      "title": "Re:Mobilize",
+      "tag": "rm1.2-b",
+      "install_dir": "rm1.2",
+      "size": "580 MB",
+      "asset": {
+        "filename": "rm1.2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/rm1.2-b/rm1.2.zip",
+        "sha256": "1346db6e598a0bc2b5acdf4873dc4caf94940d52509357e6e1197880158d3a9d",
+        "size": "580 MB"
+      }
+    },
+    {
+      "id": "rmxjam",
+      "title": "Remix Jam",
+      "tag": "rmxjam-r3",
+      "install_dir": "rmxjam",
+      "size": "262 MB",
+      "asset": {
+        "filename": "rmxjam.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/rmxjam-r3/rmxjam.zip",
+        "sha256": "24b116d3c16e4148dbd76ac3e5eda0e0736b9cad757cb69121b75c1a99977321",
+        "size": "262 MB"
+      }
+    },
+    {
+      "id": "rubicon2",
+      "title": "Rubicon 2",
+      "tag": "rubicon2-l",
+      "install_dir": "rubicon2",
+      "size": "9.28 MB",
+      "asset": {
+        "filename": "rubicon2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/rubicon2-l/rubicon2.zip",
+        "sha256": "349f5abb27c5497a5cc822b810b20525f28c232fc9b39a974c37ab7865b0875c",
+        "size": "9.28 MB"
+      }
+    },
+    {
+      "id": "sj2",
+      "title": "Sewer Jam 2",
+      "tag": "sj2",
+      "install_dir": "sj2",
+      "size": "232 MB",
+      "asset": {
+        "filename": "sewerjam2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/sj2/sewerjam2.zip",
+        "sha256": "ff4a1016f152ecaa2ab0007e164de4cb8fda4e60f36acd9bca16e6581a180f8c",
+        "size": "232 MB"
+      }
+    },
+    {
+      "id": "sp",
+      "title": "Snack Pack 3",
+      "tag": "sp-3",
+      "install_dir": "sp",
+      "size": "74.9 MB",
+      "asset": {
+        "filename": "snack3.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/sp-3/snack3.zip",
+        "sha256": "c92c3a22d0df88190c81e645bd23f3e065106c6895d34af92b02aed54aace6d4",
+        "size": "74.9 MB"
+      }
+    },
+    {
+      "id": "tcj2022",
+      "title": "Twisted Christmas Jam 2022",
+      "tag": "tcj2022-3",
+      "install_dir": "tcj2022",
+      "size": "260 MB",
+      "asset": {
+        "filename": "tcj_r3.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/tcj2022-3/tcj_r3.zip",
+        "sha256": "0fc8f530297f27b1360f05ae59d8facd3a9aedf153ac4d02dc7af882f0b78e1e",
+        "size": "260 MB"
+      }
+    },
+    {
+      "id": "travail",
+      "title": "Travail",
+      "tag": "travail-l",
+      "install_dir": "travail",
+      "size": "39.4 MB",
+      "asset": {
+        "filename": "travail.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/travail-l/travail.zip",
+        "sha256": "c0921652cf0f392ad2aadb05777ab06a9e929f8ed61cd49db586b27f0b526076",
+        "size": "39.4 MB"
+      }
+    },
+    {
+      "id": "xmasjam2020",
+      "title": "Xmas Jam 2020",
+      "tag": "xmasjam2020-1",
+      "install_dir": "xmasjam2020",
+      "size": "386 MB",
+      "asset": {
+        "filename": "xmasjam2020.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/xmasjam2020-1/xmasjam2020.zip",
+        "sha256": "6755b682db4d2fcd3e92dee61b7975468a2807abc2a93f29051835e7e33aec69",
+        "size": "386 MB"
+      }
+    },
+    {
+      "id": "mc_xmasjam_2025",
+      "title": "Xmas Scraps Jam 2025",
+      "tag": "mc_xmasjam_2025-1",
+      "install_dir": "mc_xmasjam_2025",
+      "size": "145 MB",
+      "asset": {
+        "filename": "mc_xmasjam_2025.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mc_xmasjam_2025-1/mc_xmasjam_2025.zip",
+        "sha256": "01869daddb52357b86aba0e145d5c905eb06f6168e5f33af0ee65b959c824449",
+        "size": "145 MB"
+      }
+    }
+  ]
+}
