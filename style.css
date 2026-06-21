@@ -149,6 +149,71 @@ footer {
 }
 
 
+/* Mods list styles */
+.mod-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(680px, calc(100vw - 48px));
+    margin: 0 auto;
+    padding: 0 0 20px;
+}
+
+.mod-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background-color: #383838;
+    border: 2px solid #4f4f4f;
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.mod-card:hover {
+    background-color: #474747;
+    text-decoration: none;
+}
+
+.mod-name {
+    font-size: 16px;
+}
+
+.mod-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    white-space: nowrap;
+}
+
+.mod-size {
+    font-size: 0.85em;
+    color: #6f6f6f;
+}
+
+.mod-note {
+    width: min(680px, calc(100vw - 48px));
+    margin: 0 auto 40px;
+    font-size: 0.85em;
+    line-height: 1.5;
+    color: #6f6f6f;
+}
+
+.mod-note code {
+    background-color: #2b2b2b;
+    border-radius: 4px;
+    padding: 1px 5px;
+}
+
+@media screen and (max-width: 580px) {
+    .mod-list,
+    .mod-note {
+        width: calc(100vw - 32px);
+    }
+}
+
 /* Back arrow styles */
 .back-arrow {
     position: absolute;
