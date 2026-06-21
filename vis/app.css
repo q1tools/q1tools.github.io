@@ -164,6 +164,11 @@ h1 {
     margin-left: auto;
 }
 .run-btn:hover { background-color: #7a5542; }
+.cancel-btn {
+    background-color: #5f3434;
+    margin-left: 0;
+}
+.cancel-btn:hover { background-color: #754242; }
 .run-btn:disabled {
     background-color: #555;
     cursor: not-allowed;

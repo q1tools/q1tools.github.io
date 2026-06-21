@@ -1,5 +1,5 @@
 // VisPatch Tool - Compute visibility data for Quake BSP maps
-// Combines BSP->PRT portal extraction + fast vis computation + vispatch output
+// Combines BSP->PRT portal extraction + full vis computation + vispatch output
 
 'use strict';
 
@@ -1270,7 +1270,7 @@ function computePortalPvs(nodeCenters, nodeIsSolid, portals, logFn, label) {
     return pvs;
 }
 
-function computeLeafFastVis(bsp, portals, logFn) {
+function computeLeafVis(bsp, portals, logFn) {
     const nodeCenters = new Array(bsp.leaves.length).fill(null);
     const nodeIsSolid = new Array(bsp.leaves.length).fill(true);
     for (let i = 1; i < bsp.leaves.length; i++) {
@@ -1355,7 +1355,7 @@ function expandClusterPvsToLeaves(bsp, prt, clusterPvs) {
     return pvs;
 }
 
-function computeFastVisFromPRT(bsp, prt, logFn) {
+function computeVisFromPRT(bsp, prt, logFn) {
     validatePRTAgainstBSP(bsp, prt);
 
     if (!prt.usesClusters) {
@@ -1363,7 +1363,7 @@ function computeFastVisFromPRT(bsp, prt, logFn) {
             winding: p.winding,
             leaves: [p.clusters[0] + 1, p.clusters[1] + 1]
         }));
-        return computeLeafFastVis(bsp, portals, logFn);
+        return computeLeafVis(bsp, portals, logFn);
     }
 
     const { centers, nodeIsSolid } = computeClusterNodeData(bsp, prt);
@@ -1379,11 +1379,11 @@ function computeFastVisFromPRT(bsp, prt, logFn) {
     return expandClusterPvsToLeaves(bsp, prt, clusterPvs);
 }
 
-function computeFastVis(bsp, portalInput, logFn) {
+function computeVis(bsp, portalInput, logFn) {
     if (portalInput && portalInput.portals && portalInput.leafToCluster) {
-        return computeFastVisFromPRT(bsp, portalInput, logFn);
+        return computeVisFromPRT(bsp, portalInput, logFn);
     }
-    return computeLeafFastVis(bsp, portalInput, logFn);
+    return computeLeafVis(bsp, portalInput, logFn);
 }
 
 // ============================================================
@@ -1682,9 +1682,100 @@ function computeAmbientLevels(bsp, pvs, logFn) {
     return ambientLevels;
 }
 
+function runVisPatchJob(options) {
+    const logFn = options.logFn || (() => {});
+    const progressFn = options.progressFn || (() => {});
+    const bsp = options.bsp || parseBSP(options.bspBuffer);
+    const bspName = options.bspName || 'output.bsp';
+    const outputMode = options.outputMode || 'bsp';
+
+    progressFn(5, 'Extracting portals...');
+    logFn('=== VisPatch Tool ===');
+    logFn(`Map: ${bspName}`);
+    logFn(`Leaves: ${bsp.leaves.length}, Nodes: ${bsp.nodes.length}, Planes: ${bsp.planes.length}`);
+
+    let portals;
+    if (options.prt) {
+        validatePRTAgainstBSP(bsp, options.prt);
+        logFn(options.prt.usesClusters
+            ? `Using PRT file (${options.prt.numPortals} portals, ${options.prt.numClusters} clusters / ${options.prt.numLeafsReal} leaves)`
+            : `Using PRT file (${options.prt.numPortals} portals, ${options.prt.numLeafsReal} leaves)`);
+        portals = options.prt;
+    } else {
+        logFn('Extracting portals from BSP tree...');
+        portals = extractPortals(bsp, logFn);
+    }
+
+    progressFn(30, 'Computing visibility...');
+    logFn('Computing full vis...');
+    const pvs = computeVis(bsp, portals, logFn);
+
+    progressFn(60, 'Rebuilding ambient sounds...');
+    const ambientLevels = computeAmbientLevels(bsp, pvs, logFn);
+
+    progressFn(70, 'Compressing vis data...');
+    const numVisLeaves = bsp.models[0].visleafs;
+    logFn(`Compressing vis data for ${numVisLeaves} vis leaves...`);
+    const { data: visData, offsets: visOffsets } = compressVis(pvs, bsp.leaves.length, numVisLeaves);
+    logFn(`Compressed vis data: ${visData.length} bytes`);
+
+    progressFn(80, 'Building leaf data...');
+    for (let i = 0; i < bsp.leaves.length; i++) {
+        if (i === 0 || i > numVisLeaves || bsp.leaves[i].contents === CONTENTS_SOLID) {
+            visOffsets[i] = -1;
+        }
+    }
+    const leafData = buildLeafLump(bsp, visOffsets, ambientLevels);
+    logFn(`Leaf data: ${leafData.length} bytes`);
+
+    progressFn(90, 'Building output...');
+    if (outputMode === 'bsp') {
+        logFn('Patching BSP...');
+        const patched = patchBSP(bsp, visData, leafData);
+        logFn(`Patched BSP: ${patched.length} bytes`);
+        return { filename: bspName, bytes: patched };
+    }
+
+    logFn('Creating .vis file...');
+    const mapName = extractVispatchMapName(bspName);
+    const visFile = createVisFile(mapName, visData, leafData);
+    const visFileName = /\.bsp$/i.test(bspName)
+        ? bspName.replace(/\.bsp$/i, '.vis')
+        : `${bspName}.vis`;
+    logFn(`VIS file: ${visFile.length} bytes (map name: "${mapName}")`);
+    return { filename: visFileName, bytes: visFile };
+}
+
+const VisPatchCore = {
+    parseBSP,
+    parsePRT,
+    validatePRTAgainstBSP,
+    extractPortals,
+    computeVis,
+    computeAmbientLevels,
+    compressVis,
+    buildLeafLump,
+    patchBSP,
+    createVisFile,
+    extractVispatchMapName,
+    runVisPatchJob,
+    CONTENTS_SOLID,
+    LUMP_VISILIST
+};
+
+if (typeof self !== 'undefined') {
+    self.VisPatchCore = VisPatchCore;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = VisPatchCore;
+}
+
 // ============================================================
 // UI
 // ============================================================
+
+if (typeof document !== 'undefined') {
 
 let loadedBSP = null;
 let loadedBSPBuffer = null;
@@ -1703,6 +1794,8 @@ const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const logEl = document.getElementById('log');
 const runBtn = document.getElementById('runBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+let currentWorker = null;
 
 function setupDropZone(zone, input, handler) {
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
@@ -1798,82 +1891,122 @@ function handlePRTFile(file) {
 setupDropZone(bspDropZone, bspInput, handleBSPFile);
 setupDropZone(prtDropZone, prtInput, handlePRTFile);
 
+function setRunning(isRunning, canCancel) {
+    runBtn.disabled = isRunning;
+    bspInput.disabled = isRunning;
+    prtInput.disabled = isRunning;
+    for (const input of document.querySelectorAll('input[name="outputMode"]')) {
+        input.disabled = isRunning;
+    }
+    cancelBtn.classList.toggle('hidden', !isRunning || !canCancel);
+    cancelBtn.disabled = !isRunning || !canCancel;
+}
+
+function cleanupWorker() {
+    if (currentWorker) {
+        currentWorker.terminate();
+        currentWorker = null;
+    }
+    setRunning(false, false);
+}
+
+function cancelCurrentRun() {
+    if (!currentWorker) return;
+    cleanupWorker();
+    log('Canceled.');
+    setProgress(0, 'Canceled');
+}
+
 runBtn.addEventListener('click', async () => {
-    if (!loadedBSP) return;
-    runBtn.disabled = true;
+    if (!loadedBSP || currentWorker) return;
     logEl.textContent = '';
     logEl.classList.remove('hidden');
 
-    // Yield to let UI update before heavy computation
-    await new Promise(r => setTimeout(r, 50));
-    await runVisComputation();
+    if (startWorkerRun()) return;
+
+    setRunning(true, false);
+    try {
+        log('Worker unavailable; running on the main thread.');
+        await new Promise(r => setTimeout(r, 50));
+        await runVisComputationInline();
+    } finally {
+        setRunning(false, false);
+    }
 });
 
-async function runVisComputation() {
+cancelBtn.addEventListener('click', cancelCurrentRun);
+
+function startWorkerRun() {
+    let worker;
     try {
-        const bsp = loadedBSP;
+        worker = new Worker('worker.js');
+    } catch (e) {
+        log(`Worker startup failed: ${e.message}`);
+        return false;
+    }
+
+    currentWorker = worker;
+    setRunning(true, true);
+
+    worker.onmessage = e => {
+        const msg = e.data || {};
+        if (msg.type === 'log') {
+            log(msg.message);
+        } else if (msg.type === 'progress') {
+            setProgress(msg.percent, msg.text);
+        } else if (msg.type === 'done') {
+            const blob = new Blob([msg.buffer], { type: 'application/octet-stream' });
+            downloadBlob(blob, msg.filename);
+            log(`Done! Download: ${msg.filename}`);
+            setProgress(100, 'Complete!');
+            cleanupWorker();
+        } else if (msg.type === 'error') {
+            log(`ERROR: ${msg.message}`);
+            setProgress(0, 'Error!');
+            cleanupWorker();
+        }
+    };
+
+    worker.onerror = e => {
+        const message = e.message || 'worker failed';
+        log(`ERROR: ${message}`);
+        setProgress(0, 'Error!');
+        cleanupWorker();
+    };
+
+    const outputMode = document.querySelector('input[name="outputMode"]:checked').value;
+    const bspBuffer = loadedBSPBuffer.slice(0);
+    try {
+        worker.postMessage({
+            type: 'run',
+            bspBuffer,
+            bspName: loadedBSPName,
+            prt: loadedPRT,
+            outputMode
+        }, [bspBuffer]);
+    } catch (e) {
+        log(`Worker handoff failed: ${e.message}`);
+        cleanupWorker();
+        return false;
+    }
+
+    return true;
+}
+
+async function runVisComputationInline() {
+    try {
         const outputMode = document.querySelector('input[name="outputMode"]:checked').value;
-
-        setProgress(5, 'Extracting portals...');
-        log('=== VisPatch Tool ===');
-        log(`Map: ${loadedBSPName}`);
-        log(`Leaves: ${bsp.leaves.length}, Nodes: ${bsp.nodes.length}, Planes: ${bsp.planes.length}`);
-
-        let portals;
-        if (loadedPRT) {
-            log(loadedPRT.usesClusters
-                ? `Using PRT file (${loadedPRT.numPortals} portals, ${loadedPRT.numClusters} clusters / ${loadedPRT.numLeafsReal} leaves)`
-                : `Using PRT file (${loadedPRT.numPortals} portals, ${loadedPRT.numLeafsReal} leaves)`);
-            portals = loadedPRT;
-        } else {
-            log('Extracting portals from BSP tree...');
-            portals = extractPortals(bsp, log);
-        }
-
-        setProgress(30, 'Computing visibility...');
-        log('Computing fast vis...');
-        const pvs = computeFastVis(bsp, portals, log);
-
-        setProgress(60, 'Rebuilding ambient sounds...');
-        const ambientLevels = computeAmbientLevels(bsp, pvs, log);
-
-        setProgress(70, 'Compressing vis data...');
-        const numVisLeaves = bsp.models[0].visleafs;
-        log(`Compressing vis data for ${numVisLeaves} vis leaves...`);
-        const { data: visData, offsets: visOffsets } = compressVis(pvs, bsp.leaves.length, numVisLeaves);
-        log(`Compressed vis data: ${visData.length} bytes`);
-
-        setProgress(80, 'Building leaf data...');
-        // Update leaf visofs with new offsets, skip solid and non-vis leaves
-        for (let i = 0; i < bsp.leaves.length; i++) {
-            if (i === 0 || i > numVisLeaves || bsp.leaves[i].contents === CONTENTS_SOLID) {
-                visOffsets[i] = -1;
-            }
-        }
-        const leafData = buildLeafLump(bsp, visOffsets, ambientLevels);
-        log(`Leaf data: ${leafData.length} bytes`);
-
-        setProgress(90, 'Building output...');
-
-        if (outputMode === 'bsp') {
-            log('Patching BSP...');
-            const patched = patchBSP(bsp, visData, leafData);
-            log(`Patched BSP: ${patched.length} bytes`);
-
-            const blob = new Blob([patched], { type: 'application/octet-stream' });
-            downloadBlob(blob, loadedBSPName);
-            log(`Done! Download: ${loadedBSPName}`);
-        } else {
-            log('Creating .vis file...');
-            const mapName = extractVispatchMapName(loadedBSPName);
-            const visFile = createVisFile(mapName, visData, leafData);
-            log(`VIS file: ${visFile.length} bytes (map name: "${mapName}")`);
-
-            const visFileName = loadedBSPName.replace(/\.bsp$/i, '.vis');
-            const blob = new Blob([visFile], { type: 'application/octet-stream' });
-            downloadBlob(blob, visFileName);
-            log(`Done! Download: ${visFileName}`);
-        }
+        const result = runVisPatchJob({
+            bsp: loadedBSP,
+            bspName: loadedBSPName,
+            prt: loadedPRT,
+            outputMode,
+            logFn: log,
+            progressFn: setProgress
+        });
+        const blob = new Blob([result.bytes], { type: 'application/octet-stream' });
+        downloadBlob(blob, result.filename);
+        log(`Done! Download: ${result.filename}`);
 
         setProgress(100, 'Complete!');
     } catch (e) {
@@ -1894,4 +2027,6 @@ function downloadBlob(blob, filename) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
 }
