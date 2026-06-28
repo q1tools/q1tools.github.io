@@ -139,11 +139,19 @@ const DATA = {
         { name: "SoftQuake", url: "https://github.com/voidstar-dev/SoftQuake" },
         { name: "Metal-Quake", url: "https://github.com/mstits/Metal-Quake" },
         {
-          name: "CleanQuake",
+          name: "SDLQuake",
+          url: "https://www.libsdl.org/projects/quake/",
           children: [
-            { name: "Miniracer" },
-            { name: "Q2K4" },
-            { name: "Vengeance", url: "https://github.com/OrphicAbyss/Vengeance-r2" }
+            {
+              name: "CleanQuake",
+              url: "https://github.com/klaussilveira/clean-quake",
+              children: [
+                { name: "Quake.cpp", url: "https://github.com/VinceMack/Quake.cpp" },
+                { name: "Miniracer" },
+                { name: "Q2K4" },
+                { name: "Vengeance", url: "https://github.com/OrphicAbyss/Vengeance-r2" }
+              ]
+            }
           ]
         },
         { name: "ToChris", url: "https://github.com/viciious/tochris" },
