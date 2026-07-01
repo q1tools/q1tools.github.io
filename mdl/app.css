@@ -403,6 +403,34 @@ body.is-resizing * {
   padding: 0 14px 14px;
 }
 
+.authoring-notes {
+  display: grid;
+  gap: 10px;
+}
+
+.authoring-note {
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  background: rgba(10, 14, 20, 0.34);
+}
+
+.authoring-note h3 {
+  margin: 0 0 6px;
+  color: var(--accent-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.authoring-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 h1,
 h2 {
   margin: 0 0 10px;

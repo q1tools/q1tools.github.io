@@ -137,6 +137,83 @@
         </div>
       </details>
 
+      <details id="mdl-help-panel" class="panel panel-collapsible">
+        <summary class="panel-summary">
+          <h2>MDL Authoring Notes</h2>
+        </summary>
+        <div class="panel-collapsible-content authoring-notes">
+          <section class="authoring-note">
+            <h3>Palette Slots Are Data</h3>
+            <p>Quake skins store palette indices, not best-fit colors. If a palette slot changes, every pixel using that slot changes with it. Remap the skin pixels when changing palette order.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Fullbright And Alpha</h3>
+            <p>Indices 224-254 glow under fullbright rendering. Index 255 is normally reserved for cutout transparency and needs the MDL transparency flag for embedded skins in QSS-M. Treat accidental 224-254 pixels as contamination unless they are intentional glow.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Skin Size And Sampling</h3>
+            <p>Classic MDL tooling is fragile above 480 pixels of skin height, while very wide skins tend to be safer. MDL and MD3 UVs should land on texel centers, and nearest/closest filtering avoids edge bleed while checking pixel art.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Flood Fill Pixel</h3>
+            <p>QuakeSpasm-family engines still flood-fill alias skins from texel 0. Keep that texel out of the sampled artwork or use a guard texel so flood fill cannot rewrite visible art.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>UVs Can Raise Vertex Counts</h3>
+            <p>Texture seams and split UVs can make the exported MDL carry more vertices than the plain mesh suggests. A model that loads untextured can exceed limits once UV mapping is included.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Blender Export Habits</h3>
+            <p>Use Blender Unit System None when treating 1 Blender unit as 1 Quake map unit. Material slots can become MDL skin slots, but each skin must match the same mesh and UV layout. MDL export is happiest with one combined mesh; use shape keys for copied frame poses, and expect frame groups to need cleanup in dedicated MDL tools.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Rigs And Variant Models</h3>
+            <p>For Quake-style remakes, a Remaster MD5 armature can be a useful animation base, but expect manual cleanup when fitting it to old MDL poses. For state changes like headless deaths or alternate held weapons, a separate MDL plus a code-side model swap can be cleaner than mutating the original animation set.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Animation Edge Cases</h3>
+            <p>Very short frame times such as 0.05 or 0.025 can make muzzle flashes feel snappy, but interpolation is engine-dependent. QuakeC timing can drive individual weapon frames with short nextthink intervals, and r_lerpmodels changes whether muzzle flashes hold, blend, or jump.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Forcing Jump Cuts</h3>
+            <p>Swapping between duplicate model names can force a stop-motion jump cut because the engine has no shared vertices to interpolate. This is useful for spinning barrels, revolver chambers, hard resets, and wind-down-to-idle transitions that smear under normal lerp.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Viewmodel Framing</h3>
+            <p>Weapon scale, bobbing, FOV, and status-bar mode can change what clips or becomes visible. Test viewmodels at both low and high FOV, especially hidden muzzle flashes, backfaces, and off-screen moving parts.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MD3 Replacement Gotchas</h3>
+            <p>MD3 replacements still need a matching MDL name in QuakeSpasm-family engines. Keep the placeholder MDL flags intentional, use lowercase texture names for Linux-safe skin files, map MD3 object names to texture paths, and use black base pixels under glow overlays when the glow color should stay exact.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MD3 Fallback Planning</h3>
+            <p>A null MDL is fine as a placeholder, but players without enhanced MD3 replacements enabled will see nothing. A visible message fallback MDL is safer for MD3-only assets. If MDL and MD3 both ship, use the same rig where possible but plan for MDL's single atlas and combined-mesh limits.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MD3 Transparency Caveats</h3>
+            <p>Weapon-viewmodel MD3 alpha is usually the safe case. Non-viewmodel MD3 alpha can be engine-version sensitive, especially with overlapping double-sided planes, alternate skins, or placeholder MDL flags. Test foliage, glass, and cards in-engine from several angles.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MD3 Export Traps</h3>
+            <p>Do not make the first MD3 frame collapsed or scaled to zero; use a tiny visible scale or a reference pose instead. A triangulate step can prevent surprise sliced angles, and very large MD3 objects still need engine-side size testing even when vertex counts are high.</p>
+          </section>
+        </div>
+      </details>
+
       <details id="skins-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
         <summary class="panel-summary">
           <h2>Skins</h2>

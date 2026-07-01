@@ -305,6 +305,10 @@ body.tool-index {
     color: #d0a85f;
 }
 
+.tool-grid .skybox-tool-icon {
+    color: #8ed2d9;
+}
+
 body.tool-index footer {
     position: fixed;
 }

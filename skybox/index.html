@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quakespasm Skybox Creator</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script defer src="app.js"></script>
+</head>
+<body>
+    <main class="skybox-page">
+        <header class="topbar">
+            <a class="back-link" href="../" aria-label="Back to tools"><i class="fa-solid fa-arrow-left"></i></a>
+            <div class="title-block">
+                <div id="quakefontheader">skybox creator</div>
+                <div class="subtitle">Panorama to Quakespasm-family <code>gfx/env</code> faces</div>
+            </div>
+            <div class="format-badge">
+                <i class="fa-solid fa-cube"></i>
+                <span>Quakespasm</span>
+            </div>
+        </header>
+
+        <section class="tool-layout">
+            <aside class="panel controls-panel">
+                <div class="panel-head">
+                    <h2>Input</h2>
+                    <span id="sourceBadge" class="small-badge">No file</span>
+                </div>
+
+                <label id="dropZone" class="drop-zone" tabindex="0">
+                    <input id="fileInput" type="file" accept=".jpg,.jpeg,.png,.webp,.avif,.hdr,image/jpeg,image/png,image/webp,image/avif" hidden>
+                    <canvas id="dropThumb" width="180" height="90" hidden></canvas>
+                    <i id="dropIcon" class="fa-solid fa-cloud-sun"></i>
+                    <strong id="dropTitle">Drop a 2:1 panorama</strong>
+                    <span id="dropHint">JPG, PNG, WebP, AVIF, or Radiance HDR</span>
+                </label>
+
+                <div class="quick-row">
+                    <select id="samplePreset" class="mini-select" aria-label="Sample sky">
+                        <option value="dawn">Dawn sample</option>
+                        <option value="storm">Storm sample</option>
+                        <option value="space">Space sample</option>
+                    </select>
+                    <button id="sampleButton" class="mini-button" type="button"><i class="fa-solid fa-sparkles"></i><span>Sample</span></button>
+                </div>
+
+                <div class="settings-grid">
+                    <label class="field wide">
+                        <span>Sky name</span>
+                        <input id="skyName" type="text" value="customsky" spellcheck="false">
+                    </label>
+                    <label class="field">
+                        <span>Face size</span>
+                        <select id="faceSize">
+                            <option value="256">256</option>
+                            <option value="512">512</option>
+                            <option value="1024" selected>1024</option>
+                            <option value="2048">2048</option>
+                            <option value="4096">4096</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Format</span>
+                        <select id="imageFormat">
+                            <option value="png" selected>PNG</option>
+                            <option value="jpg">JPEG</option>
+                            <option value="tga">TGA</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Sampling</span>
+                        <select id="sampling">
+                            <option value="1" selected>Balanced</option>
+                            <option value="2">2x smooth</option>
+                            <option value="3">Lanczos</option>
+                        </select>
+                    </label>
+                    <div class="field range-field">
+                        <span>Yaw</span>
+                        <div class="range-row">
+                            <input id="yaw" type="range" min="-180" max="180" value="0">
+                            <input id="yawNumber" type="number" min="-180" max="180" value="0" aria-label="Yaw degrees">
+                        </div>
+                    </div>
+                    <div class="field range-field">
+                        <span>Pitch</span>
+                        <div class="range-row">
+                            <input id="pitch" type="range" min="-90" max="90" value="0">
+                            <input id="pitchNumber" type="number" min="-90" max="90" value="0" aria-label="Pitch degrees">
+                        </div>
+                    </div>
+                    <div class="field range-field">
+                        <span>Roll</span>
+                        <div class="range-row">
+                            <input id="roll" type="range" min="-180" max="180" value="0">
+                            <input id="rollNumber" type="number" min="-180" max="180" value="0" aria-label="Roll degrees">
+                        </div>
+                    </div>
+                    <div class="field range-field">
+                        <span>Exposure</span>
+                        <div class="range-row">
+                            <input id="exposure" type="range" min="-3" max="3" step="0.1" value="0">
+                            <input id="exposureNumber" type="number" min="-3" max="3" step="0.1" value="0" aria-label="Exposure stops">
+                        </div>
+                    </div>
+                    <div class="field range-field">
+                        <span>JPEG quality</span>
+                        <div class="range-row">
+                            <input id="jpegQuality" type="range" min="70" max="98" value="92">
+                            <input id="jpegQualityNumber" type="number" min="70" max="98" value="92" aria-label="JPEG quality">
+                        </div>
+                    </div>
+                    <label class="field">
+                        <span>HDR curve</span>
+                        <select id="toneMap">
+                            <option value="reinhard" selected>Reinhard</option>
+                            <option value="aces">ACES</option>
+                            <option value="linear">Linear</option>
+                        </select>
+                    </label>
+                    <div class="field range-field">
+                        <span>HDR white</span>
+                        <div class="range-row">
+                            <input id="whitePoint" type="range" min="1" max="16" step="0.5" value="4">
+                            <input id="whitePointNumber" type="number" min="1" max="16" step="0.5" value="4" aria-label="HDR white point">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="readout-grid">
+                    <div><span>Output</span><strong id="outputReadout">gfx/env/customskyrt.png</strong></div>
+                    <div><span>Yaw</span><strong id="yawReadout">0 deg</strong></div>
+                    <div><span>Pitch</span><strong id="pitchReadout">0 deg</strong></div>
+                    <div><span>Roll</span><strong id="rollReadout">0 deg</strong></div>
+                    <div><span>Exposure</span><strong id="exposureReadout">0.0 stops</strong></div>
+                    <div><span>Quality</span><strong id="qualityReadout">92</strong></div>
+                </div>
+
+                <div class="action-row">
+                    <button id="renderButton" class="action-button primary" type="button" disabled><i class="fa-solid fa-wand-magic-sparkles"></i><span>Render Faces</span></button>
+                    <button id="cancelButton" class="action-button danger" type="button" hidden><i class="fa-solid fa-ban"></i><span>Cancel</span></button>
+                    <button id="zipButton" class="action-button" type="button" disabled><i class="fa-solid fa-file-zipper"></i><span>Download ZIP</span></button>
+                </div>
+
+                <div class="progress" id="progress" hidden>
+                    <div id="progressFill"></div>
+                </div>
+
+                <div id="status" class="status" aria-live="polite">Load a panorama to begin.</div>
+
+                <details class="help-panel">
+                    <summary>Quakespasm setup</summary>
+                    <ol>
+                        <li>Put the exported files in your gamedir under <code>gfx/env/</code>.</li>
+                        <li>Use the name without the face suffix or extension, for example <code>sky sample_sky</code>.</li>
+                        <li>Maps can also set worldspawn <code>sky</code>, <code>skyname</code>, or <code>qlsky</code>.</li>
+                        <li>Use the console command <code>sky sample_sky</code> to test or override the current skybox.</li>
+                        <li>PNG, JPEG, and TGA exports use the same <code>rt bk lf ft up dn</code> suffixes.</li>
+                    </ol>
+                </details>
+            </aside>
+
+            <section class="panel preview-panel">
+                <div class="panel-head">
+                    <h2>In-Game Preview</h2>
+                    <span class="small-badge">drag to look</span>
+                </div>
+
+                <div class="look-wrap">
+                    <canvas id="lookCanvas" width="720" height="360"></canvas>
+                </div>
+            </section>
+
+            <section class="panel preview-panel wide-panel">
+                <div class="panel-head">
+                    <h2>Panorama</h2>
+                    <span class="small-badge">horizon + bright point</span>
+                </div>
+
+                <div class="panorama-wrap">
+                    <canvas id="panoramaCanvas" width="1200" height="360"></canvas>
+                </div>
+            </section>
+
+            <section class="panel preview-panel wide-panel">
+                <div class="panel-head">
+                    <h2>Faces</h2>
+                    <span id="seamBadge" class="small-badge">seams unchecked</span>
+                </div>
+
+                <div id="warningList" class="warning-list" hidden></div>
+
+                <div id="faceGrid" class="face-grid">
+                    <div id="emptyFaces" class="empty-state">Load a panorama or sample sky to render the cube faces.</div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <footer>
+        Created by woods &nbsp;&nbsp;|&nbsp;&nbsp; <a href="https://github.com/q1tools/q1tools.github.io"><i class="fa-brands fa-github"></i></a>
+    </footer>
+</body>
+</html>
