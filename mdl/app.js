@@ -19,7 +19,12 @@
   const QSSM_MAX_ALIAS_VERTS = 0x7fff;
   const QSSM_MAX_ALIAS_POSES = 1024;
   const QSSM_MAX_SKINS = 32;
+  const VANILLA_MAX_ALIAS_SKIN_HEIGHT = 480;
   const QSSM_SKIN_ANIM_TEXTURE_SLOTS = 4;
+  const FULLBRIGHT_MIN_PALETTE_INDEX = 224;
+  const FULLBRIGHT_MAX_PALETTE_INDEX = 254;
+  const TRANSPARENT_PALETTE_INDEX = 255;
+  const MF_HOLEY = 1 << 14;
   const FRAME_INTERVAL_EPSILON = 0.0005;
   const ALIAS_VERTEX_NORMALS = new Float32Array([
     -0.525731, 0.000000, 0.850651,
@@ -187,8 +192,8 @@
   ]);
   const ALIAS_VERTEX_NORMAL_COUNT = ALIAS_VERTEX_NORMALS.length / 3;
   // Default Quake palette index for the generated solid skin. 250 (0xd70000) is a
-  // fullbright red: QSS-M (Mod_CheckFullbrights, gl_model.c) only treats indices
-  // 224-255 as fullbright, and world-placed models get no minimum light, so a
+  // fullbright red: QSS-M (Mod_CheckFullbrights, gl_model.c) treats the high
+  // palette range as fullbright, and world-placed models get no minimum light, so a
   // non-fullbright color (e.g. 76) renders near-black in dim areas. Users can
   // override this with the in-app skin color picker.
   const GENERATED_SOLID_SKIN_PALETTE_INDEX = 250;
@@ -199,6 +204,12 @@
   const FONTAWESOME_ICONS_URL = "https://cdn.jsdelivr.net/gh/FortAwesome/Font-Awesome@6.7.2/metadata/icons.json";
   const GOOGLE_FONTS_INDEX_URL = "./gfonts.json";
   const GENERATED_FONT_ICON_FILL_RGB24 = 0x5b431f;
+  // Depth (model Y) budget for flat-prism text/icons, expressed against the model's
+  // silhouette height, plus an absolute floor so tiny models keep solid side walls.
+  // Keeping the body shallow stops r_outline's back-cap shell from foreshortening away
+  // from the top/bottom edges when the model is viewed off-axis.
+  const GENERATED_FLAT_PRISM_DEPTH_RATIO = 0.06;
+  const GENERATED_FLAT_PRISM_MIN_DEPTH = 0.5;
   const BUILTIN_FONT_SOURCES = [
     {
       family: "Quake1",
@@ -256,7 +267,7 @@
     { mask: 16, label: "Wizard Green Tracer" },
     { mask: 64, label: "Hellknight Yellow Tracer" },
     { mask: 128, label: "Vore Purple Tracer" },
-    { mask: 1 << 14, label: "Index 255 Transparent" },
+    { mask: MF_HOLEY, label: "Index 255 Transparent" },
   ];
   const VALIDATION_SEVERITY_LABELS = {
     error: "Error",
@@ -274,6 +285,7 @@
     normalizeFrameIntervals: { id: "normalize-frame-intervals", label: "Normalize Frame Intervals" },
     normalizeSkinIntervals: { id: "normalize-skin-intervals", label: "Normalize Skin Intervals" },
     repairSeamFlags: { id: "repair-seam-flags", label: "Repair Seam Flags" },
+    optimizeFlatPrismOutlineNormals: { id: "optimize-flat-prism-outline-normals", label: "Optimize Outline Normals" },
     useUniformFrameTiming: { id: "use-uniform-frame-timing", label: "Use Uniform Frame Timing" },
   };
 
@@ -2262,6 +2274,9 @@
       case VALIDATION_FIXES.repairSeamFlags.id:
         repairSeamFlags();
         break;
+      case VALIDATION_FIXES.optimizeFlatPrismOutlineNormals.id:
+        optimizeFlatPrismOutlineNormals();
+        break;
       case VALIDATION_FIXES.useUniformFrameTiming.id:
         useUniformFrameTiming();
         break;
@@ -2327,9 +2342,7 @@
         return;
       }
 
-      const hasValidIntervals = Array.isArray(skin.intervals) &&
-        skin.intervals.length === frameCount &&
-        skin.intervals.every((value) => Number.isFinite(value) && value > 0);
+      const hasValidIntervals = hasValidCumulativeIntervals(skin.intervals, frameCount);
       if (hasValidIntervals) {
         return;
       }
@@ -2398,6 +2411,38 @@
       parts.push(`normalized ${normalizedValues} non-standard seam value${normalizedValues === 1 ? "" : "s"}`);
     }
     setSaveStatus(`Repaired seam flags: ${parts.join("; ")}. Save .mdl to export changes.`);
+  }
+
+  function optimizeFlatPrismOutlineNormals() {
+    if (!state.model?.poses?.length) {
+      return;
+    }
+
+    let updated = 0;
+    state.model.poses.forEach((pose) => {
+      if (!pose?.positions) {
+        return;
+      }
+      const lightnormalIndices = computeFlatPrismMeshLightnormalIndices(
+        pose.positions,
+        state.model.triangles,
+        state.model.numVerts,
+      );
+      if (!lightnormalIndices) {
+        return;
+      }
+      pose.lightnormalIndices = lightnormalIndices;
+      updated += 1;
+    });
+
+    if (!updated) {
+      setSaveStatus("No flat-prism outline normals could be optimized.");
+      return;
+    }
+
+    state.model.exportLightnormalIndices = true;
+    updateValidationPanel();
+    setSaveStatus(`Optimized outline normals for ${updated} pose${updated === 1 ? "" : "s"}. Save .mdl to export changes.`);
   }
 
   function useUniformFrameTiming() {
@@ -2542,15 +2587,23 @@
       const image = await loadImageFromFile(file);
       const rgba = drawImageToRgba(image, state.model.skinWidth, state.model.skinHeight);
       const indexed = rgbaToIndexedQuakePalette(rgba, state.paletteRGBA);
+      const paletteUse = detectSkinFrameSpecialPaletteUse(indexed);
 
       const skin = state.model.skins[state.selectedSkinIndex];
       const skinFrameIndex = getCurrentSkinFrameIndex();
       skin.frames[skinFrameIndex] = indexed;
 
+      let flagNote = "";
+      if (paletteUse.hasTransparent && !(state.model.flags & MF_HOLEY)) {
+        state.model.flags |= MF_HOLEY;
+        populateProperties(state.model);
+        flagNote = " Enabled Index 255 Transparent for imported alpha.";
+      }
+
       state.textureDirty = true;
       updateSkinStatus();
       updateValidationPanel();
-      setSaveStatus(`Imported ${file.name} into skin ${state.selectedSkinIndex}, frame ${skinFrameIndex}.`);
+      setSaveStatus(`Imported ${file.name} into skin ${state.selectedSkinIndex}, frame ${skinFrameIndex}.${flagNote}`);
     } catch (error) {
       console.error(error);
       setSaveStatus(`Skin import failed: ${error.message}`);
@@ -2719,7 +2772,7 @@
     for (let i = 0, out = 0; i < rgba.length; i += 4, out++) {
       const alpha = rgba[i + 3];
       if (alpha < 128) {
-        indexed[out] = 255;
+        indexed[out] = TRANSPARENT_PALETTE_INDEX;
         continue;
       }
 
@@ -2739,7 +2792,7 @@
     let bestIndex = 0;
     let bestDistance = Infinity;
 
-    for (let index = 0; index < 255; index++) {
+    for (let index = 0; index < TRANSPARENT_PALETTE_INDEX; index++) {
       const dr = palette[index * 4 + 0] - r;
       const dg = palette[index * 4 + 1] - g;
       const db = palette[index * 4 + 2] - b;
@@ -2870,6 +2923,33 @@
     const ac = subtractVec3(c, a);
     const cross = crossVec3(ab, ac);
     return Math.hypot(cross[0], cross[1], cross[2]) * 0.5;
+  }
+
+  function computeAverageTriangleArea3D(positions, triangles) {
+    if (!positions || !triangles?.length) {
+      return 0;
+    }
+
+    let totalArea = 0;
+    let validTriangles = 0;
+    triangles.forEach((triangle) => {
+      const [ia, ib, ic] = triangle.vertIndex || [];
+      if (![ia, ib, ic].every((index) => Number.isInteger(index) && index >= 0 && (index * 3 + 2) < positions.length)) {
+        return;
+      }
+
+      const area = computeTriangleArea3D(
+        getPoseVertex(positions, ia),
+        getPoseVertex(positions, ib),
+        getPoseVertex(positions, ic),
+      );
+      if (Number.isFinite(area) && area > 0) {
+        totalArea += area;
+        validTriangles += 1;
+      }
+    });
+
+    return validTriangles ? totalArea / validTriangles : 0;
   }
 
   function orientBrushPlaneInward(a, b, c, interiorPoint) {
@@ -3467,6 +3547,8 @@
     let emptySkins = 0;
     let frameSizeMismatches = 0;
     let intervalIssues = 0;
+    let mixedFullbrightFrames = 0;
+    let transparentFrames = 0;
 
     model.skins.forEach((skin) => {
       if (!skin.frames?.length) {
@@ -3477,6 +3559,15 @@
       skin.frames.forEach((frame) => {
         if (!frame || frame.length !== expectedPixels) {
           frameSizeMismatches += 1;
+          return;
+        }
+
+        const paletteUse = detectSkinFrameSpecialPaletteUse(frame);
+        if (paletteUse.mixesFullbright) {
+          mixedFullbrightFrames += 1;
+        }
+        if (paletteUse.hasTransparent) {
+          transparentFrames += 1;
         }
       });
 
@@ -3518,6 +3609,35 @@
       );
     }
 
+    if (model.skinHeight > VANILLA_MAX_ALIAS_SKIN_HEIGHT) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Skin height exceeds classic MDL tooling limit",
+        `Skin is ${model.skinWidth} x ${model.skinHeight}. Classic MDL tools and some engines reject skins taller than ${VANILLA_MAX_ALIAS_SKIN_HEIGHT} pixels; QSS-M only emits a developer warning for GL renderers. Prefer growing the atlas wider instead of taller when broad compatibility matters.`
+      );
+    }
+
+    if (mixedFullbrightFrames) {
+      const verb = mixedFullbrightFrames === 1 ? "mixes" : "mix";
+      pushValidationFinding(
+        findings,
+        "info",
+        "Skin mixes lit and fullbright palette ranges",
+        `${mixedFullbrightFrames} skin frame${mixedFullbrightFrames === 1 ? "" : "s"} ${verb} normally lit pixels with fullbright palette indices ${FULLBRIGHT_MIN_PALETTE_INDEX}-${FULLBRIGHT_MAX_PALETTE_INDEX}. Keep this only for intentional glow or visibility; palette conversion can accidentally pull ordinary art into Quake's fullbright range.`
+      );
+    }
+
+    if (transparentFrames && !(model.flags & MF_HOLEY)) {
+      const verb = transparentFrames === 1 ? "contains" : "contain";
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Skin uses index 255 but transparency flag is off",
+        `${transparentFrames} skin frame${transparentFrames === 1 ? "" : "s"} ${verb} palette index ${TRANSPARENT_PALETTE_INDEX}. QSS-M only treats embedded MDL index ${TRANSPARENT_PALETTE_INDEX} as transparent when the "Index 255 Transparent" flag is enabled.`
+      );
+    }
+
     const hasOnseamVertices = model.stVerts.some((st) => !!st.onseam);
     if (hasOnseamVertices && model.skinWidth % 2 !== 0) {
       pushValidationFinding(
@@ -3527,6 +3647,32 @@
         `Skin width ${model.skinWidth} is odd, but the mesh uses onseam texture vertices. Backface seam offsets assume a half-width split.`
       );
     }
+  }
+
+  function detectSkinFrameSpecialPaletteUse(frame) {
+    let hasFullbright = false;
+    let hasLit = false;
+    let hasTransparent = false;
+
+    for (let i = 0; i < frame.length; i++) {
+      const paletteIndex = frame[i];
+      if (paletteIndex === TRANSPARENT_PALETTE_INDEX) {
+        hasTransparent = true;
+      } else if (isFullbrightPaletteIndex(paletteIndex)) {
+        hasFullbright = true;
+      } else {
+        hasLit = true;
+      }
+
+      if (hasTransparent && hasFullbright && hasLit) {
+        break;
+      }
+    }
+
+    return {
+      hasTransparent,
+      mixesFullbright: hasFullbright && hasLit,
+    };
   }
 
   function validateFrameConsistency(model, findings) {
@@ -3547,9 +3693,7 @@
       });
 
       if (frame.type === "group" || poseIndices.length > 1) {
-        const hasValidIntervals = Array.isArray(frame.intervals) &&
-          frame.intervals.length === poseIndices.length &&
-          frame.intervals.every((value) => Number.isFinite(value) && value > 0);
+        const hasValidIntervals = hasValidCumulativeIntervals(frame.intervals, poseIndices.length);
         if (!hasValidIntervals) {
           intervalIssues += 1;
         }
@@ -3784,6 +3928,27 @@
       );
     }
 
+    const loadedNormalStats = analyzeLoadedLightnormalIndices(model);
+    if (loadedNormalStats.total && loadedNormalStats.distinct <= 1) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Loaded vertex normals are uniform",
+        `All ${loadedNormalStats.total} loaded vertex normal byte${loadedNormalStats.total === 1 ? "" : "s"} use index ${loadedNormalStats.onlyIndex}. QSS-M uses these normals for lighting and r_outline shell expansion, so old exports can show little or no outline. Save .mdl to write recomputed geometry normals.`
+      );
+    }
+
+    const flatPrismOutlineStats = analyzeFlatPrismOutlineCompatibility(model);
+    if (flatPrismOutlineStats.needsRepair) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Flat-prism normals may overfill QSS-M outlines",
+        `This model is only ${formatNumber(flatPrismOutlineStats.thickness)} units thick, and ${flatPrismOutlineStats.mismatchedNormalCount} of ${flatPrismOutlineStats.totalNormals} loaded normal byte${flatPrismOutlineStats.totalNormals === 1 ? "" : "s"} differ from the flat-prism outline profile. QSS-M offsets r_outline along these normals before culling front faces, so thin text/icons can draw heavy black slabs instead of a clean silhouette.`,
+        [VALIDATION_FIXES.optimizeFlatPrismOutlineNormals]
+      );
+    }
+
     const seamUsage = analyzeAliasSeamUsage(model);
     if (seamUsage.nonStandardSeamIndices.length) {
       pushValidationFinding(
@@ -3835,6 +4000,74 @@
         [VALIDATION_FIXES.useUniformFrameTiming]
       );
     }
+  }
+
+  function analyzeLoadedLightnormalIndices(model) {
+    const counts = new Map();
+    let total = 0;
+    (model.poses || []).forEach((pose) => {
+      if (!pose?.lightnormalIndices) {
+        return;
+      }
+      for (const normalIndex of pose.lightnormalIndices) {
+        counts.set(normalIndex, (counts.get(normalIndex) || 0) + 1);
+        total += 1;
+      }
+    });
+
+    return {
+      total,
+      distinct: counts.size,
+      onlyIndex: counts.size === 1 ? counts.keys().next().value : null,
+    };
+  }
+
+  function analyzeFlatPrismOutlineCompatibility(model) {
+    const pose = model.poses?.[0];
+    if (!pose?.positions || !pose.lightnormalIndices?.length || model.exportLightnormalIndices === true) {
+      return { needsRepair: false };
+    }
+
+    const bounds = computeBounds([pose.positions]);
+    const extents = [
+      bounds.max[0] - bounds.min[0],
+      bounds.max[1] - bounds.min[1],
+      bounds.max[2] - bounds.min[2],
+    ];
+    const broadExtent = Math.max(extents[0], extents[2]);
+    const thickness = extents[1];
+    if (!Number.isFinite(broadExtent) || !Number.isFinite(thickness) || broadExtent <= 0 || thickness / broadExtent > 0.08) {
+      return { needsRepair: false };
+    }
+
+    const repairNormals = computeFlatPrismMeshLightnormalIndices(pose.positions, model.triangles, model.numVerts);
+    if (!repairNormals) {
+      return { needsRepair: false };
+    }
+
+    let totalNormals = 0;
+    let mismatchedNormalCount = 0;
+    for (let vertexIndex = 0; vertexIndex < pose.lightnormalIndices.length; vertexIndex++) {
+      const normalIndex = pose.lightnormalIndices[vertexIndex];
+      const offset = normalIndex * 3;
+      const nx = ALIAS_VERTEX_NORMALS[offset + 0];
+      const ny = ALIAS_VERTEX_NORMALS[offset + 1];
+      const nz = ALIAS_VERTEX_NORMALS[offset + 2];
+      if (![nx, ny, nz].every(Number.isFinite)) {
+        continue;
+      }
+      totalNormals++;
+      if (normalIndex !== repairNormals[vertexIndex]) {
+        mismatchedNormalCount++;
+      }
+    }
+
+    return {
+      needsRepair: totalNormals > 0 && mismatchedNormalCount / totalNormals >= 0.25,
+      thickness,
+      totalNormals,
+      mismatchedNormalCount,
+    };
   }
 
   function analyzeAliasSeamUsage(model) {
@@ -4513,7 +4746,7 @@
       rgba[i * 4 + 2] = bytes[i * 3 + 2];
       rgba[i * 4 + 3] = 255;
     }
-    rgba[255 * 4 + 3] = 0;
+    rgba[TRANSPARENT_PALETTE_INDEX * 4 + 3] = 0;
     return rgba;
   }
 
@@ -4526,7 +4759,7 @@
       rgba[i * 4 + 2] = color & 0xff;
       rgba[i * 4 + 3] = 255;
     }
-    rgba[255 * 4 + 3] = 0;
+    rgba[TRANSPARENT_PALETTE_INDEX * 4 + 3] = 0;
     return rgba;
   }
 
@@ -7164,6 +7397,265 @@
     };
   }
 
+  function makeFlatPrismNormalKey(x, z) {
+    return `${Math.round(x * 100000)}:${Math.round(z * 100000)}`;
+  }
+
+  function addFlatPrismNormalLookupEntry(lookup, x, z, nx, nz) {
+    const length = Math.hypot(nx, nz);
+    if (length <= 1e-8) {
+      return;
+    }
+    const key = makeFlatPrismNormalKey(x, z);
+    const entry = lookup.get(key) || { x: 0, z: 0, px: x, pz: z };
+    entry.x += nx / length;
+    entry.z += nz / length;
+    lookup.set(key, entry);
+  }
+
+  function normalizeFlatPrismNormalLookup(lookup) {
+    for (const [key, entry] of lookup) {
+      const length = Math.hypot(entry.x, entry.z);
+      if (length <= 1e-8) {
+        lookup.delete(key);
+        continue;
+      }
+      entry.x /= length;
+      entry.z /= length;
+    }
+    return lookup;
+  }
+
+  function findNearestFlatPrismNormalLookupEntry(lookup, x, z) {
+    let bestEntry = null;
+    let bestDistanceSq = Infinity;
+
+    for (const entry of lookup.values()) {
+      const dx = x - entry.px;
+      const dz = z - entry.pz;
+      const distanceSq = dx * dx + dz * dz;
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        bestEntry = entry;
+      }
+    }
+
+    return bestEntry;
+  }
+
+  // Outward vertex normals for the r_outline silhouette. Unlike computeContourNormals2D
+  // (which sums the raw edge vectors and so length-weights the result toward the longer
+  // neighbour), this normalizes each edge first, yielding the true angle bisector. That
+  // keeps the outward push even between axis-aligned strokes: with length weighting, the
+  // short horizontal caps of a tall vertical stem inherit an almost-horizontal normal, so
+  // r_outline barely expands the top/bottom edges and their outline looks missing.
+  function computeContourBisectorNormals2D(pts) {
+    const n = pts.length / 2;
+    const normals = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const k = (i - 1 + n) % n;
+      let ex1 = pts[j * 2] - pts[i * 2], ey1 = pts[j * 2 + 1] - pts[i * 2 + 1];
+      let ex2 = pts[i * 2] - pts[k * 2], ey2 = pts[i * 2 + 1] - pts[k * 2 + 1];
+      const l1 = Math.hypot(ex1, ey1);
+      const l2 = Math.hypot(ex2, ey2);
+      if (l1 > 1e-12) { ex1 /= l1; ey1 /= l1; }
+      if (l2 > 1e-12) { ex2 /= l2; ey2 /= l2; }
+      let nx = ey1 + ey2, ny = -(ex1 + ex2);
+      const len = Math.hypot(nx, ny);
+      if (len > 1e-12) { nx /= len; ny /= len; }
+      normals[i * 2] = nx;
+      normals[i * 2 + 1] = ny;
+    }
+    return normals;
+  }
+
+  function buildGeneratedFlatPrismNormalLookup(contours, centerX, centerY, scaleFactor) {
+    const lookup = new Map();
+    (contours || []).forEach((contour) => {
+      const pts = orientContourPoints(contour.points || [], contour.role);
+      if (pts.length < 6) {
+        return;
+      }
+      const normals = computeContourBisectorNormals2D(pts);
+      for (let i = 0; i < pts.length; i += 2) {
+        const sourceX = pts[i + 0];
+        const sourceY = pts[i + 1];
+        const normalOffset = i;
+        const modelX = (sourceX - centerX) * scaleFactor;
+        const modelZ = -(sourceY - centerY) * scaleFactor;
+        const normalX = normals[normalOffset + 0];
+        const normalZ = -normals[normalOffset + 1];
+        addFlatPrismNormalLookupEntry(lookup, modelX, modelZ, normalX, normalZ);
+      }
+    });
+    return normalizeFlatPrismNormalLookup(lookup);
+  }
+
+  function getTriangleNormalComponents(positions, a, b, c) {
+    const i0 = a * 3;
+    const i1 = b * 3;
+    const i2 = c * 3;
+    const ax = positions[i1 + 0] - positions[i0 + 0];
+    const ay = positions[i1 + 1] - positions[i0 + 1];
+    const az = positions[i1 + 2] - positions[i0 + 2];
+    const bx = positions[i2 + 0] - positions[i0 + 0];
+    const by = positions[i2 + 1] - positions[i0 + 1];
+    const bz = positions[i2 + 2] - positions[i0 + 2];
+    return {
+      x: ay * bz - az * by,
+      y: az * bx - ax * bz,
+      z: ax * by - ay * bx,
+    };
+  }
+
+  function isFlatPrismCapNormal(normal) {
+    const length = Math.hypot(normal.x, normal.y, normal.z);
+    if (length <= 1e-8) {
+      return false;
+    }
+    return Math.abs(normal.y) / length > 0.85;
+  }
+
+  function buildFlatPrismBoundaryNormalLookupFromMesh(positions, triangles, numVerts) {
+    const vertexCount = Math.max(0, Math.min(numVerts | 0, Math.floor(positions.length / 3)));
+    const capEdges = new Map();
+    const addCapEdge = (a, b, c) => {
+      const min = Math.min(a, b);
+      const max = Math.max(a, b);
+      const key = `${min}:${max}`;
+      const entry = capEdges.get(key);
+      if (entry) {
+        entry.count += 1;
+        return;
+      }
+      capEdges.set(key, { a, b, c, count: 1 });
+    };
+
+    triangles.forEach((triangle) => {
+      const [a, b, c] = triangle.vertIndex || [];
+      if (![a, b, c].every((index) => Number.isInteger(index) && index >= 0 && index < vertexCount)) {
+        return;
+      }
+      if (a === b || b === c || c === a) {
+        return;
+      }
+      if (!isFlatPrismCapNormal(getTriangleNormalComponents(positions, a, b, c))) {
+        return;
+      }
+      addCapEdge(a, b, c);
+      addCapEdge(b, c, a);
+      addCapEdge(c, a, b);
+    });
+
+    const lookup = new Map();
+    for (const edge of capEdges.values()) {
+      if (edge.count !== 1) {
+        continue;
+      }
+
+      const aOffset = edge.a * 3;
+      const bOffset = edge.b * 3;
+      const cOffset = edge.c * 3;
+      const ax = positions[aOffset + 0];
+      const az = positions[aOffset + 2];
+      const bx = positions[bOffset + 0];
+      const bz = positions[bOffset + 2];
+      const cx = positions[cOffset + 0];
+      const cz = positions[cOffset + 2];
+      const edgeX = bx - ax;
+      const edgeZ = bz - az;
+      let normalX = -edgeZ;
+      let normalZ = edgeX;
+      const midX = (ax + bx) * 0.5;
+      const midZ = (az + bz) * 0.5;
+      if (normalX * (cx - midX) + normalZ * (cz - midZ) > 0) {
+        normalX = -normalX;
+        normalZ = -normalZ;
+      }
+      addFlatPrismNormalLookupEntry(lookup, ax, az, normalX, normalZ);
+      addFlatPrismNormalLookupEntry(lookup, bx, bz, normalX, normalZ);
+    }
+
+    return normalizeFlatPrismNormalLookup(lookup);
+  }
+
+  function computeFlatPrismMeshLightnormalIndices(positions, triangles, numVerts) {
+    const outlineNormalLookup = buildFlatPrismBoundaryNormalLookupFromMesh(positions, triangles, numVerts);
+    if (!outlineNormalLookup.size) {
+      return null;
+    }
+    return computeGeneratedFlatPrismLightnormalIndices(
+      positions,
+      triangles,
+      outlineNormalLookup,
+      numVerts,
+    );
+  }
+
+  function collectValidTriangleIndices(triangles, vertexCount) {
+    const triangleIndices = [];
+    triangles.forEach((triangle) => {
+      const [a, b, c] = triangle.vertIndex || [];
+      if (![a, b, c].every((index) => Number.isInteger(index) && index >= 0 && index < vertexCount)) {
+        return;
+      }
+      if (a === b || b === c || c === a) {
+        return;
+      }
+      triangleIndices.push(a, b, c);
+    });
+    return triangleIndices;
+  }
+
+  function computeGeneratedFlatPrismLightnormalIndices(positions, triangles, outlineNormalLookup, numVerts) {
+    const vertexCount = Math.max(0, Math.min(numVerts | 0, Math.floor(positions.length / 3)));
+    if (!vertexCount || !outlineNormalLookup?.size) {
+      return null;
+    }
+
+    const triangleIndices = collectValidTriangleIndices(triangles, vertexCount);
+    if (!triangleIndices.length) {
+      return null;
+    }
+
+    const smoothNormals = computeSmoothNormals(positions, triangleIndices);
+    const lightnormalIndices = new Uint8Array(vertexCount);
+    let hintedNormals = 0;
+
+    for (let vertexIndex = 0; vertexIndex < vertexCount; vertexIndex++) {
+      const offset = vertexIndex * 3;
+      let nx = smoothNormals[offset + 0];
+      let ny = smoothNormals[offset + 1];
+      let nz = smoothNormals[offset + 2];
+      const isDepthDominant = Math.abs(ny) > 0.85 && Math.hypot(nx, nz) < 0.25;
+      const x = positions[offset + 0];
+      const z = positions[offset + 2];
+      const outlineNormal =
+        outlineNormalLookup.get(makeFlatPrismNormalKey(x, z)) ||
+        (isDepthDominant ? findNearestFlatPrismNormalLookupEntry(outlineNormalLookup, x, z) : null);
+
+      if (outlineNormal) {
+        hintedNormals++;
+        // QSS-M's r_outline pass offsets vertices by MDL normals, then draws
+        // the back-facing shell. Keep thin generated slabs on the 2D silhouette
+        // plane so high outline widths do not push caps through the model depth.
+        nx = outlineNormal.x;
+        ny = 0;
+        nz = outlineNormal.z;
+      }
+
+      const length = Math.hypot(nx, ny, nz);
+      if (!Number.isFinite(length) || length <= 1e-6) {
+        lightnormalIndices[vertexIndex] = 0;
+        continue;
+      }
+      lightnormalIndices[vertexIndex] = findClosestAliasNormalIndex(nx / length, ny / length, nz / length);
+    }
+
+    return hintedNormals ? lightnormalIndices : null;
+  }
+
   // ── Model assembly from SVG ─────────────────────────────────────────────────
 
   async function buildModelFromSvg(svgText, options) {
@@ -7266,6 +7758,37 @@
       positions[i * 3 + 2] = -(srcY - centerY) * scaleFactor;
     }
 
+    // Flatten flat-prism text/icons along the depth (model Y) axis. r_outline builds
+    // its silhouette by expanding the model and drawing the back-facing shell, which for
+    // a flat prism comes almost entirely from the back cap. Any real depth lets the top
+    // and bottom of that shell foreshorten out from under the front cap once the model is
+    // viewed off the face-on axis (e.g. looking up at it), so horizontal strokes lose
+    // their outline while the vertical ones keep theirs. A shallow body keeps the shell
+    // co-planar with the silhouette so the outline stays even from every angle, while
+    // still leaving enough thickness for solid side walls.
+    if (bevelActual === 0) {
+      let depthMin = Infinity, depthMax = -Infinity;
+      let heightMin = Infinity, heightMax = -Infinity;
+      for (let i = 0; i < numVerts; i++) {
+        const d = positions[i * 3 + 1];
+        const h = positions[i * 3 + 2];
+        if (d < depthMin) depthMin = d;
+        if (d > depthMax) depthMax = d;
+        if (h < heightMin) heightMin = h;
+        if (h > heightMax) heightMax = h;
+      }
+      const depth = depthMax - depthMin;
+      const height = heightMax - heightMin;
+      const depthCap = Math.max(GENERATED_FLAT_PRISM_MIN_DEPTH, height * GENERATED_FLAT_PRISM_DEPTH_RATIO);
+      if (depth > depthCap && depth > 1e-6) {
+        const depthMid = (depthMin + depthMax) * 0.5;
+        const shrink = depthCap / depth;
+        for (let i = 0; i < numVerts; i++) {
+          positions[i * 3 + 1] = depthMid + (positions[i * 3 + 1] - depthMid) * shrink;
+        }
+      }
+    }
+
     // Generated SVG/Icon/Font MDLs use a tiny solid skin. All texture vertices
     // sample that same skin, which avoids raster-skin artifacts entirely.
     const stVerts = [];
@@ -7329,6 +7852,8 @@
       skinPixels = await generateSvgSkin(svgText, viewBox, skinWidth, skinHeight, state.paletteRGBA, skinFillRgb24);
     }
 
+    const generatedSkinUsesTransparency = detectSkinFrameSpecialPaletteUse(skinPixels).hasTransparent;
+
     // Compute export packing (scale/origin for 0-255 vertex range)
     const pMin = [Infinity, Infinity, Infinity];
     const pMax = [-Infinity, -Infinity, -Infinity];
@@ -7343,11 +7868,7 @@
       mdlScale[axis] = range > 1e-9 ? range / 255 : 1;
     }
 
-    const boundingRadius = Math.hypot(
-      (pMax[0] - pMin[0]) / 2,
-      (pMax[1] - pMin[1]) / 2,
-      (pMax[2] - pMin[2]) / 2,
-    );
+    const boundingRadius = computeModelOriginRadius([positions]);
     const triangleCleanupResult = removePackedDegenerateTriangles(
       rawTriangles,
       positions,
@@ -7357,6 +7878,18 @@
     );
     const triangles = triangleCleanupResult.triangles;
     const geometryCleanup = triangleCleanupResult.cleanup;
+    const averageTriangleArea = computeAverageTriangleArea3D(positions, triangles);
+    const outlineNormalLookup = bevelActual === 0
+      ? buildGeneratedFlatPrismNormalLookup(geometryContours, centerX, centerY, scaleFactor)
+      : null;
+    const lightnormalIndices = outlineNormalLookup
+      ? computeGeneratedFlatPrismLightnormalIndices(
+          positions,
+          triangles,
+          outlineNormalLookup,
+          numVerts,
+        )
+      : null;
     const mapExportData = bevelActual === 0
       ? {
           kind: "flat-prism",
@@ -7381,8 +7914,9 @@
       numFrames: 1,
       synctype: 0,
       syncType: 0,
-      flags: importWarning ? (1 << 14) : 0,
-      size: 0,
+      flags: generatedSkinUsesTransparency ? MF_HOLEY : 0,
+      size: averageTriangleArea,
+      exportLightnormalIndices: !!lightnormalIndices,
       importWarning,
       contourOptimization,
       geometryCleanup,
@@ -7404,6 +7938,7 @@
       poses: [{
         name: "frame0",
         positions,
+        lightnormalIndices,
       }],
     };
   }
@@ -7814,7 +8349,7 @@
   // The viewer (and Quake) treat palette indices 224-254 as fullbright, so a skin
   // using them ignores world lighting and stays visible in dark areas.
   function isFullbrightPaletteIndex(index) {
-    return index >= 224 && index <= 254;
+    return index >= FULLBRIGHT_MIN_PALETTE_INDEX && index <= FULLBRIGHT_MAX_PALETTE_INDEX;
   }
 
   function drawSolidSkinColorPicker() {
@@ -8162,6 +8697,7 @@
         poses.push({
           name: parsed.name,
           positions: parsed.positions,
+          lightnormalIndices: parsed.lightnormalIndices,
         });
         topFrames.push({
           type: "single",
@@ -8190,6 +8726,7 @@
           poses.push({
             name: parsed.name,
             positions: parsed.positions,
+            lightnormalIndices: parsed.lightnormalIndices,
           });
           poseIndices.push(poses.length - 1);
           poseNames.push(parsed.name);
@@ -8239,6 +8776,7 @@
     offset += 16;
 
     const positions = new Float32Array(numVerts * 3);
+    const lightnormalIndices = new Uint8Array(numVerts);
     if (isMd16) {
       const highOffset = offset;
       const lowOffset = offset + numVerts * 4;
@@ -8248,11 +8786,13 @@
         positions[i * 3 + 0] = scale[0] * (bytes[highBase + 0] + bytes[lowBase + 0] / 256) + scaleOrigin[0];
         positions[i * 3 + 1] = scale[1] * (bytes[highBase + 1] + bytes[lowBase + 1] / 256) + scaleOrigin[1];
         positions[i * 3 + 2] = scale[2] * (bytes[highBase + 2] + bytes[lowBase + 2] / 256) + scaleOrigin[2];
+        lightnormalIndices[i] = bytes[highBase + 3];
       }
 
       return {
         name,
         positions,
+        lightnormalIndices,
         offset: offset + numVerts * 8,
       };
     }
@@ -8261,7 +8801,7 @@
       const packedX = bytes[offset++];
       const packedY = bytes[offset++];
       const packedZ = bytes[offset++];
-      offset += 1; // lightnormalindex
+      lightnormalIndices[i] = bytes[offset++];
 
       positions[i * 3 + 0] = scale[0] * packedX + scaleOrigin[0];
       positions[i * 3 + 1] = scale[1] * packedY + scaleOrigin[1];
@@ -8271,6 +8811,7 @@
     return {
       name,
       positions,
+      lightnormalIndices,
       offset,
     };
   }
@@ -8285,8 +8826,11 @@
           poseIndices: [index],
           intervals: [DEFAULT_FRAME_DURATION],
         }));
+    const usePoseLightnormalIndices = model.exportLightnormalIndices === true;
     const packedPoses = model.poses.map((pose) => {
-      const lightnormalIndices = computeAliasLightnormalIndices(pose.positions, model.triangles, model.numVerts);
+      const lightnormalIndices = usePoseLightnormalIndices && pose.lightnormalIndices?.length === model.numVerts
+        ? pose.lightnormalIndices
+        : computeAliasLightnormalIndices(pose.positions, model.triangles, model.numVerts);
       return packPoseVertices(pose.positions, model.scale, model.scaleOrigin, lightnormalIndices);
     });
 
@@ -8350,9 +8894,7 @@
       appendPackedBounds(chunks, groupBounds.min);
       appendPackedBounds(chunks, groupBounds.max);
 
-      const intervals = frame.intervals && frame.intervals.length
-        ? frame.intervals
-        : deriveIntervalsFromDurations(deriveDurations(frame.intervals, poseIndices.length));
+      const intervals = deriveIntervalsFromDurations(deriveDurations(frame.intervals, poseIndices.length));
       for (let i = 0; i < poseIndices.length; i++) {
         appendFloat32LE(chunks, intervals[i] ?? intervals[intervals.length - 1] ?? ((i + 1) * DEFAULT_FRAME_DURATION));
       }
@@ -8736,28 +9278,46 @@
     }
 
     const durations = new Array(count);
+    const values = Array.from(intervals, (value) => Number(value));
     let increasing = true;
-    for (let i = 1; i < intervals.length; i++) {
-      if (!(intervals[i] > intervals[i - 1])) {
+    for (let i = 0; i < values.length; i++) {
+      if (!Number.isFinite(values[i]) || values[i] <= 0 || (i > 0 && values[i] <= values[i - 1])) {
         increasing = false;
         break;
       }
     }
 
-    if (increasing && intervals[0] > 0) {
-      durations[0] = intervals[0];
+    if (increasing) {
+      durations[0] = values[0];
       for (let i = 1; i < count; i++) {
-        const current = intervals[i] ?? intervals[intervals.length - 1];
-        const previous = intervals[i - 1] ?? 0;
-        durations[i] = Math.max(current - previous, 0.001);
+        if (i < values.length) {
+          durations[i] = Math.max(values[i] - values[i - 1], 0.001);
+        } else {
+          durations[i] = DEFAULT_FRAME_DURATION;
+        }
       }
       return durations;
     }
 
     for (let i = 0; i < count; i++) {
-      durations[i] = Math.max(intervals[i] || DEFAULT_FRAME_DURATION, 0.001);
+      durations[i] = Number.isFinite(values[i]) && values[i] > 0
+        ? values[i]
+        : DEFAULT_FRAME_DURATION;
     }
     return durations;
+  }
+
+  function hasValidCumulativeIntervals(intervals, count) {
+    if (!Array.isArray(intervals) || intervals.length !== count) {
+      return false;
+    }
+    for (let i = 0; i < intervals.length; i++) {
+      const value = intervals[i];
+      if (!Number.isFinite(value) || value <= 0 || (i > 0 && value <= intervals[i - 1])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   function computePoseStartTime(group, poseIndex) {
@@ -10247,7 +10807,7 @@
       base[offset + 2] = palette[paletteIndex * 4 + 2];
       base[offset + 3] = palette[paletteIndex * 4 + 3];
 
-      if (paletteIndex >= 224 && paletteIndex <= 254 && base[offset + 3] > 0) {
+      if (isFullbrightPaletteIndex(paletteIndex) && base[offset + 3] > 0) {
         fullbright[offset + 0] = base[offset + 0];
         fullbright[offset + 1] = base[offset + 1];
         fullbright[offset + 2] = base[offset + 2];
