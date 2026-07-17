@@ -6,9 +6,6 @@
 <title>Quake LIT Reverse Engineer</title>
 <meta name="description" content="Analyze Quake BSP and LIT files, reconstruct ericw-tools lighting settings, and compare QSS-M load behavior.">
 <link rel="icon" type="image/svg+xml" href="lit.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -197,9 +194,9 @@ button.secondary:hover {
   border-color: rgba(255,255,255,0.14);
   transform: translateY(-1px);
 }
-#analyzeBtn { margin-top: 16px; }
+#analyzeBtn { margin-top: 0; }
 
-#controls { display: flex; gap: 12px; flex-wrap: wrap; }
+#controls { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
 .zone-wrap { flex: 1; min-width: 250px; }
 #output { margin-top: 24px; }
 
@@ -587,7 +584,7 @@ canvas {
 
 <div class="app-header">
   <h1><span class="brand">LIT</span> Reverse Engineer</h1>
-  <p class="subtitle">Analyze BSP lighting sources, reconstruct ericw-tools light settings, and compare QSS-M loading rules</p>
+  <p class="subtitle">Analyze BSP lighting sources, reconstruct ericw-tools light settings, and compare QSS-M, ezQuake, and FTEQW behavior</p>
 </div>
 
 <div class="drop-zone" id="dropZone">
@@ -598,13 +595,16 @@ canvas {
       <line x1="12" y1="3" x2="12" y2="15"/>
     </svg>
     <strong>Drop .BSP and optional .LIT files here</strong>
-    <span class="drop-hint">Use a matching .lit, or let the tool read embedded BSPX RGB/HDR lighting</span>
+    <span class="drop-hint">Use a matching .lit, or inspect native, grayscale, and embedded BSPX RGB/HDR lighting</span>
     <input type="file" id="fileInput" accept=".bsp,.lit" multiple>
   </label>
   <div class="file-info" id="dropInfo"></div>
 </div>
 
-<button id="analyzeBtn" disabled>Analyze</button>
+<div id="controls">
+  <button id="analyzeBtn" disabled>Analyze</button>
+  <button class="secondary" id="clearLitBtn" disabled>Clear external .lit</button>
+</div>
 
 <div id="output"></div>
 
@@ -619,6 +619,7 @@ const BSPHL_VERSION = 30;
 const BSP2_MAGIC  = 0x32505342; // "BSP2" as int32 LE
 const BSP2RMQ_MAGIC = 0x42535032; // "2PSB" as int32 LE
 const LIT_VERSION = 1;
+const LIT_VERSION_2 = 2;
 const LIT_VERSION_E5BGR9 = 0x00010001;
 const LUMP = {
   ENTITIES: 0, PLANES: 1, TEXTURES: 2, VERTEXES: 3, VISIBILITY: 4,
@@ -626,6 +627,7 @@ const LUMP = {
   LEAFS: 10, MARKSURFACES: 11, EDGES: 12, SURFEDGES: 13, MODELS: 14
 };
 const NUM_LUMPS = 15;
+const BSP_HEADER_BYTES = 4 + NUM_LUMPS * 8;
 const TEX_SPECIAL = 1;
 const INVALID_STYLE = 255;
 const INVALID_STYLE16 = 0xffff;
@@ -648,21 +650,42 @@ dropZone.addEventListener('drop', e => {
 });
 fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 
-function handleFiles(files) {
-  for (const file of files) {
-    const ext = file.name.toLowerCase().split('.').pop();
-    if (ext === 'bsp') {
-      readFile(file, (buf) => { bspBuffer = buf; bspName = file.name; updateDropInfo(); });
-    } else if (ext === 'lit') {
-      readFile(file, (buf) => { litBuffer = buf; litName = file.name; updateDropInfo(); });
+async function handleFiles(files) {
+  const selected = [...files].filter(file => /\.(?:bsp|lit)$/i.test(file.name));
+  const bspFiles = selected.filter(file => /\.bsp$/i.test(file.name));
+  const litFiles = selected.filter(file => /\.lit$/i.test(file.name));
+
+  if (bspFiles.length > 1 || litFiles.length > 1) {
+    showError('Load at most one BSP and one LIT at a time.');
+    return;
+  }
+
+  try {
+    const [nextBSP, nextLIT] = await Promise.all([
+      bspFiles[0] ? readFile(bspFiles[0]) : Promise.resolve(null),
+      litFiles[0] ? readFile(litFiles[0]) : Promise.resolve(null)
+    ]);
+    if (nextBSP) {
+      bspBuffer = nextBSP;
+      bspName = bspFiles[0].name;
+      // Do not silently carry a same-sized sidecar over to a different map.
+      if (!nextLIT) { litBuffer = null; litName = ''; }
     }
+    if (nextLIT) { litBuffer = nextLIT; litName = litFiles[0].name; }
+    if (nextBSP || nextLIT) document.getElementById('output').innerHTML = '';
+    updateDropInfo();
+  } catch (err) {
+    showError(err.message || String(err));
   }
 }
 
-function readFile(file, cb) {
-  const reader = new FileReader();
-  reader.onload = () => cb(reader.result);
-  reader.readAsArrayBuffer(file);
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 function updateDropInfo() {
@@ -674,12 +697,29 @@ function updateDropInfo() {
   if (bspBuffer) dropZone.classList.add('loaded');
   else dropZone.classList.remove('loaded');
   document.getElementById('analyzeBtn').disabled = !bspBuffer;
+  document.getElementById('clearLitBtn').disabled = !litBuffer;
 }
 
 document.getElementById('analyzeBtn').addEventListener('click', analyze);
+document.getElementById('clearLitBtn').addEventListener('click', () => {
+  litBuffer = null;
+  litName = '';
+  document.getElementById('output').innerHTML = '';
+  updateDropInfo();
+});
+
+function showError(message) {
+  document.getElementById('output').innerHTML =
+    `<div class="section" style="color:#fb7185"><strong>Error:</strong> ${escHTML(String(message))}</div>`;
+}
 
 // ── BSP Parser ──
 function parseBSP(buf) {
+  if (!(buf instanceof ArrayBuffer)) throw new Error('BSP input is not an ArrayBuffer');
+  if (buf.byteLength < BSP_HEADER_BYTES) {
+    throw new Error(`BSP is truncated: ${buf.byteLength} bytes (header requires ${BSP_HEADER_BYTES})`);
+  }
+
   const dv = new DataView(buf);
   const ident = dv.getInt32(0, true);
 
@@ -694,29 +734,55 @@ function parseBSP(buf) {
   const lumps = [];
   for (let i = 0; i < NUM_LUMPS; i++) {
     const off = 4 + i * 8;
-    lumps.push({ fileofs: dv.getInt32(off, true), filelen: dv.getInt32(off + 4, true) });
+    const fileofs = dv.getInt32(off, true);
+    const filelen = dv.getInt32(off + 4, true);
+    if (fileofs < 0 || filelen < 0 || fileofs > buf.byteLength || filelen > buf.byteLength - fileofs) {
+      throw new Error(`BSP lump ${i} points outside the file (offset ${fileofs}, length ${filelen})`);
+    }
+    lumps.push({ fileofs, filelen });
   }
+
+  const requireRecordSize = (lumpIndex, recordSize, label) => {
+    const length = lumps[lumpIndex].filelen;
+    if (length % recordSize !== 0) {
+      throw new Error(`${label} lump has ${length} bytes; expected a multiple of ${recordSize}`);
+    }
+    return length / recordSize;
+  };
 
   // ── Entities ──
   const entBytes = new Uint8Array(buf, lumps[LUMP.ENTITIES].fileofs, lumps[LUMP.ENTITIES].filelen);
-  let entString = new TextDecoder('ascii').decode(entBytes).replace(/\0+$/, '');
+  const decodedEntities = new TextDecoder('ascii').decode(entBytes);
+  const firstEntityNul = decodedEntities.indexOf('\0');
+  // Engines parse this lump as a C string. Ignore padding/stale bytes after
+  // the first NUL, while retaining the full lump bytes for the CRC below.
+  const entString = firstEntityNul >= 0 ? decodedEntities.slice(0, firstEntityNul) : decodedEntities;
+  // QSS-M names CRC-matched .ent files from the entity lump, excluding its final byte.
+  const entCRC = entBytes.length > 0 ? computeCRC16(entBytes, entBytes.length - 1) : 0;
+  const entCRCHex = entCRC.toString(16).padStart(4, '0');
 
   // ── Vertices ──
   const vOff = lumps[LUMP.VERTEXES].fileofs;
-  const numVerts = lumps[LUMP.VERTEXES].filelen / 12;
+  const numVerts = requireRecordSize(LUMP.VERTEXES, 12, 'VERTEXES');
   const vertices = new Float32Array(numVerts * 3);
   for (let i = 0; i < numVerts; i++) {
     const o = vOff + i * 12;
     vertices[i*3]   = dv.getFloat32(o, true);
     vertices[i*3+1] = dv.getFloat32(o+4, true);
     vertices[i*3+2] = dv.getFloat32(o+8, true);
+    if (!Number.isFinite(vertices[i*3]) || !Number.isFinite(vertices[i*3+1]) || !Number.isFinite(vertices[i*3+2])) {
+      throw new Error(`Vertex ${i} contains a non-finite coordinate`);
+    }
   }
 
   // ── Edges ──
   const eOff = lumps[LUMP.EDGES].fileofs;
   const edgeSize = isBSP2 ? 8 : 4;
-  const numEdges = lumps[LUMP.EDGES].filelen / edgeSize;
-  const edges = new Int32Array(numEdges * 2);
+  const numEdges = requireRecordSize(LUMP.EDGES, edgeSize, 'EDGES');
+  // Edge vertex indices are unsigned in both classic BSP and BSP2. Using an
+  // Int32Array here let malicious BSP2 values above 0x7fffffff wrap negative
+  // and bypass the range check.
+  const edges = new Uint32Array(numEdges * 2);
   for (let i = 0; i < numEdges; i++) {
     const o = eOff + i * edgeSize;
     if (isBSP2) {
@@ -726,40 +792,58 @@ function parseBSP(buf) {
       edges[i*2]   = dv.getUint16(o, true);
       edges[i*2+1] = dv.getUint16(o+2, true);
     }
+    if (edges[i*2] >= numVerts || edges[i*2+1] >= numVerts) {
+      throw new Error(`Edge ${i} references a missing vertex`);
+    }
   }
 
   // ── Surfedges ──
   const seOff = lumps[LUMP.SURFEDGES].fileofs;
-  const numSurfedges = lumps[LUMP.SURFEDGES].filelen / 4;
+  const numSurfedges = requireRecordSize(LUMP.SURFEDGES, 4, 'SURFEDGES');
   const surfedges = new Int32Array(numSurfedges);
   for (let i = 0; i < numSurfedges; i++) {
     surfedges[i] = dv.getInt32(seOff + i * 4, true);
+    if (Math.abs(surfedges[i]) >= numEdges) {
+      throw new Error(`Surfedge ${i} references missing edge ${surfedges[i]}`);
+    }
   }
 
   // ── Texinfo ──
   const tiOff = lumps[LUMP.TEXINFO].fileofs;
-  const numTexinfo = lumps[LUMP.TEXINFO].filelen / 40;
+  const numTexinfo = requireRecordSize(LUMP.TEXINFO, 40, 'TEXINFO');
   const texinfos = [];
   for (let i = 0; i < numTexinfo; i++) {
     const o = tiOff + i * 40;
-    texinfos.push({
+    const texinfo = {
       vecs: [
         [dv.getFloat32(o, true), dv.getFloat32(o+4, true), dv.getFloat32(o+8, true), dv.getFloat32(o+12, true)],
         [dv.getFloat32(o+16, true), dv.getFloat32(o+20, true), dv.getFloat32(o+24, true), dv.getFloat32(o+28, true)]
       ],
       miptex: dv.getInt32(o+32, true),
       flags: dv.getInt32(o+36, true)
-    });
+    };
+    if (!texinfo.vecs.flat().every(Number.isFinite)) {
+      throw new Error(`Texinfo ${i} contains a non-finite texture vector`);
+    }
+    texinfos.push(texinfo);
   }
 
   // ── Texture names ──
   const texOff = lumps[LUMP.TEXTURES].fileofs;
+  const texLen = lumps[LUMP.TEXTURES].filelen;
   const texNames = [];
-  if (lumps[LUMP.TEXTURES].filelen > 4) {
+  if (texLen > 0) {
+    if (texLen < 4) throw new Error('TEXTURES lump is too small for its texture count');
     const numMiptex = dv.getInt32(texOff, true);
+    if (numMiptex < 0 || numMiptex > (texLen - 4) / 4) {
+      throw new Error(`TEXTURES lump has an invalid texture count (${numMiptex})`);
+    }
     for (let i = 0; i < numMiptex; i++) {
       const mipofs = dv.getInt32(texOff + 4 + i * 4, true);
       if (mipofs < 0) { texNames.push('(external)'); continue; }
+      if (mipofs > texLen - 16) {
+        throw new Error(`Texture ${i} name points outside the TEXTURES lump`);
+      }
       const nameOff = texOff + mipofs;
       let name = '';
       for (let c = 0; c < 16; c++) {
@@ -774,7 +858,7 @@ function parseBSP(buf) {
   // ── Faces ──
   const fOff = lumps[LUMP.FACES].fileofs;
   const faceSize = isBSP2 ? 28 : 20;
-  const numFaces = lumps[LUMP.FACES].filelen / faceSize;
+  const numFaces = requireRecordSize(LUMP.FACES, faceSize, 'FACES');
   const faces = [];
   for (let i = 0; i < numFaces; i++) {
     const o = fOff + i * faceSize;
@@ -799,18 +883,51 @@ function parseBSP(buf) {
 
   // ── Planes ──
   const plOff = lumps[LUMP.PLANES].fileofs;
-  const numPlanes = lumps[LUMP.PLANES].filelen / 20;
+  const numPlanes = requireRecordSize(LUMP.PLANES, 20, 'PLANES');
   const planes = [];
   for (let i = 0; i < numPlanes; i++) {
     const o = plOff + i * 20;
-    planes.push({
+    const plane = {
       normal: [dv.getFloat32(o, true), dv.getFloat32(o+4, true), dv.getFloat32(o+8, true)],
       dist: dv.getFloat32(o+12, true)
-    });
+    };
+    if (!plane.normal.every(Number.isFinite) || !Number.isFinite(plane.dist)) {
+      throw new Error(`Plane ${i} contains a non-finite value`);
+    }
+    planes.push(plane);
+  }
+
+  for (let i = 0; i < faces.length; i++) {
+    const face = faces[i];
+    if (face.planenum < 0 || face.planenum >= planes.length) {
+      throw new Error(`Face ${i} references invalid plane ${face.planenum}`);
+    }
+    if (face.texinfo < 0 || face.texinfo >= texinfos.length) {
+      throw new Error(`Face ${i} references invalid texinfo ${face.texinfo}`);
+    }
+    if (face.firstedge < 0 || face.numedges < 0 || face.firstedge > surfedges.length ||
+        face.numedges > surfedges.length - face.firstedge) {
+      throw new Error(`Face ${i} references an invalid surfedge range`);
+    }
+    if (face.lightofs < -1) throw new Error(`Face ${i} has invalid light offset ${face.lightofs}`);
+    if (isHL && face.lightofs >= 0 && face.lightofs % 3 !== 0) {
+      throw new Error(`Half-Life face ${i} has non-RGB-aligned light offset ${face.lightofs}`);
+    }
   }
 
   // ── Lighting data ──
-  const lightData = new Uint8Array(buf, lumps[LUMP.LIGHTING].fileofs, lumps[LUMP.LIGHTING].filelen);
+  const rawLightData = new Uint8Array(buf, lumps[LUMP.LIGHTING].fileofs, lumps[LUMP.LIGHTING].filelen);
+  const lightingSampleStride = isHL ? 3 : 1;
+  if (rawLightData.length % lightingSampleStride !== 0) {
+    throw new Error(`LIGHTING lump has ${rawLightData.length} bytes, not complete ${isHL ? 'RGB' : 'grayscale'} samples`);
+  }
+  const numLightSamples = rawLightData.length / lightingSampleStride;
+  const lightData = isHL ? new Uint8Array(numLightSamples) : rawLightData;
+  if (isHL) {
+    for (let i = 0; i < numLightSamples; i++) {
+      lightData[i] = clampByte((rawLightData[i*3] + rawLightData[i*3+1] + rawLightData[i*3+2]) / 3);
+    }
+  }
 
   // ── BSPX detection ──
   const bspx = detectBSPX(buf, dv, lumps);
@@ -818,46 +935,61 @@ function parseBSP(buf) {
   // ── Parse BSPX lighting lumps ──
   const bspxLighting = parseBSPXLighting(buf, bspx, faces.length);
 
-  // ── BSP CRC for .ent filename ──
-  const crc = computeBSPCRC(buf);
-
   return {
     ident, formatName, isBSP2, isHL, lumps, entString, vertices, edges, surfedges,
-    texinfos, texNames, faces, planes, lightData, bspx, bspxLighting, crc
+    texinfos, texNames, faces, planes, rawLightData, lightData, lightingSampleStride,
+    numLightSamples, bspx, bspxLighting, entCRC, entCRCHex
   };
 }
 
 // ── BSPX lump detection ──
 function detectBSPX(buf, dv, lumps) {
-  const result = { found: false, lumps: {} };
+  const result = { found: false, lumps: {}, warnings: [] };
   // BSPX header is at the end of all regular lumps, 4-byte aligned
-  let maxEnd = 0;
+  // The directory/header itself occupies bytes even when every regular lump
+  // is empty. Without this floor, an otherwise valid empty BSP with BSPX data
+  // appended after its header was never detected.
+  let maxEnd = BSP_HEADER_BYTES;
   for (const l of lumps) {
     const end = l.fileofs + l.filelen;
     if (end > maxEnd) maxEnd = end;
   }
   // Align to 4
-  maxEnd = (maxEnd + 3) & ~3;
+  maxEnd = Math.ceil(maxEnd / 4) * 4;
   if (maxEnd + 4 > buf.byteLength) return result;
 
   // Check for "BSPX" magic
   const magic = dv.getInt32(maxEnd, true);
   // "BSPX" = 0x58505342
   if (magic !== 0x58505342) return result;
-  result.found = true;
+  if (maxEnd + 8 > buf.byteLength) throw new Error('Truncated BSPX header');
 
-  const numLumps = dv.getInt32(maxEnd + 4, true);
+  const numLumps = dv.getUint32(maxEnd + 4, true);
+  if (numLumps > Math.floor((buf.byteLength - maxEnd - 8) / 32)) {
+    throw new Error(`BSPX directory claims ${numLumps} lumps but is truncated`);
+  }
+
+  result.found = true;
+  result.headerOffset = maxEnd;
   let off = maxEnd + 8;
-  for (let i = 0; i < numLumps && off + 24 <= buf.byteLength; i++) {
+  for (let i = 0; i < numLumps; i++) {
     let name = '';
     for (let c = 0; c < 24; c++) {
       const ch = dv.getUint8(off + c);
       if (ch === 0) break;
       name += String.fromCharCode(ch);
     }
-    const lumpOfs = dv.getInt32(off + 24, true);
-    const lumpLen = dv.getInt32(off + 28, true);
-    result.lumps[name] = { offset: lumpOfs, length: lumpLen };
+    const lumpOfs = dv.getUint32(off + 24, true);
+    const lumpLen = dv.getUint32(off + 28, true);
+    if (lumpOfs > buf.byteLength || lumpLen > buf.byteLength - lumpOfs) {
+      throw new Error(`BSPX lump ${name || `#${i}`} points outside the file`);
+    }
+    if (!name) throw new Error(`BSPX lump #${i} has an empty name`);
+    if (result.lumps[name]) {
+      result.warnings.push(`Duplicate BSPX lump ${name} ignored (engines use the first entry).`);
+    } else {
+      result.lumps[name] = { offset: lumpOfs, length: lumpLen };
+    }
     off += 32;
   }
   return result;
@@ -873,36 +1005,43 @@ function parseBSPXLighting(buf, bspx, numFaces) {
     stylesPerFace: 0,
     styleTable: null,
     hasRGBLighting: false,
-    hasHDRLighting: false
+    hasHDRLighting: false,
+    warnings: [...(bspx.warnings || [])]
   };
   if (!bspx.found) return result;
+  result.hasRGBLighting = !!bspx.lumps['RGBLIGHTING'];
+  result.hasHDRLighting = !!bspx.lumps['LIGHTING_E5BGR9'];
   if (numFaces <= 0) return result;
 
   const dv = new DataView(buf);
 
   // LMSHIFT: per-face lightmap scale (1 byte per face)
-  if (bspx.lumps['LMSHIFT'] && bspx.lumps['LMSHIFT'].length >= numFaces) {
+  if (bspx.lumps['LMSHIFT'] && bspx.lumps['LMSHIFT'].length === numFaces) {
     const l = bspx.lumps['LMSHIFT'];
     result.lmshifts = new Uint8Array(buf, l.offset, numFaces);
+  } else if (bspx.lumps['LMSHIFT']) {
+    result.warnings.push(`LMSHIFT ignored: expected ${numFaces} bytes, got ${bspx.lumps['LMSHIFT'].length}.`);
   }
 
   // LMOFFSET: per-face lighting data offset (4 bytes per face)
-  if (bspx.lumps['LMOFFSET'] && bspx.lumps['LMOFFSET'].length >= numFaces * 4) {
+  if (bspx.lumps['LMOFFSET'] && bspx.lumps['LMOFFSET'].length === numFaces * 4) {
     const l = bspx.lumps['LMOFFSET'];
     result.lmoffsets = new Int32Array(numFaces);
     for (let i = 0; i < numFaces; i++) {
       result.lmoffsets[i] = dv.getInt32(l.offset + i * 4, true);
     }
+  } else if (bspx.lumps['LMOFFSET']) {
+    result.warnings.push(`LMOFFSET ignored: expected ${numFaces * 4} bytes, got ${bspx.lumps['LMOFFSET'].length}.`);
   }
 
   // DECOUPLED_LM: per-face explicit lightmap (40 bytes per face)
   // struct: uint16 lmwidth, uint16 lmheight, int32 offset, float[2][4] world_to_lm
-  if (bspx.lumps['DECOUPLED_LM'] && bspx.lumps['DECOUPLED_LM'].length >= numFaces * 40) {
+  if (bspx.lumps['DECOUPLED_LM'] && bspx.lumps['DECOUPLED_LM'].length === numFaces * 40) {
     const l = bspx.lumps['DECOUPLED_LM'];
     result.decoupledLM = [];
     for (let i = 0; i < numFaces; i++) {
       const o = l.offset + i * 40;
-      result.decoupledLM.push({
+      const record = {
         lmwidth: dv.getUint16(o, true),
         lmheight: dv.getUint16(o + 2, true),
         offset: dv.getInt32(o + 4, true),
@@ -910,11 +1049,27 @@ function parseBSPXLighting(buf, bspx, numFaces) {
           [dv.getFloat32(o+8, true), dv.getFloat32(o+12, true), dv.getFloat32(o+16, true), dv.getFloat32(o+20, true)],
           [dv.getFloat32(o+24, true), dv.getFloat32(o+28, true), dv.getFloat32(o+32, true), dv.getFloat32(o+36, true)]
         ]
-      });
+      };
+      if (!record.vecs.flat().every(Number.isFinite)) {
+        throw new Error(`DECOUPLED_LM face ${i} contains a non-finite transform`);
+      }
+      if (record.lmwidth === 0 || record.lmheight === 0) {
+        // ericw-tools emits an all-zero, offset -1 record for every unlit face
+        // when DECOUPLED_LM is enabled. That is a normal sentinel, not damage.
+        if (record.lmwidth !== 0 || record.lmheight !== 0 || record.offset !== -1) {
+          result.warnings.push(`DECOUPLED_LM face ${i} has inconsistent empty dimensions and was ignored.`);
+        }
+        result.decoupledLM.push(null);
+      } else {
+        result.decoupledLM.push(record);
+      }
     }
+  } else if (bspx.lumps['DECOUPLED_LM']) {
+    result.warnings.push(`DECOUPLED_LM ignored: expected ${numFaces * 40} bytes, got ${bspx.lumps['DECOUPLED_LM'].length}.`);
   }
 
   // LMSTYLE16 / LMSTYLE: per-face style tables, potentially >4 styles
+  let foundStyleTable = false;
   if (bspx.lumps['LMSTYLE16']) {
     const l = bspx.lumps['LMSTYLE16'];
     const stylesPerFace = Math.floor(l.length / (numFaces * 2));
@@ -928,8 +1083,12 @@ function parseBSPXLighting(buf, bspx, numFaces) {
         }
         return styles;
       });
+      foundStyleTable = true;
+    } else {
+      result.warnings.push(`LMSTYLE16 ignored: ${l.length} bytes cannot be divided evenly across ${numFaces} faces.`);
     }
-  } else if (bspx.lumps['LMSTYLE']) {
+  }
+  if (!foundStyleTable && bspx.lumps['LMSTYLE']) {
     const l = bspx.lumps['LMSTYLE'];
     const stylesPerFace = Math.floor(l.length / numFaces);
     if (stylesPerFace > 0 && l.length === numFaces * stylesPerFace) {
@@ -942,21 +1101,19 @@ function parseBSPXLighting(buf, bspx, numFaces) {
         }
         return styles;
       });
+    } else {
+      result.warnings.push(`LMSTYLE ignored: ${l.length} bytes cannot be divided evenly across ${numFaces} faces.`);
     }
   }
-
-  result.hasRGBLighting = !!bspx.lumps['RGBLIGHTING'];
-  result.hasHDRLighting = !!bspx.lumps['LIGHTING_E5BGR9'];
 
   return result;
 }
 
-// ── BSP CRC (quick 4KB CRC for .ent filename matching, same as QSS-M) ──
-function computeBSPCRC(buf) {
-  // CRC-16/CCITT used by Quake engines
-  const data = new Uint8Array(buf);
+// ── CRC-16/CCITT used by Quake engines ──
+function computeCRC16(data, count = data.length) {
+  if (count < 0 || count > data.length) throw new Error('Invalid CRC byte count');
   let crc = 0xFFFF;
-  for (let i = 0; i < data.length; i++) {
+  for (let i = 0; i < count; i++) {
     crc ^= data[i] << 8;
     for (let j = 0; j < 8; j++) {
       if (crc & 0x8000) crc = (crc << 1) ^ 0x1021;
@@ -985,15 +1142,18 @@ const QUAKE_LIGHTSTYLES = [
 
 // ── LIT Parser ──
 function parseLIT(buf) {
+  if (!(buf instanceof ArrayBuffer)) throw new Error('LIT input is not an ArrayBuffer');
   if (buf.byteLength < 8) throw new Error('LIT file is too small to contain a valid header');
   const dv = new DataView(buf);
   const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
   if (magic !== 'QLIT') throw new Error('Not a valid .lit file (expected QLIT header)');
   const version = dv.getInt32(4, true);
 
+  if (version === LIT_VERSION_2) return parseLIT2(buf, dv);
+
   const isHDR = version === LIT_VERSION_E5BGR9;
   if (version !== LIT_VERSION && !isHDR) {
-    throw new Error(`Unsupported .lit version: ${version} (expected ${LIT_VERSION} or ${LIT_VERSION_E5BGR9} for HDR E5BGR9)`);
+    throw new Error(`Unsupported .lit version: ${version} (expected 1, 2, or ${LIT_VERSION_E5BGR9} for HDR E5BGR9)`);
   }
 
   const payloadBytes = buf.byteLength - 8;
@@ -1021,6 +1181,53 @@ function parseLIT(buf) {
   });
 }
 
+// ericw-tools -lit2 layout: header, interleaved 17-byte face records, RGB, then deluxe directions.
+function parseLIT2(buf, dv) {
+  if (buf.byteLength < 16) throw new Error('LIT2 file is too small for its extended header');
+  const numSurfaces = dv.getInt32(8, true);
+  const numSamples = dv.getInt32(12, true);
+  if (numSurfaces < 0 || numSamples < 0) throw new Error('LIT2 header contains a negative count');
+
+  const faceRecordBytes = 17;
+  const metadataBytes = numSurfaces * faceRecordBytes;
+  const rgbBytes = numSamples * 3;
+  const expectedBytes = 16 + metadataBytes + rgbBytes * 2;
+  if (!Number.isSafeInteger(expectedBytes) || expectedBytes !== buf.byteLength) {
+    throw new Error(`Corrupt LIT2 size: header expects ${expectedBytes.toLocaleString()} bytes, got ${buf.byteLength.toLocaleString()}`);
+  }
+
+  const lit2Faces = [];
+  let off = 16;
+  for (let i = 0; i < numSurfaces; i++, off += faceRecordBytes) {
+    lit2Faces.push({
+      lightofs: dv.getInt32(off, true),
+      styles: [
+        dv.getUint16(off + 4, true), dv.getUint16(off + 6, true),
+        dv.getUint16(off + 8, true), dv.getUint16(off + 10, true)
+      ],
+      width: dv.getUint16(off + 12, true),
+      height: dv.getUint16(off + 14, true),
+      lmshiftBits: dv.getUint8(off + 16)
+    });
+  }
+
+  const lighting = buildRGBLightingData(buf, off, rgbBytes, {
+    version: LIT_VERSION_2,
+    sourceKind: 'external-lit2',
+    sourceLabel: litName || 'External .lit2',
+    formatLabel: 'RGB + deluxe .lit v2 (experimental)',
+    outputFlag: '-lit2',
+    sourceWarnings: [
+      'LIT2 is experimental. QSS-M and ezQuake reject version 2; FTEQW has experimental support, but its local loader layout differs from current ericw-tools output.'
+    ]
+  });
+  lighting.isLIT2 = true;
+  lighting.numSurfaces = numSurfaces;
+  lighting.lit2Faces = lit2Faces;
+  lighting.luxData = new Uint8Array(buf, off + rgbBytes, rgbBytes);
+  return lighting;
+}
+
 function buildRGBLightingData(buf, offset, payloadBytes, meta = {}) {
   if (payloadBytes % 3 !== 0) {
     throw new Error(`${meta.sourceLabel || 'RGB lighting data'} payload is not divisible by 3`);
@@ -1032,13 +1239,14 @@ function buildRGBLightingData(buf, offset, payloadBytes, meta = {}) {
     analysisData: data,
     numSamples: data.length / 3,
     isHDR: false,
+    isLIT2: false,
     sampleStride: 3,
     payloadBytes,
     hdrExposure: 1,
     sourceKind: meta.sourceKind || 'external-lit',
     sourceLabel: meta.sourceLabel || 'External .lit',
     formatLabel: meta.formatLabel || `RGB .lit v${meta.version ?? LIT_VERSION}`,
-    outputFlag: meta.outputFlag || '-lit',
+    outputFlag: Object.prototype.hasOwnProperty.call(meta, 'outputFlag') ? meta.outputFlag : '-lit',
     sourceWarnings: meta.sourceWarnings || []
   };
 }
@@ -1053,6 +1261,7 @@ function buildHDRLightingData(buf, offset, payloadBytes, meta = {}) {
   const linearData = new Float32Array(numSamples * 3);
   const analysisData = new Float32Array(numSamples * 3);
   const samplePeaks = [];
+  const exposureSampleStep = Math.max(1, Math.ceil(numSamples / 65536));
   const dv = new DataView(buf);
   let maxLinear = 0;
   for (let i = 0; i < numSamples; i++) {
@@ -1063,7 +1272,10 @@ function buildHDRLightingData(buf, offset, payloadBytes, meta = {}) {
     linearData[i * 3 + 2] = rgb[2];
     const peak = Math.max(rgb[0], rgb[1], rgb[2]);
     if (peak > maxLinear) maxLinear = peak;
-    if ((i % 97) === 0) samplePeaks.push(peak);
+    // Keep exposure selection representative without allocating an unbounded
+    // second copy. Small files must sample every luxel; a fixed stride made a
+    // two-sample HDR file depend entirely on its first sample.
+    if ((i % exposureSampleStep) === 0 || i === numSamples - 1) samplePeaks.push(peak);
   }
 
   const hdrExposure = chooseHDRExposure(samplePeaks, maxLinear);
@@ -1084,13 +1296,14 @@ function buildHDRLightingData(buf, offset, payloadBytes, meta = {}) {
     linearData,
     numSamples,
     isHDR: true,
+    isLIT2: false,
     sampleStride: 4,
     payloadBytes,
     hdrExposure,
     sourceKind: meta.sourceKind || 'external-lit',
     sourceLabel: meta.sourceLabel || 'External HDR .lit',
     formatLabel: meta.formatLabel || 'HDR .lit (E5BGR9)',
-    outputFlag: meta.outputFlag || '-hdr',
+    outputFlag: Object.prototype.hasOwnProperty.call(meta, 'outputFlag') ? meta.outputFlag : '-hdr',
     sourceWarnings: meta.sourceWarnings || []
   };
 }
@@ -1110,7 +1323,7 @@ function chooseHDRExposure(samplePeaks, maxLinear) {
   if (maxLinear <= 0) return 1;
   if (samplePeaks.length === 0) return maxLinear > 255 ? 255 / maxLinear : 1;
   samplePeaks.sort((a, b) => a - b);
-  const idx = Math.min(samplePeaks.length - 1, Math.floor(samplePeaks.length * 0.98));
+  const idx = Math.min(samplePeaks.length - 1, Math.ceil((samplePeaks.length - 1) * 0.98));
   const ref = samplePeaks[idx] > 0 ? samplePeaks[idx] : maxLinear;
   return ref > 255 ? 255 / ref : 1;
 }
@@ -1119,16 +1332,64 @@ function clampByte(value) {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
 
+function buildGrayLightingData(bsp, sourceWarnings) {
+  const data = new Uint8ClampedArray(bsp.lightData.length * 3);
+  for (let i = 0; i < bsp.lightData.length; i++) {
+    data[i*3] = data[i*3+1] = data[i*3+2] = bsp.lightData[i];
+  }
+  return {
+    version: null, data, analysisData: data, numSamples: bsp.lightData.length,
+    isHDR: false, isLIT2: false, sampleStride: 1, payloadBytes: bsp.lightData.length,
+    hdrExposure: 1, sourceKind: 'bsp-gray', sourceLabel: 'BSP LIGHTING lump',
+    formatLabel: 'Native grayscale', outputFlag: null, sourceWarnings
+  };
+}
+
+function buildNativeRGBLightingData(bsp, buf, sourceWarnings) {
+  const lump = bsp.lumps[LUMP.LIGHTING];
+  return buildRGBLightingData(buf, lump.fileofs, lump.filelen, {
+    version: null,
+    sourceKind: 'bsp-native-rgb',
+    sourceLabel: 'BSP30 LIGHTING lump',
+    formatLabel: 'Native Half-Life RGB',
+    outputFlag: null,
+    sourceWarnings
+  });
+}
+
 function validateLightingSourceForBSP(bsp, lighting, sourceLabel, allowWithoutBaseGray = false) {
-  const expectedPayloadBytes = bsp.lightData.length * lighting.sampleStride;
-  if (bsp.lightData.length === 0) {
+  if (lighting.isLIT2) {
+    if (lighting.numSurfaces !== bsp.faces.length) {
+      throw new Error(`${sourceLabel} describes ${lighting.numSurfaces} faces, but ${bspName || 'the BSP'} has ${bsp.faces.length}`);
+    }
+    for (let i = 0; i < lighting.lit2Faces.length; i++) {
+      const face = lighting.lit2Faces[i];
+      if (face.lightofs < -1) throw new Error(`${sourceLabel} face ${i} has invalid light offset ${face.lightofs}`);
+      if (face.lmshiftBits > 30) throw new Error(`${sourceLabel} face ${i} has unsupported lightmap shift ${face.lmshiftBits}`);
+      if (face.lightofs >= 0 && (face.width === 0 || face.height === 0)) {
+        throw new Error(`${sourceLabel} face ${i} has an offset but empty lightmap dimensions`);
+      }
+      if (face.lightofs >= 0 && face.width > 0 && face.height > 0) {
+        const numStyles = getLIT2ActiveStyles(face).length;
+        if (numStyles === 0) throw new Error(`${sourceLabel} face ${i} has samples but no active lightstyle`);
+        const faceSamples = face.width * face.height * numStyles;
+        if (face.lightofs > lighting.numSamples || faceSamples > lighting.numSamples - face.lightofs) {
+          throw new Error(`${sourceLabel} face ${i} points outside its RGB payload`);
+        }
+      }
+    }
+    return;
+  }
+
+  const expectedPayloadBytes = bsp.numLightSamples * lighting.sampleStride;
+  if (bsp.numLightSamples === 0) {
     if (!allowWithoutBaseGray && lighting.payloadBytes !== 0) {
       throw new Error(`${sourceLabel} has ${lighting.payloadBytes.toLocaleString()} bytes, but ${bspName} has no grayscale LIGHTING samples`);
     }
     return;
   }
   if (lighting.payloadBytes !== expectedPayloadBytes) {
-    throw new Error(`${sourceLabel} has ${lighting.payloadBytes.toLocaleString()} bytes, but ${bspName} expects ${expectedPayloadBytes.toLocaleString()} bytes (${bsp.lightData.length.toLocaleString()} light samples)`);
+    throw new Error(`${sourceLabel} has ${lighting.payloadBytes.toLocaleString()} bytes, but ${bspName} expects ${expectedPayloadBytes.toLocaleString()} bytes (${bsp.numLightSamples.toLocaleString()} light samples)`);
   }
 }
 
@@ -1171,26 +1432,37 @@ function parseEmbeddedLighting(bsp, buf, sourceWarnings) {
 }
 
 function resolveLightingSource(bsp, buf) {
-  const sourceWarnings = [];
+  const sourceWarnings = [...(bsp.bspxLighting.warnings || [])];
+
+  // Half-Life BSP30 stores RGB directly. ezQuake and FTEQW use it before considering sidecars.
+  if (bsp.isHL && bsp.rawLightData.length > 0) {
+    if (litBuffer) sourceWarnings.push('External .lit ignored for BSP30: Half-Life lighting is already native RGB.');
+    return buildNativeRGBLightingData(bsp, buf, sourceWarnings);
+  }
 
   if (litBuffer) {
     try {
       const externalLighting = parseLIT(litBuffer);
       validateLightingSourceForBSP(bsp, externalLighting, `External ${litName || '.lit'}`);
-      externalLighting.sourceWarnings = sourceWarnings;
+      const bspStem = bspName.replace(/\.bsp$/i, '').toLowerCase();
+      const litStem = litName.replace(/\.lit$/i, '').toLowerCase();
+      if (bspStem && litStem && bspStem !== litStem) {
+        sourceWarnings.push(`Filename mismatch: ${litName} is accepted by size, but cannot be proven to belong to ${bspName}.`);
+      }
+      externalLighting.sourceWarnings = [...sourceWarnings, ...(externalLighting.sourceWarnings || [])];
       return externalLighting;
     } catch (err) {
-      sourceWarnings.push(`QSS-M would reject ${litName || 'the external .lit'}: ${err.message}`);
+      sourceWarnings.push(`External ${litName || '.lit'} ignored: ${err.message}`);
     }
   }
 
   const embeddedLighting = parseEmbeddedLighting(bsp, buf, sourceWarnings);
   if (embeddedLighting) return embeddedLighting;
 
-  if (sourceWarnings.length > 0) {
-    throw new Error(sourceWarnings.join(' '));
-  }
-  throw new Error('No usable lighting source found. Load a matching .lit file or use a BSP with BSPX RGBLIGHTING/LIGHTING_E5BGR9.');
+  // A BSP with no LIGHTING samples is valid (for example, an all-special or
+  // deliberately fullbright map). Keep it analyzable instead of requiring a
+  // synthetic empty .lit sidecar.
+  return buildGrayLightingData(bsp, sourceWarnings);
 }
 
 function getGrayLightingData(bsp, lit) {
@@ -1219,23 +1491,30 @@ function parseEntities(str) {
     i++;
     const ent = {};
     const keyOrder = [];
+    const pairs = [];
     while (i < str.length && str[i] !== '}') {
       while (i < str.length && str[i] !== '"' && str[i] !== '}') i++;
       if (str[i] === '}') break;
       i++;
       let key = '';
       while (i < str.length && str[i] !== '"') key += str[i++];
+      if (i >= str.length) throw new Error('Malformed entity lump: unterminated key');
       i++;
       while (i < str.length && str[i] !== '"') i++;
+      if (i >= str.length) throw new Error(`Malformed entity lump: missing value for ${key}`);
       i++;
       let val = '';
       while (i < str.length && str[i] !== '"') val += str[i++];
+      if (i >= str.length) throw new Error(`Malformed entity lump: unterminated value for ${key}`);
       i++;
       ent[key] = val;
       keyOrder.push(key);
+      pairs.push([key, val]);
     }
-    if (str[i] === '}') i++;
-    ent._keyOrder = keyOrder;
+    if (str[i] !== '}') throw new Error('Malformed entity lump: missing closing brace');
+    i++;
+    Object.defineProperty(ent, '_keyOrder', { value: keyOrder, enumerable: false });
+    Object.defineProperty(ent, '_pairs', { value: pairs, enumerable: false });
     ents.push(ent);
   }
   return ents;
@@ -1272,39 +1551,91 @@ function getActiveStyles(face, faceIdx, bsp) {
   return styles;
 }
 
-function getDefaultLightmapShift(worldspawn) {
+function getLIT2ActiveStyles(face) {
+  const styles = [];
+  for (const style of face.styles) {
+    if (style === INVALID_STYLE16) break;
+    styles.push(style);
+  }
+  return styles;
+}
+
+function getDefaultLightmapShift(worldspawn, warnings = null) {
   const raw = worldspawn['_lightmap_scale'] ?? worldspawn['lightmap_scale'];
   if (raw === undefined) return 4;
-  let scale = parseInt(raw, 10);
-  if (!Number.isFinite(scale) || scale <= 0) return 4;
+  const text = String(raw).trim();
+  if (!/^\+?\d+$/.test(text)) {
+    if (warnings) warnings.push(`Invalid worldspawn lightmap_scale "${raw}" ignored; using 16.`);
+    return 4;
+  }
+  let scale = Number(text);
+  if (!Number.isSafeInteger(scale) || scale <= 0 || scale > 2 ** 30) {
+    if (warnings && scale !== 0) warnings.push(`Unsupported worldspawn lightmap_scale "${raw}" ignored; using 16.`);
+    return 4;
+  }
+  const requestedScale = scale;
   let shiftBits = 0;
   while (scale > 1) {
-    scale >>= 1;
+    scale = Math.floor(scale / 2);
     shiftBits++;
+  }
+  const engineScale = 2 ** shiftBits;
+  if (engineScale !== requestedScale && warnings) {
+    warnings.push(`Non-power-of-two lightmap_scale ${requestedScale}: ericw-tools can compile it exactly, but QSS-M/FTEQW reconstruct ${engineScale}; lightmap extents may be incompatible.`);
   }
   return shiftBits;
 }
 
+function checkedLightmapSampleCount(width, height, numStyles, faceIdx) {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error(`Face ${faceIdx} has invalid lightmap dimensions ${width}x${height}`);
+  }
+  if (!Number.isSafeInteger(numStyles) || numStyles <= 0) {
+    throw new Error(`Face ${faceIdx} has invalid lightstyle count ${numStyles}`);
+  }
+  const numSamples = width * height * numStyles;
+  if (!Number.isSafeInteger(numSamples)) {
+    throw new Error(`Face ${faceIdx} lightmap sample count exceeds JavaScript's safe integer range`);
+  }
+  return numSamples;
+}
+
 // ── Compute face lightmap extents (matches ericw-tools/QSS-M exactly) ──
-function faceLightmapInfo(face, faceIdx, bsp, defaultShiftBits) {
-  const lightofs = getLightOffset(face, faceIdx, bsp);
+function faceLightmapInfo(face, faceIdx, bsp, defaultShiftBits, lit = null) {
+  const lit2Face = lit && lit.isLIT2 ? lit.lit2Faces[faceIdx] : null;
+  const lightofs = getLightOffset(face, faceIdx, bsp, lit);
   if (lightofs < 0) return null;
+  if (face.numedges === 0) return null;
   if (face.texinfo < 0 || face.texinfo >= bsp.texinfos.length) return null;
 
   const ti = bsp.texinfos[face.texinfo];
   if (ti.flags & TEX_SPECIAL) return null;
-  const activeStyles = getActiveStyles(face, faceIdx, bsp);
+  const activeStyles = lit2Face ? getLIT2ActiveStyles(lit2Face) : getActiveStyles(face, faceIdx, bsp);
+  if (activeStyles.length === 0) {
+    throw new Error(`Face ${faceIdx} has lighting data but no active lightstyle`);
+  }
+
+  if (lit2Face) {
+    if (lit2Face.width === 0 || lit2Face.height === 0) return null;
+    const numStyles = activeStyles.length;
+    const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
+    return {
+      width: lit2Face.width, height: lit2Face.height, numStyles,
+      numSamples: checkedLightmapSampleCount(lit2Face.width, lit2Face.height, numStyles, faceIdx),
+      texName, lmMinS: 0, lmMinT: 0, activeStyles, lightofs,
+      lmshift: 2 ** lit2Face.lmshiftBits, decoupled: false, lit2: true
+    };
+  }
 
   // Check for DECOUPLED_LM (explicit per-face dimensions)
   if (bsp.bspxLighting.decoupledLM && bsp.bspxLighting.decoupledLM[faceIdx]) {
     const dlm = bsp.bspxLighting.decoupledLM[faceIdx];
     if (dlm.lmwidth > 0 && dlm.lmheight > 0) {
-      let numStyles = activeStyles.length;
-      if (numStyles === 0) numStyles = 1;
+      const numStyles = activeStyles.length;
       const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
       return {
         width: dlm.lmwidth, height: dlm.lmheight, numStyles,
-        numSamples: dlm.lmwidth * dlm.lmheight * numStyles,
+        numSamples: checkedLightmapSampleCount(dlm.lmwidth, dlm.lmheight, numStyles, faceIdx),
         texName, lmMinS: 0, lmMinT: 0,
         activeStyles,
         lightofs, decoupled: true
@@ -1317,7 +1648,10 @@ function faceLightmapInfo(face, faceIdx, bsp, defaultShiftBits) {
   if (bsp.bspxLighting.lmshifts) {
     shiftBits = bsp.bspxLighting.lmshifts[faceIdx];
   }
-  const shift = 1 << shiftBits;
+  if (!Number.isInteger(shiftBits) || shiftBits < 0 || shiftBits > 30) {
+    throw new Error(`Face ${faceIdx} has unsupported lightmap shift ${shiftBits}`);
+  }
+  const shift = 2 ** shiftBits;
 
   let minS = Infinity, maxS = -Infinity;
   let minT = Infinity, maxT = -Infinity;
@@ -1325,8 +1659,11 @@ function faceLightmapInfo(face, faceIdx, bsp, defaultShiftBits) {
   for (let e = 0; e < face.numedges; e++) {
     const vi = faceVertexIndex(face, e, bsp);
     const v = getVertex(vi, bsp);
-    const s = ti.vecs[0][0]*v[0] + ti.vecs[0][1]*v[1] + ti.vecs[0][2]*v[2] + ti.vecs[0][3];
-    const t = ti.vecs[1][0]*v[0] + ti.vecs[1][1]*v[1] + ti.vecs[1][2]*v[2] + ti.vecs[1][3];
+    // Both QSS-M and ericw-tools retain wide intermediates, then store the
+    // final texture coordinate as float before floor/ceil. That last rounding
+    // point matters for coordinates extremely close to a luxel boundary.
+    const s = Math.fround(ti.vecs[0][0]*v[0] + ti.vecs[0][1]*v[1] + ti.vecs[0][2]*v[2] + ti.vecs[0][3]);
+    const t = Math.fround(ti.vecs[1][0]*v[0] + ti.vecs[1][1]*v[1] + ti.vecs[1][2]*v[2] + ti.vecs[1][3]);
     if (s < minS) minS = s; if (s > maxS) maxS = s;
     if (t < minT) minT = t; if (t > maxT) maxT = t;
   }
@@ -1340,29 +1677,45 @@ function faceLightmapInfo(face, faceIdx, bsp, defaultShiftBits) {
   const width = (lmMaxS - lmMinS) + 1;
   const height = (lmMaxT - lmMinT) + 1;
 
-  let numStyles = activeStyles.length;
-  if (numStyles === 0) numStyles = 1;
+  const numStyles = activeStyles.length;
+  const numSamples = checkedLightmapSampleCount(width, height, numStyles, faceIdx);
 
   const texName = (ti.miptex >= 0 && ti.miptex < bsp.texNames.length) ? bsp.texNames[ti.miptex] : '';
 
   return {
     width, height, numStyles,
-    numSamples: width * height * numStyles,
+    numSamples,
     texName, lmMinS, lmMinT,
     activeStyles,
     lightofs, lmshift: shift, decoupled: false
   };
 }
 
+// Return the first sample for a particular style block. Lightmaps store one
+// full width*height block per active style, in style-table order.
+function getFaceStyleOffset(lm, style = 0, fallbackToFirst = false) {
+  const styleIndex = lm.activeStyles.indexOf(style);
+  if (styleIndex >= 0) return lm.lightofs + styleIndex * lm.width * lm.height;
+  return fallbackToFirst && lm.activeStyles.length > 0 ? lm.lightofs : -1;
+}
+
 // ── Get effective light offset for a face (BSPX LMOFFSET or DECOUPLED_LM override) ──
-function getLightOffset(face, faceIdx, bsp) {
+function getLightOffset(face, faceIdx, bsp, lit = null) {
+  if (lit && lit.isLIT2) return lit.lit2Faces[faceIdx].lightofs;
+  let offset;
   if (bsp.bspxLighting.decoupledLM && bsp.bspxLighting.decoupledLM[faceIdx]) {
-    return bsp.bspxLighting.decoupledLM[faceIdx].offset;
+    offset = bsp.bspxLighting.decoupledLM[faceIdx].offset;
+  } else if (bsp.bspxLighting.lmoffsets) {
+    offset = bsp.bspxLighting.lmoffsets[faceIdx];
+  } else {
+    offset = face.lightofs;
   }
-  if (bsp.bspxLighting.lmoffsets) {
-    return bsp.bspxLighting.lmoffsets[faceIdx];
+  if (offset < -1) throw new Error(`Face ${faceIdx} has invalid light offset ${offset}`);
+  if (offset < 0) return offset;
+  if (offset % bsp.lightingSampleStride !== 0) {
+    throw new Error(`Face ${faceIdx} light offset ${offset} is not aligned to ${bsp.lightingSampleStride}-byte samples`);
   }
-  return face.lightofs;
+  return offset / bsp.lightingSampleStride;
 }
 
 // ── Face normal (respects side) ──
@@ -1387,28 +1740,43 @@ function faceCenter(face, bsp) {
 function analyzeLightEntities(lightEnts) {
   const result = {
     point: [], spot: [], sun: [], surface: [],
-    intensityMin: Infinity, intensityMax: 0, intensityAvg: 0,
+    intensityMin: Infinity, intensityMax: -Infinity, intensityAvg: 0,
     colors: [], styledCount: 0, switchableCount: 0
   };
 
   for (const e of lightEnts) {
-    const intensity = parseFloat(e.light || e._light || '300');
+    // ericw-tools accepts Half-Life's `light "r g b intensity"` form (and
+    // the three-component color-only form), with _color taking priority.
+    const rawLight = String(e.light ?? e._light ?? '300').trim();
+    const lightParts = rawLight ? rawLight.split(/\s+/).map(Number) : [];
+    const validLightParts = lightParts.every(Number.isFinite);
+    let intensity = 300;
+    let impliedColor = null;
+    if (validLightParts && lightParts.length === 1) intensity = lightParts[0];
+    else if (validLightParts && lightParts.length === 3) impliedColor = lightParts;
+    else if (validLightParts && lightParts.length === 4) {
+      impliedColor = lightParts.slice(0, 3);
+      intensity = lightParts[3];
+    }
     result.intensityMin = Math.min(result.intensityMin, intensity);
     result.intensityMax = Math.max(result.intensityMax, intensity);
     result.intensityAvg += intensity;
 
     // Parse color
-    const colorStr = e._color || '255 255 255';
+    const colorStr = e._color || (impliedColor ? impliedColor.join(' ') : '255 255 255');
     const parts = colorStr.trim().split(/\s+/).map(Number);
-    let r = parts[0] || 255, g = parts[1] || 255, b = parts[2] || 255;
+    let r = Number.isFinite(parts[0]) ? parts[0] : 255;
+    let g = Number.isFinite(parts[1]) ? parts[1] : 255;
+    let b = Number.isFinite(parts[2]) ? parts[2] : 255;
     // Normalize 0-1 range to 0-255 (ericw-tools behavior)
     if (r >= 0 && r <= 1 && g >= 0 && g <= 1 && b >= 0 && b <= 1) {
       r = Math.round(r * 255); g = Math.round(g * 255); b = Math.round(b * 255);
     }
+    r = clampByte(r); g = clampByte(g); b = clampByte(b);
     result.colors.push([r, g, b]);
 
     // Classify
-    if (e._sun === '1') result.sun.push(e);
+    if (settingEnabled(e._sun)) result.sun.push(e);
     else if (e._surface) result.surface.push(e);
     else if (e.target || e.mangle) result.spot.push(e);
     else result.point.push(e);
@@ -1421,6 +1789,7 @@ function analyzeLightEntities(lightEnts) {
     result.intensityAvg /= lightEnts.length;
   } else {
     result.intensityMin = 0;
+    result.intensityMax = 0;
   }
 
   // Find dominant colors (simple binning)
@@ -1466,10 +1835,10 @@ function analyze() {
     const worldspawn = entities.find(e => e.classname === 'worldspawn') || {};
     const lightEnts = entities.filter(e => e.classname && e.classname.startsWith('light'));
     const lightStats = analyzeLightEntities(lightEnts);
-    const defaultShiftBits = getDefaultLightmapShift(worldspawn);
+    const defaultShiftBits = getDefaultLightmapShift(worldspawn, lit.sourceWarnings);
 
     // Per-face lightmap info + validation
-    const faceAnalysis = analyzeFaces(bsp, grayInfo.data, defaultShiftBits);
+    const faceAnalysis = analyzeFaces(bsp, lit, grayInfo.data, defaultShiftBits);
 
     // Global lightmap statistics
     const stats = analyzeLighting(grayInfo.data, lit, faceAnalysis);
@@ -1478,7 +1847,7 @@ function analyze() {
     const sunInference = inferSunDirection(bsp, faceAnalysis, grayInfo.data);
 
     // Infer settings
-    const inferred = inferSettings(bsp, lit, grayInfo.data, entities, worldspawn, lightEnts, lightStats, stats, sunInference);
+    const inferred = inferSettings(bsp, lit, grayInfo.data, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInference);
 
     // Render
     renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInference, inferred, defaultShiftBits);
@@ -1491,42 +1860,64 @@ function analyze() {
 }
 
 // ── Per-face analysis ──
-function analyzeFaces(bsp, grayData, defaultShiftBits) {
+function analyzeFaces(bsp, lit, grayData, defaultShiftBits) {
   const infos = [];
-  let totalExpected = 0;
+  let totalExpected = 0, referencedSamples = 0, maxReferencedSample = 0, outOfBoundsFaces = 0;
   let litFaces = 0, unlitFaces = 0, specialFaces = 0;
   let multiStyleFaces = 0;
   let maxWidth = 0, maxHeight = 0;
+  const ranges = [];
 
   for (let fi = 0; fi < bsp.faces.length; fi++) {
     const face = bsp.faces[fi];
-    const lm = faceLightmapInfo(face, fi, bsp, defaultShiftBits);
+    const lm = faceLightmapInfo(face, fi, bsp, defaultShiftBits, lit);
     infos.push(lm);
 
     if (!lm) {
-      if (face.lightofs < 0) unlitFaces++;
+      if (getLightOffset(face, fi, bsp, lit) < 0) unlitFaces++;
       else specialFaces++;
       continue;
     }
 
     litFaces++;
-    totalExpected += lm.numSamples;
+    referencedSamples += lm.numSamples;
+    const end = lm.lightofs + lm.numSamples;
+    maxReferencedSample = Math.max(maxReferencedSample, end);
+    if (lm.lightofs > grayData.length || lm.numSamples > grayData.length - lm.lightofs) outOfBoundsFaces++;
+    else ranges.push([lm.lightofs, end]);
     if (lm.numStyles > 1) multiStyleFaces++;
     if (lm.width > maxWidth) maxWidth = lm.width;
     if (lm.height > maxHeight) maxHeight = lm.height;
   }
 
-  const sampleMatch = totalExpected === grayData.length;
+  ranges.sort((a, b) => a[0] - b[0]);
+  const referencedRanges = [];
+  for (const [start, end] of ranges) {
+    const previous = referencedRanges[referencedRanges.length - 1];
+    if (!previous || start > previous[1]) {
+      referencedRanges.push([start, end]);
+    } else {
+      previous[1] = Math.max(previous[1], end);
+    }
+  }
+  const coveredSamples = referencedRanges.reduce((sum, range) => sum + range[1] - range[0], 0);
+  totalExpected = maxReferencedSample;
+  const unusedSamples = Math.max(0, grayData.length - coveredSamples);
+  const sampleMatch = outOfBoundsFaces === 0;
 
   return {
     infos, totalExpected, litFaces, unlitFaces, specialFaces,
-    multiStyleFaces, maxWidth, maxHeight, sampleMatch
+    multiStyleFaces, maxWidth, maxHeight, sampleMatch,
+    referencedSamples, maxReferencedSample, coveredSamples, unusedSamples, outOfBoundsFaces,
+    referencedRanges
   };
 }
 
 // ── Global lightmap statistics ──
 function analyzeLighting(grayData, lit, faceAnalysis) {
-  const n = lit.numSamples;
+  const sourceSamples = lit.numSamples;
+  const ranges = faceAnalysis.referencedRanges || (sourceSamples > 0 ? [[0, sourceSamples]] : []);
+  const n = ranges.reduce((sum, range) => sum + range[1] - range[0], 0);
   const analysisData = lit.analysisData || lit.data;
   const displayData = lit.data;
   let totalR = 0, totalG = 0, totalB = 0, totalGray = 0;
@@ -1539,30 +1930,43 @@ function analyzeLighting(grayData, lit, faceAnalysis) {
   const gHist = new Uint32Array(256);
   const bHist = new Uint32Array(256);
 
-  for (let i = 0; i < n; i++) {
-    const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
-    const gray = grayData[i];
-    const dr = displayData[i*3], dg = displayData[i*3+1], db = displayData[i*3+2];
+  if (n === 0) {
+    return {
+      numSamples: 0, sourceSamples, avgR: 0, avgG: 0, avgB: 0, avgGray: 0,
+      maxR: 0, maxG: 0, maxB: 0, maxGray: 0, minNonZeroGray: 256,
+      numLit: 0, numPreviewClipped: 0, numFullDark: 0,
+      avgSaturation: 0, hasColor: false, colorDrift: 0,
+      possibleMinlight: 0, minlightColor: null,
+      brightHist, rHist, gHist, bHist
+    };
+  }
 
-    totalR += r; totalG += g; totalB += b; totalGray += gray;
-    if (r > maxR) maxR = r; if (g > maxG) maxG = g; if (b > maxB) maxB = b;
-    if (gray > maxGray) maxGray = gray;
-    brightHist[gray]++;
-    rHist[dr]++; gHist[dg]++; bHist[db]++;
+  for (const [start, end] of ranges) {
+    for (let i = start; i < end; i++) {
+      const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
+      const gray = grayData[i];
+      const dr = displayData[i*3], dg = displayData[i*3+1], db = displayData[i*3+2];
 
-    if (gray > 0) {
-      numLit++;
-      if (gray < minNonZeroGray) minNonZeroGray = gray;
-    } else {
-      numFullDark++;
-    }
+      totalR += r; totalG += g; totalB += b; totalGray += gray;
+      if (r > maxR) maxR = r; if (g > maxG) maxG = g; if (b > maxB) maxB = b;
+      if (gray > maxGray) maxGray = gray;
+      brightHist[gray]++;
+      rHist[dr]++; gHist[dg]++; bHist[db]++;
 
-    if (dr === 255 || dg === 255 || db === 255) numPreviewClipped++;
+      if (gray > 0) {
+        numLit++;
+        if (gray < minNonZeroGray) minNonZeroGray = gray;
+      } else {
+        numFullDark++;
+      }
 
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-    if (mx > 10) {
-      totalSaturation += (mx - mn) / mx;
-      satCount++;
+      if (dr === 255 || dg === 255 || db === 255) numPreviewClipped++;
+
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      if (mx > 10) {
+        totalSaturation += (mx - mn) / mx;
+        satCount++;
+      }
     }
   }
 
@@ -1572,13 +1976,15 @@ function analyzeLighting(grayData, lit, faceAnalysis) {
 
   // Color drift: check if LIT is truly colored or just grayscale-replicated
   let colorDriftSum = 0, colorDriftCount = 0;
-  for (let i = 0; i < n; i++) {
-    const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
-    if (r > 5 || g > 5 || b > 5) {
-      const avg3 = (r + g + b) / 3;
-      if (avg3 > 2) {
-        colorDriftSum += (Math.abs(r - avg3) + Math.abs(g - avg3) + Math.abs(b - avg3)) / avg3;
-        colorDriftCount++;
+  for (const [start, end] of ranges) {
+    for (let i = start; i < end; i++) {
+      const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
+      if (r > 5 || g > 5 || b > 5) {
+        const avg3 = (r + g + b) / 3;
+        if (avg3 > 2) {
+          colorDriftSum += (Math.abs(r - avg3) + Math.abs(g - avg3) + Math.abs(b - avg3)) / avg3;
+          colorDriftCount++;
+        }
       }
     }
   }
@@ -1602,11 +2008,13 @@ function analyzeLighting(grayData, lit, faceAnalysis) {
   let mlR = 0, mlG = 0, mlB = 0, mlCount = 0;
   if (possibleMinlight > 0) {
     const lo = Math.max(1, possibleMinlight - 2), hi = possibleMinlight + 2;
-    for (let i = 0; i < n; i++) {
-      const gray = grayData[i];
-      if (gray >= lo && gray <= hi) {
-        mlR += analysisData[i*3]; mlG += analysisData[i*3+1]; mlB += analysisData[i*3+2];
-        mlCount++;
+    for (const [start, end] of ranges) {
+      for (let i = start; i < end; i++) {
+        const gray = grayData[i];
+        if (gray >= lo && gray <= hi) {
+          mlR += analysisData[i*3]; mlG += analysisData[i*3+1]; mlB += analysisData[i*3+2];
+          mlCount++;
+        }
       }
     }
   }
@@ -1615,7 +2023,7 @@ function analyzeLighting(grayData, lit, faceAnalysis) {
   ] : null;
 
   return {
-    numSamples: n, avgR, avgG, avgB, avgGray,
+    numSamples: n, sourceSamples, avgR, avgG, avgB, avgGray,
     maxR, maxG, maxB, maxGray, minNonZeroGray,
     numLit, numPreviewClipped, numFullDark,
     avgSaturation, hasColor, colorDrift,
@@ -1636,6 +2044,16 @@ function inferSunDirection(bsp, faceAnalysis, grayData) {
       dirs.push(d);
     }
   }
+  // 12 edge diagonals: choose the zero axis, then both signs on the other two.
+  for (let zeroAxis = 0; zeroAxis < 3; zeroAxis++) {
+    const axes = [0, 1, 2].filter(axis => axis !== zeroAxis);
+    for (const a of [-1, 1]) for (const b of [-1, 1]) {
+      const d = [0, 0, 0];
+      d[axes[0]] = a / Math.sqrt(2);
+      d[axes[1]] = b / Math.sqrt(2);
+      dirs.push(d);
+    }
+  }
   // 8 corners
   for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
     const len = Math.sqrt(3);
@@ -1652,11 +2070,14 @@ function inferSunDirection(bsp, faceAnalysis, grayData) {
 
     const normal = faceNormal(face, bsp);
 
-    // Average brightness of this face (style 0 only)
+    // Average brightness of this face's static style block. A face whose first
+    // stored block is switchable must not masquerade as style 0.
+    const styleOffset = getFaceStyleOffset(lm, 0);
+    if (styleOffset < 0) continue;
     const numPx = lm.width * lm.height;
     let faceSum = 0;
     for (let p = 0; p < numPx; p++) {
-      const idx = lm.lightofs + p;
+      const idx = styleOffset + p;
       if (idx < grayData.length) faceSum += grayData[idx];
     }
     const faceAvg = faceSum / numPx;
@@ -1679,19 +2100,29 @@ function inferSunDirection(bsp, faceAnalysis, grayData) {
     return avg;
   });
 
-  // Compute overall average for comparison
-  const totalAvg = dirAvgs.reduce((a, b) => a + b, 0) / dirAvgs.length;
+  // Compare only bins represented by map geometry. Counting empty directions
+  // as zero made a single isolated face look like strong directional light.
+  const populatedDirAvgs = dirAvgs.filter((_, i) => dirBrightness[i].count > 0);
+  const totalAvg = populatedDirAvgs.length > 0
+    ? populatedDirAvgs.reduce((a, b) => a + b, 0) / populatedDirAvgs.length
+    : 0;
   const sunRatio = totalAvg > 0 ? bestAvg / totalAvg : 0;
 
   // Convert best direction to yaw/pitch mangle
   let mangle = '0 -90 0';
-  let sunVec = [0, 0, -1];
-  if (bestDir >= 0 && sunRatio > 1.3) {
+  let sunVec = [0, 0, 1];
+  let sunRayVec = [0, 0, -1];
+  if (bestDir >= 0) {
     sunVec = dirs[bestDir];
-    // Mangle: yaw is rotation in XY plane, pitch is elevation
-    const yaw = Math.round(Math.atan2(sunVec[1], sunVec[0]) * 180 / Math.PI);
-    const pitch = Math.round(Math.asin(Math.max(-1, Math.min(1, sunVec[2]))) * 180 / Math.PI);
-    mangle = `${yaw} ${-pitch} 0`; // ericw-tools uses negative pitch convention
+    sunRayVec = sunVec.map(value => -value);
+    if (sunRatio > 1.3) {
+      // Bright faces point back toward the sky ray. ericw-tools takes the
+      // opposite vector as _sunlight_mangle, then negates it before tracing.
+      const rawYaw = Math.round(Math.atan2(sunRayVec[1], sunRayVec[0]) * 180 / Math.PI);
+      const yaw = (rawYaw + 360) % 360;
+      const pitch = Math.round(Math.asin(Math.max(-1, Math.min(1, sunRayVec[2]))) * 180 / Math.PI);
+      mangle = `${yaw} ${pitch} 0`;
+    }
   }
 
   // Up-facing vs other for simple sunlight detection
@@ -1701,11 +2132,13 @@ function inferSunDirection(bsp, faceAnalysis, grayData) {
     const lm = faceAnalysis.infos[fi];
     if (!lm || lm.lightofs < 0) continue;
     if (lm.texName.toLowerCase().startsWith('sky')) continue;
+    const styleOffset = getFaceStyleOffset(lm, 0);
+    if (styleOffset < 0) continue;
     const normal = faceNormal(face, bsp);
     const numPx = lm.width * lm.height;
     let faceSum = 0;
     for (let p = 0; p < numPx; p++) {
-      const idx = lm.lightofs + p;
+      const idx = styleOffset + p;
       if (idx < grayData.length) faceSum += grayData[idx];
     }
     const faceAvg = faceSum / numPx;
@@ -1718,13 +2151,13 @@ function inferSunDirection(bsp, faceAnalysis, grayData) {
 
   return {
     dirs, dirAvgs, bestDir, bestAvg, totalAvg, sunRatio,
-    mangle, sunVec,
+    mangle, sunVec, sunRayVec,
     avgUpFacing, avgOther, upRatio
   };
 }
 
 // ── Infer settings ──
-function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, lightStats, stats, sunInf) {
+function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, lightStats, stats, faceAnalysis, sunInf) {
   const inf = { cmdFlags: [], worldspawnKeys: {}, confidence: {}, notes: [] };
 
   // Copy existing worldspawn lighting keys
@@ -1741,16 +2174,18 @@ function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, ligh
 
   // ── Lighting output flag ──
   inf.outputFlag = lit.outputFlag;
-  inf.cmdFlags.push(lit.outputFlag);
+  if (lit.outputFlag) inf.cmdFlags.push(lit.outputFlag);
   inf.confidence.output = stats.hasColor ? 'high' : 'inferred';
   if (stats.hasColor) {
     inf.notes.push(`Colored lighting detected in ${lit.sourceLabel} — map uses colored lights or sunlight color.`);
   }
+  if (!lit.outputFlag) inf.notes.push(`${lit.sourceLabel} does not require an external lighting output flag.`);
   for (const warning of lit.sourceWarnings || []) inf.notes.push(warning);
 
   // ── Sunlight ──
-  const hasSunKey = inf.worldspawnKeys['_sunlight'] || inf.worldspawnKeys['_sun_light'];
-  const sunEnts = lightEnts.filter(e => e._sun === '1');
+  const sunKeyValue = firstPresent(inf.worldspawnKeys['_sunlight'], inf.worldspawnKeys['_sun_light']);
+  const hasSunKey = settingEnabled(sunKeyValue);
+  const sunEnts = lightEnts.filter(e => settingEnabled(e._sun));
 
   if (!hasSunKey && sunEnts.length === 0 && sunInf.upRatio > 1.5) {
     const estSunlight = Math.round((sunInf.avgUpFacing - sunInf.avgOther) * 2);
@@ -1762,7 +2197,7 @@ function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, ligh
     }
   } else if (hasSunKey) {
     inf.confidence.sunlight = 'high';
-    inf.notes.push(`Sunlight key found in worldspawn: _sunlight = ${hasSunKey}.`);
+    inf.notes.push(`Sunlight key found in worldspawn: ${sunKeyValue}.`);
   } else if (sunEnts.length > 0) {
     inf.confidence.sunlight = 'high';
     inf.notes.push(`${sunEnts.length} _sun entity/entities found — sunlight handled via entities.`);
@@ -1788,15 +2223,16 @@ function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, ligh
   if (!inf.worldspawnKeys['_bounce']) {
     const analysisData = lit.analysisData || lit.data;
     let shadowSat = 0, shadowCnt = 0;
-    const n = lit.numSamples;
-    for (let i = 0; i < n; i++) {
-      const gray = grayData[i];
-      if (gray > 2 && gray < 30) {
-        const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
-        const mx = Math.max(r, g, b);
-        if (mx > 3) {
-          shadowSat += (mx - Math.min(r, g, b)) / mx;
-          shadowCnt++;
+    for (const [start, end] of faceAnalysis.referencedRanges) {
+      for (let i = start; i < end; i++) {
+        const gray = grayData[i];
+        if (gray > 2 && gray < 30) {
+          const r = analysisData[i*3], g = analysisData[i*3+1], b = analysisData[i*3+2];
+          const mx = Math.max(r, g, b);
+          if (mx > 3) {
+            shadowSat += (mx - Math.min(r, g, b)) / mx;
+            shadowCnt++;
+          }
         }
       }
     }
@@ -1808,7 +2244,7 @@ function inferSettings(bsp, lit, grayData, entities, worldspawn, lightEnts, ligh
   }
 
   // ── Dirt ──
-  if (inf.worldspawnKeys['_dirt'] === '1') {
+  if (settingEnabled(firstPresent(inf.worldspawnKeys['_dirt'], inf.worldspawnKeys['_dirty']))) {
     inf.confidence.dirt = 'high';
   } else {
     inf.confidence.dirt = 'unknown';
@@ -1831,7 +2267,7 @@ function buildEntString(entities, worldspawnOverrides) {
       for (const [k, v] of Object.entries(worldspawnOverrides)) {
         merged[k] = v;
       }
-      // Remove keys set to empty/zero that should be omitted
+      // Remove keys carrying the explicit empty/null deletion marker.
       for (const [k, v] of Object.entries(worldspawnOverrides)) {
         if (v === '' || v === null) delete merged[k];
       }
@@ -1839,11 +2275,14 @@ function buildEntString(entities, worldspawnOverrides) {
     out += '{\n';
     // Use original key order, then append any new keys
     const written = new Set();
-    const order = ent._keyOrder || Object.keys(ent);
-    for (const k of order) {
-      if (k === '_keyOrder') continue;
-      if (merged[k] === undefined || merged[k] === null) continue;
-      out += `"${k}" "${merged[k]}"\n`;
+    const pairs = ent._pairs || (ent._keyOrder || Object.keys(ent)).map(k => [k, ent[k]]);
+    for (const [k, originalValue] of pairs) {
+      const isOverridden = ent.classname === 'worldspawn' &&
+        Object.prototype.hasOwnProperty.call(worldspawnOverrides, k);
+      if (isOverridden && written.has(k)) continue;
+      const value = isOverridden ? merged[k] : originalValue;
+      if (value === undefined || value === null) continue;
+      out += `"${k}" "${value}"\n`;
       written.add(k);
     }
     // New keys from overrides
@@ -1857,6 +2296,72 @@ function buildEntString(entities, worldspawnOverrides) {
     out += '}\n';
   }
   return out;
+}
+
+function getEngineCompatibility(bsp, lit) {
+  if (bsp.isHL) {
+    return [
+      ['QSS-M', 'Not applicable', 'This QSS-M tree does not load Half-Life BSP30.'],
+      ['ezQuake', 'Native', 'Uses BSP30 RGB lighting directly and ignores external .lit data.'],
+      ['FTEQW', 'Native', 'Uses BSP30 RGB lighting directly.']
+    ];
+  }
+  if (lit.isLIT2) {
+    return [
+      ['QSS-M', 'Rejected', 'Supports external versions 1 and 0x10001 only.'],
+      ['ezQuake', 'Rejected', 'Supports external version 1 only.'],
+      ['FTEQW', 'Experimental', 'Version 2 exists, but this tree expects a different metadata layout than current ericw-tools writes.']
+    ];
+  }
+  if (lit.sourceKind === 'external-lit' && lit.isHDR) {
+    return [
+      ['QSS-M', 'Supported', 'Loads E5BGR9 external .lit data without LDR rescaling.'],
+      ['ezQuake', 'Rejected', 'Its external loader accepts version 1 only; embedded HDR is supported.'],
+      ['FTEQW', 'Supported', 'Loads E5BGR9 external .lit data.']
+    ];
+  }
+  if (lit.sourceKind === 'external-lit') {
+    return [
+      ['QSS-M', 'Supported', 'Uses the RGB bytes as stored.'],
+      ['ezQuake', 'Supported', 'Rescales RGB against the grayscale BSP using perceived brightness.'],
+      ['FTEQW', 'Supported', 'May rescale RGB against the grayscale BSP as an anti-cheat measure.']
+    ];
+  }
+  if (lit.sourceKind.startsWith('bspx')) {
+    return [
+      ['QSS-M', 'Supported', 'External .lit wins; otherwise HDR BSPX wins over RGBLIGHTING.'],
+      ['ezQuake', 'Supported', 'Loads inline HDR/RGB according to gl_loadlitfiles mode.'],
+      ['FTEQW', 'Supported', 'Loads inline HDR/RGB, with engine-side validation/rescaling.']
+    ];
+  }
+  return [
+    ['QSS-M', 'Supported', 'Expands the grayscale BSP lump to RGB.'],
+    ['ezQuake', 'Supported', 'Expands the grayscale BSP lump to RGB.'],
+    ['FTEQW', 'Supported', 'Uses the native grayscale BSP lighting.']
+  ];
+}
+
+function boundedNumber(value, fallback, min, max) {
+  const parsed = Number.parseFloat(value);
+  return Math.max(min, Math.min(max, Number.isFinite(parsed) ? parsed : fallback));
+}
+
+function firstPresent(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+  }
+  return undefined;
+}
+
+function settingEnabled(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed !== 0;
+}
+
+function normalizeNumericList(value, count, fallback) {
+  const parts = String(value).trim().split(/\s+/);
+  if (parts.length !== count || !parts.every(part => Number.isFinite(Number(part)))) return fallback;
+  return parts.map(part => String(Number(part))).join(' ');
 }
 
 // ── Render everything ──
@@ -1876,6 +2381,27 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
   }
 
   const bspxNames = Object.keys(bsp.bspx.lumps);
+  const engineCompatibility = getEngineCompatibility(bsp, lit);
+  const controls = {
+    sunlight: Math.round(boundedNumber(firstPresent(inferred.worldspawnKeys['_sunlight'], inferred.worldspawnKeys['_sun_light']), 0, -Infinity, Infinity)),
+    sunMangle: firstPresent(inferred.worldspawnKeys['_sunlight_mangle'], inferred.worldspawnKeys['_sun_mangle'], inferred.worldspawnKeys['_sun_angle'], sunInf.mangle),
+    sunColor: firstPresent(inferred.worldspawnKeys['_sunlight_color'], inferred.worldspawnKeys['_sun_color'], '255 255 255'),
+    penumbra: Math.round(boundedNumber(worldspawn['_sunlight_penumbra'], 0, 0, 180)),
+    sunlight2: Math.round(boundedNumber(inferred.worldspawnKeys['_sunlight2'], 0, -Infinity, Infinity)),
+    sunlight3: Math.round(boundedNumber(inferred.worldspawnKeys['_sunlight3'], 0, -Infinity, Infinity)),
+    minlight: Math.round(boundedNumber(firstPresent(inferred.worldspawnKeys['_minlight'], inferred.worldspawnKeys['light'], stats.possibleMinlight), 0, -Infinity, Infinity)),
+    minColor: firstPresent(inferred.worldspawnKeys['_minlight_color'], inferred.worldspawnKeys['_mincolor'], '255 255 255'),
+    dist: boundedNumber(worldspawn['_dist'] ?? inferred.worldspawnKeys['_dist'], 1, 0, 100),
+    range: boundedNumber(worldspawn['_range'] ?? inferred.worldspawnKeys['_range'], 0.5, 0, 100),
+    gamma: boundedNumber(worldspawn['_gamma'] ?? inferred.worldspawnKeys['_gamma'], 1, 0, 100),
+    angleScale: boundedNumber(firstPresent(worldspawn['_anglescale'], worldspawn['_anglesense'], inferred.worldspawnKeys['_anglescale'], inferred.worldspawnKeys['_anglesense']), 0.5, 0, 1),
+    bounce: Math.round(boundedNumber(inferred.worldspawnKeys['_bounce'], 0, 0, 100)),
+    bounceScale: boundedNumber(worldspawn['_bouncescale'] ?? inferred.worldspawnKeys['_bouncescale'], 1, 0, 100),
+    bounceColor: boundedNumber(worldspawn['_bouncecolorscale'] ?? inferred.worldspawnKeys['_bouncecolorscale'], 0, 0, 1),
+    dirtDepth: Math.round(boundedNumber(worldspawn['_dirtdepth'] ?? inferred.worldspawnKeys['_dirtdepth'], 128, 1, Infinity)),
+    dirtScale: boundedNumber(worldspawn['_dirtscale'] ?? inferred.worldspawnKeys['_dirtscale'], 1, 0, 100),
+    dirtGain: boundedNumber(worldspawn['_dirtgain'] ?? inferred.worldspawnKeys['_dirtgain'], 1, 0, 100)
+  };
 
   out.innerHTML = `
     <div class="section">
@@ -1890,8 +2416,9 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
           <div class="stat-value">${faceAnalysis.litFaces} / ${faceAnalysis.unlitFaces} / ${faceAnalysis.specialFaces}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Light Samples</div>
+          <div class="stat-label">Referenced Light Samples</div>
           <div class="stat-value">${stats.numSamples.toLocaleString()}</div>
+          ${stats.sourceSamples !== stats.numSamples ? `<div class="stat-note">${stats.sourceSamples.toLocaleString()} stored; padding excluded from statistics</div>` : ''}
         </div>
         <div class="stat-card">
           <div class="stat-label">Lighting Source</div>
@@ -1919,8 +2446,8 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         </div>
         <div class="stat-card">
           <div class="stat-label">Default Luxel Scale</div>
-          <div class="stat-value">${1 << defaultShiftBits}</div>
-          <div class="stat-note">${worldspawn['_lightmap_scale'] || worldspawn['lightmap_scale'] ? 'from worldspawn lightmap_scale' : 'vanilla default 16'}</div>
+          <div class="stat-value">${2 ** defaultShiftBits}</div>
+          <div class="stat-note">${lit.isLIT2 ? 'LIT2 supplies per-face dimensions and shifts' : worldspawn['_lightmap_scale'] || worldspawn['lightmap_scale'] ? 'from worldspawn lightmap_scale' : 'vanilla default 16'}</div>
         </div>
       </div>
       ${lit.sourceWarnings && lit.sourceWarnings.length > 0 ? `<div class="warning" style="margin-top:12px">${escHTML(lit.sourceWarnings.join(' '))}</div>` : ''}
@@ -1930,10 +2457,11 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
       <h2>Lightmap Validation</h2>
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="stat-label">Expected samples (from faces)</div>
+          <div class="stat-label">Required sample span</div>
           <div class="stat-value ${faceAnalysis.sampleMatch ? 'validation-ok' : 'validation-warn'}">
-            ${faceAnalysis.totalExpected.toLocaleString()}
+            ${faceAnalysis.maxReferencedSample.toLocaleString()}
           </div>
+          <div class="stat-note">highest referenced offset + size</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Active gray samples</div>
@@ -1941,11 +2469,16 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
           <div class="stat-note">${escHTML(grayInfo.sourceLabel)}</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Match</div>
+          <div class="stat-label">Layout</div>
           <div class="stat-value ${faceAnalysis.sampleMatch ? 'validation-ok' : 'validation-warn'}">
-            ${faceAnalysis.sampleMatch ? 'OK' : 'MISMATCH'}
+            ${faceAnalysis.sampleMatch ? 'OK' : 'OUT OF BOUNDS'}
           </div>
-          ${!faceAnalysis.sampleMatch ? `<div class="stat-note">May indicate LMSHIFT/DECOUPLED_LM or custom lightmap scale</div>` : ''}
+          ${!faceAnalysis.sampleMatch ? `<div class="stat-note">${faceAnalysis.outOfBoundsFaces} face(s) exceed the active lighting data</div>` : '<div class="stat-note">compiler alignment gaps are allowed</div>'}
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Padding / unreferenced</div>
+          <div class="stat-value">${faceAnalysis.unusedSamples.toLocaleString()}</div>
+          <div class="stat-note">includes ericw-tools 4-byte face alignment</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Multi-style faces</div>
@@ -1957,7 +2490,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         </div>
         <div class="stat-card">
           <div class="stat-label">Style Table</div>
-          <div class="stat-value">${bsp.bspxLighting.lmstyleSource ? `${bsp.bspxLighting.lmstyleSource} (${bsp.bspxLighting.stylesPerFace}/face)` : 'Legacy face styles'}</div>
+          <div class="stat-value">${lit.isLIT2 ? 'LIT2 (4/face)' : bsp.bspxLighting.lmstyleSource ? `${bsp.bspxLighting.lmstyleSource} (${bsp.bspxLighting.stylesPerFace}/face)` : 'Legacy face styles'}</div>
         </div>
       </div>
     </div>
@@ -2026,12 +2559,12 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         <div class="stat-card">
           <div class="stat-label">Lit / Dark</div>
           <div class="stat-value">${stats.numLit.toLocaleString()} / ${stats.numFullDark.toLocaleString()}</div>
-          <div class="stat-note">${(stats.numLit / stats.numSamples * 100).toFixed(1)}% lit</div>
+          <div class="stat-note">${(stats.numSamples ? stats.numLit / stats.numSamples * 100 : 0).toFixed(1)}% lit</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">${lit.isHDR ? 'Preview-clipped (=255)' : 'Saturated (=255)'}</div>
           <div class="stat-value">${stats.numPreviewClipped.toLocaleString()}</div>
-          <div class="stat-note">${(stats.numPreviewClipped / stats.numSamples * 100).toFixed(1)}%</div>
+          <div class="stat-note">${(stats.numSamples ? stats.numPreviewClipped / stats.numSamples * 100 : 0).toFixed(1)}%</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Avg Color Saturation</div>
@@ -2056,7 +2589,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         <div class="stat-card">
           <div class="stat-label">Brightest direction</div>
           <div class="stat-value" style="font-size:0.875rem;font-family:'JetBrains Mono',monospace">${sunInf.bestDir >= 0 ? `[${sunInf.sunVec.map(v => v.toFixed(2)).join(', ')}]` : 'N/A'}</div>
-          <div class="stat-note">ratio vs avg: ${sunInf.sunRatio.toFixed(2)}</div>
+          <div class="stat-note">surface-normal bin; ratio vs avg: ${sunInf.sunRatio.toFixed(2)}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Inferred mangle</div>
@@ -2076,23 +2609,23 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
       <div class="warning">Educated guesses from baked lightmap analysis. Tweak with sliders below.</div>
 
       <div class="inference-row">
-        <span class="inference-label">Lighting output (${escHTML(inferred.outputFlag)})</span>
+        <span class="inference-label">Lighting output (${escHTML(inferred.outputFlag || 'native BSP data')})</span>
         <span class="tag ${stats.hasColor ? 'tag-yes' : 'tag-info'}">${stats.hasColor ? 'Detected' : 'Flag inferred from source'}</span>
       </div>
       <div class="inference-row">
         <span class="inference-label">Sunlight</span>
         <span class="tag ${inferred.confidence.sunlight === 'high' ? 'tag-yes' : inferred.confidence.sunlight === 'medium' ? 'tag-maybe' : 'tag-no'}">
-          ${inferred.confidence.sunlight === 'high' ? 'Confirmed' : inferred.confidence.sunlight === 'medium' ? 'Est. ' + (inferred.worldspawnKeys['_sunlight'] || '?') : 'Not detected'}</span>
+          ${inferred.confidence.sunlight === 'high' ? 'Confirmed' : inferred.confidence.sunlight === 'medium' ? 'Est. ' + controls.sunlight : 'Not detected'}</span>
       </div>
       <div class="inference-row">
         <span class="inference-label">Minlight</span>
         <span class="tag ${inferred.confidence.minlight ? 'tag-maybe' : 'tag-no'}">
-          ${inferred.worldspawnKeys['_minlight'] ? 'Est. ' + inferred.worldspawnKeys['_minlight'] : (inferred.worldspawnKeys['light'] ? 'Existing: ' + inferred.worldspawnKeys['light'] : 'Not detected')}</span>
+          ${inferred.worldspawnKeys['_minlight'] ? 'Est. ' + controls.minlight : (inferred.worldspawnKeys['light'] ? 'Existing: ' + escHTML(inferred.worldspawnKeys['light']) : 'Not detected')}</span>
       </div>
       <div class="inference-row">
         <span class="inference-label">Bounce</span>
         <span class="tag ${inferred.confidence.bounce ? 'tag-maybe' : 'tag-no'}">
-          ${inferred.worldspawnKeys['_bounce'] ? 'Likely (passes: ' + inferred.worldspawnKeys['_bounce'] + ')' : 'Not detected'}</span>
+          ${inferred.worldspawnKeys['_bounce'] ? 'Likely (passes: ' + controls.bounce + ')' : 'Not detected'}</span>
       </div>
       <div class="inference-row">
         <span class="inference-label">Dirt (AO)</span>
@@ -2119,101 +2652,101 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
       <h3>Sunlight</h3>
       <div class="slider-row">
         <label>_sunlight</label>
-        <input type="range" id="adj_sunlight" min="0" max="500" value="${inferred.worldspawnKeys['_sunlight'] || 0}">
-        <span class="val" id="adj_sunlight_val">${inferred.worldspawnKeys['_sunlight'] || 0}</span>
+        <input type="range" id="adj_sunlight" min="${Math.min(0, controls.sunlight)}" max="${Math.max(500, controls.sunlight)}" value="${controls.sunlight}">
+        <span class="val" id="adj_sunlight_val">${controls.sunlight}</span>
       </div>
       <div class="slider-row">
         <label>_sunlight_mangle</label>
-        <input type="text" id="adj_sunmangle" class="text-input" value="${inferred.worldspawnKeys['_sunlight_mangle'] || worldspawn['_sunlight_mangle'] || sunInf.mangle}">
+        <input type="text" id="adj_sunmangle" class="text-input" value="${escHTML(controls.sunMangle)}">
       </div>
       <div class="slider-row">
         <label>_sunlight_color</label>
-        <input type="text" id="adj_suncolor" class="text-input" value="${inferred.worldspawnKeys['_sunlight_color'] || worldspawn['_sunlight_color'] || '255 255 255'}">
+        <input type="text" id="adj_suncolor" class="text-input" value="${escHTML(controls.sunColor)}">
       </div>
       <div class="slider-row">
         <label>_sunlight_penumbra</label>
-        <input type="range" id="adj_penumbra" min="0" max="30" value="${worldspawn['_sunlight_penumbra'] || 0}">
-        <span class="val" id="adj_penumbra_val">${worldspawn['_sunlight_penumbra'] || 0}</span>
+        <input type="range" id="adj_penumbra" min="0" max="180" value="${controls.penumbra}">
+        <span class="val" id="adj_penumbra_val">${controls.penumbra}</span>
       </div>
       <div class="slider-row">
         <label>_sunlight2 (dome)</label>
-        <input type="range" id="adj_sunlight2" min="0" max="300" value="${inferred.worldspawnKeys['_sunlight2'] || 0}">
-        <span class="val" id="adj_sunlight2_val">${inferred.worldspawnKeys['_sunlight2'] || 0}</span>
+        <input type="range" id="adj_sunlight2" min="${Math.min(0, controls.sunlight2)}" max="${Math.max(300, controls.sunlight2)}" value="${controls.sunlight2}">
+        <span class="val" id="adj_sunlight2_val">${controls.sunlight2}</span>
       </div>
       <div class="slider-row">
         <label>_sunlight3 (lower)</label>
-        <input type="range" id="adj_sunlight3" min="0" max="300" value="${inferred.worldspawnKeys['_sunlight3'] || 0}">
-        <span class="val" id="adj_sunlight3_val">${inferred.worldspawnKeys['_sunlight3'] || 0}</span>
+        <input type="range" id="adj_sunlight3" min="${Math.min(0, controls.sunlight3)}" max="${Math.max(300, controls.sunlight3)}" value="${controls.sunlight3}">
+        <span class="val" id="adj_sunlight3_val">${controls.sunlight3}</span>
       </div>
 
       <h3>Global Lighting</h3>
       <div class="slider-row">
         <label>_minlight</label>
-        <input type="range" id="adj_minlight" min="0" max="255" value="${inferred.worldspawnKeys['_minlight'] || stats.possibleMinlight || 0}">
-        <span class="val" id="adj_minlight_val">${inferred.worldspawnKeys['_minlight'] || stats.possibleMinlight || 0}</span>
+        <input type="range" id="adj_minlight" min="${Math.min(0, controls.minlight)}" max="${Math.max(255, controls.minlight)}" value="${controls.minlight}">
+        <span class="val" id="adj_minlight_val">${controls.minlight}</span>
       </div>
       <div class="slider-row">
         <label>_minlight_color</label>
-        <input type="text" id="adj_mincolor" class="text-input" value="${inferred.worldspawnKeys['_minlight_color'] || worldspawn['_minlight_color'] || '255 255 255'}">
+        <input type="text" id="adj_mincolor" class="text-input" value="${escHTML(controls.minColor)}">
       </div>
       <div class="slider-row">
         <label>_dist (fade scale)</label>
-        <input type="range" id="adj_dist" min="0" max="200" value="${Math.round(parseFloat(worldspawn['_dist'] || inferred.worldspawnKeys['_dist'] || 1) * 100)}">
-        <span class="val" id="adj_dist_val">${parseFloat(worldspawn['_dist'] || inferred.worldspawnKeys['_dist'] || 1).toFixed(2)}</span>
+        <input type="range" id="adj_dist" min="0" max="10000" value="${Math.round(controls.dist * 100)}">
+        <span class="val" id="adj_dist_val">${controls.dist.toFixed(2)}</span>
       </div>
       <div class="slider-row">
         <label>_range (brightness)</label>
-        <input type="range" id="adj_range" min="0" max="200" value="${Math.round(parseFloat(worldspawn['_range'] || inferred.worldspawnKeys['_range'] || 0.5) * 100)}">
-        <span class="val" id="adj_range_val">${parseFloat(worldspawn['_range'] || inferred.worldspawnKeys['_range'] || 0.5).toFixed(2)}</span>
+        <input type="range" id="adj_range" min="0" max="10000" value="${Math.round(controls.range * 100)}">
+        <span class="val" id="adj_range_val">${controls.range.toFixed(2)}</span>
       </div>
       <div class="slider-row">
         <label>_gamma</label>
-        <input type="range" id="adj_gamma" min="50" max="200" value="${Math.round(parseFloat(worldspawn['_gamma'] || inferred.worldspawnKeys['_gamma'] || 1) * 100)}">
-        <span class="val" id="adj_gamma_val">${parseFloat(worldspawn['_gamma'] || inferred.worldspawnKeys['_gamma'] || 1).toFixed(2)}</span>
+        <input type="range" id="adj_gamma" min="0" max="10000" value="${Math.round(controls.gamma * 100)}">
+        <span class="val" id="adj_gamma_val">${controls.gamma.toFixed(2)}</span>
       </div>
       <div class="slider-row">
         <label>_anglescale</label>
-        <input type="range" id="adj_anglescale" min="0" max="100" value="${Math.round(parseFloat(worldspawn['_anglescale'] || inferred.worldspawnKeys['_anglescale'] || 0.5) * 100)}">
-        <span class="val" id="adj_anglescale_val">${parseFloat(worldspawn['_anglescale'] || inferred.worldspawnKeys['_anglescale'] || 0.5).toFixed(2)}</span>
+        <input type="range" id="adj_anglescale" min="0" max="100" value="${Math.round(controls.angleScale * 100)}">
+        <span class="val" id="adj_anglescale_val">${controls.angleScale.toFixed(2)}</span>
       </div>
 
       <h3>Bounce</h3>
       <div class="slider-row">
         <label>_bounce (passes)</label>
-        <input type="range" id="adj_bounce" min="0" max="8" value="${inferred.worldspawnKeys['_bounce'] || 0}">
-        <span class="val" id="adj_bounce_val">${inferred.worldspawnKeys['_bounce'] || 0}</span>
+        <input type="range" id="adj_bounce" min="0" max="100" value="${controls.bounce}">
+        <span class="val" id="adj_bounce_val">${controls.bounce}</span>
       </div>
       <div class="slider-row">
         <label>_bouncescale</label>
-        <input type="range" id="adj_bouncescale" min="0" max="300" value="${Math.round(parseFloat(worldspawn['_bouncescale'] || inferred.worldspawnKeys['_bouncescale'] || 1) * 100)}">
-        <span class="val" id="adj_bouncescale_val">${parseFloat(worldspawn['_bouncescale'] || inferred.worldspawnKeys['_bouncescale'] || 1).toFixed(2)}</span>
+        <input type="range" id="adj_bouncescale" min="0" max="10000" value="${Math.round(controls.bounceScale * 100)}">
+        <span class="val" id="adj_bouncescale_val">${controls.bounceScale.toFixed(2)}</span>
       </div>
       <div class="slider-row">
         <label>_bouncecolorscale</label>
-        <input type="range" id="adj_bouncecolor" min="0" max="100" value="${Math.round(parseFloat(worldspawn['_bouncecolorscale'] || inferred.worldspawnKeys['_bouncecolorscale'] || 0) * 100)}">
-        <span class="val" id="adj_bouncecolor_val">${parseFloat(worldspawn['_bouncecolorscale'] || inferred.worldspawnKeys['_bouncecolorscale'] || 0).toFixed(2)}</span>
+        <input type="range" id="adj_bouncecolor" min="0" max="100" value="${Math.round(controls.bounceColor * 100)}">
+        <span class="val" id="adj_bouncecolor_val">${controls.bounceColor.toFixed(2)}</span>
       </div>
 
       <h3>Dirt (AO)</h3>
       <div class="checkbox-row">
-        <input type="checkbox" id="adj_dirt" ${inferred.worldspawnKeys['_dirt'] === '1' ? 'checked' : ''}>
+        <input type="checkbox" id="adj_dirt" ${settingEnabled(firstPresent(inferred.worldspawnKeys['_dirt'], inferred.worldspawnKeys['_dirty'])) ? 'checked' : ''}>
         <label for="adj_dirt">Enable _dirt</label>
       </div>
       <div id="dirt_opts" style="display:${inferred.worldspawnKeys['_dirt'] === '1' ? 'block' : 'none'}">
         <div class="slider-row">
           <label>_dirtdepth</label>
-          <input type="range" id="adj_dirtdepth" min="16" max="512" value="${worldspawn['_dirtdepth'] || inferred.worldspawnKeys['_dirtdepth'] || 128}">
-          <span class="val" id="adj_dirtdepth_val">${worldspawn['_dirtdepth'] || inferred.worldspawnKeys['_dirtdepth'] || 128}</span>
+          <input type="range" id="adj_dirtdepth" min="1" max="${Math.max(512, controls.dirtDepth)}" value="${controls.dirtDepth}">
+          <span class="val" id="adj_dirtdepth_val">${controls.dirtDepth}</span>
         </div>
         <div class="slider-row">
           <label>_dirtscale</label>
-          <input type="range" id="adj_dirtscale" min="0" max="300" value="${Math.round(parseFloat(worldspawn['_dirtscale'] || inferred.worldspawnKeys['_dirtscale'] || 1) * 100)}">
-          <span class="val" id="adj_dirtscale_val">${parseFloat(worldspawn['_dirtscale'] || inferred.worldspawnKeys['_dirtscale'] || 1).toFixed(2)}</span>
+          <input type="range" id="adj_dirtscale" min="0" max="10000" value="${Math.round(controls.dirtScale * 100)}">
+          <span class="val" id="adj_dirtscale_val">${controls.dirtScale.toFixed(2)}</span>
         </div>
         <div class="slider-row">
           <label>_dirtgain</label>
-          <input type="range" id="adj_dirtgain" min="0" max="300" value="${Math.round(parseFloat(worldspawn['_dirtgain'] || inferred.worldspawnKeys['_dirtgain'] || 1) * 100)}">
-          <span class="val" id="adj_dirtgain_val">${parseFloat(worldspawn['_dirtgain'] || inferred.worldspawnKeys['_dirtgain'] || 1).toFixed(2)}</span>
+          <input type="range" id="adj_dirtgain" min="0" max="10000" value="${Math.round(controls.dirtGain * 100)}">
+          <span class="val" id="adj_dirtgain_val">${controls.dirtGain.toFixed(2)}</span>
         </div>
       </div>
 
@@ -2262,7 +2795,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         <div class="ent-preview" id="entWsText"></div>
       </div>
       <div class="tip-box" style="margin-top:12px">
-        <strong>QSS-M .ent search order:</strong> <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.crc}.ent</code> (CRC-matched) then <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code>
+        <strong>QSS-M .ent search order:</strong> <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.entCRCHex}.ent</code> (entity-lump CRC) then <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code>
       </div>
       <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
         <button class="secondary" id="downloadEnt">Download .ent</button>
@@ -2307,7 +2840,13 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
     </div>
 
     <div class="section">
-      <h2>Engine Comparison Tips (QSS-M)</h2>
+      <h2>Engine Compatibility &amp; Comparison</h2>
+      <table class="style-table" style="margin-bottom:14px">
+        <tr><th>Engine</th><th>Status</th><th>Observed behavior in local source</th></tr>
+        ${engineCompatibility.map(([engine, status, note]) =>
+          `<tr><td>${escHTML(engine)}</td><td>${escHTML(status)}</td><td>${escHTML(note)}</td></tr>`
+        ).join('')}
+      </table>
       <div class="tip-box">
         <strong>View raw lightmaps in-engine:</strong><br>
         <code>r_lightmap 1</code> — renders lightmaps only (no textures), useful for comparing against this tool's preview<br>
@@ -2322,7 +2861,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
       <div class="tip-box">
         <strong>External files:</strong><br>
         <code>external_ents 1</code> — enable loading .ent files (default on)<br>
-        Place .ent file as: <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.crc}.ent</code> (CRC-matched, safest) or <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code><br>
+        Place .ent file as: <code>${escHTML(bspName.replace(/\.bsp$/i, ''))}@${bsp.entCRCHex}.ent</code> (CRC-matched, safest) or <code>${escHTML(bspName.replace(/\.bsp$/i, '.ent'))}</code><br>
         <code>gl_loadlitfiles 1</code> — load the standard sibling <code>.lit</code> (default on)<br>
         <code>gl_loadlitfiles 2</code> + <code>external_lits_dir</code> — prefer <code>maps/&lt;dir&gt;/mapname.lit</code>, then fall back to the normal file<br>
         <code>gl_loadlitfiles 3</code> — randomly alternate between external and normal .lit for A/B checking
@@ -2339,17 +2878,18 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
       </div>
       <div class="stat-grid" style="margin-top:8px">
         <div class="stat-card">
-          <div class="stat-label">BSP CRC</div>
-          <div class="stat-value">${bsp.crc}</div>
-          <div class="stat-note">for .ent filename matching</div>
+          <div class="stat-label">Entity lump CRC</div>
+          <div class="stat-value">0x${bsp.entCRCHex}</div>
+          <div class="stat-note">QSS-M @xxxx.ent filename</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">BSPX Embedded Lighting</div>
-          <div class="stat-value">${bsp.bspxLighting.hasHDRLighting && bsp.bspxLighting.hasRGBLighting ? 'Both (HDR preferred)' : bsp.bspxLighting.hasHDRLighting ? 'HDR E5BGR9' : bsp.bspxLighting.hasRGBLighting ? 'RGBLIGHTING' : 'No'}</div>
+          <div class="stat-label">BSPX Lighting Lumps Present</div>
+          <div class="stat-value">${bsp.bspxLighting.hasHDRLighting && bsp.bspxLighting.hasRGBLighting ? 'HDR + RGB' : bsp.bspxLighting.hasHDRLighting ? 'HDR E5BGR9' : bsp.bspxLighting.hasRGBLighting ? 'RGBLIGHTING' : 'No'}</div>
+          ${(bsp.bspxLighting.hasHDRLighting || bsp.bspxLighting.hasRGBLighting) ? `<div class="stat-note">active source: ${escHTML(lit.sourceLabel)}</div>` : ''}
         </div>
         <div class="stat-card">
           <div class="stat-label">BSPX LMSHIFT</div>
-          <div class="stat-value">${bsp.bspxLighting.lmshifts ? 'Yes (per-face)' : `No (default ${1 << defaultShiftBits})`}</div>
+          <div class="stat-value">${lit.isLIT2 ? 'Overridden by LIT2' : bsp.bspxLighting.lmshifts ? 'Yes (per-face)' : `No (default ${2 ** defaultShiftBits})`}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">BSPX DECOUPLED_LM</div>
@@ -2357,7 +2897,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         </div>
         <div class="stat-card">
           <div class="stat-label">BSPX Style Table</div>
-          <div class="stat-value">${bsp.bspxLighting.lmstyleSource ? `${bsp.bspxLighting.lmstyleSource} (${bsp.bspxLighting.stylesPerFace}/face)` : 'No'}</div>
+          <div class="stat-value">${lit.isLIT2 ? 'Overridden by LIT2' : bsp.bspxLighting.lmstyleSource ? `${bsp.bspxLighting.lmstyleSource} (${bsp.bspxLighting.stylesPerFace}/face)` : 'No'}</div>
         </div>
       </div>
     </div>
@@ -2373,7 +2913,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
         <div class="tab" data-tab="lmLinear">Linear Dump</div>
       </div>
       <div class="tab-content active" id="lmAtlas">
-        <p style="color:#71717a;font-size:0.8125rem;margin-bottom:6px">Each rectangle = one face's lightmap (style 0). Scaled 2x.</p>
+        <p style="color:#71717a;font-size:0.8125rem;margin-bottom:6px">Each rectangle = one face's style 0 lightmap (or first stored style when style 0 is absent). Scaled 2x when it fits; preview capped at 2048px high.</p>
         <div class="lightmap-canvas-wrap">
           <canvas id="atlasCanvas"></canvas>
         </div>
@@ -2464,28 +3004,40 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
   // ── Live update ──
   function updateOutputs() {
     const ws = {};
+    // A slider at its compiler default means "remove the override", including
+    // an existing key in the source entity lump. Null is buildEntString's
+    // explicit deletion marker.
+    for (const key of [
+      'light', '_minlight', '_minlight_color', '_mincolor',
+      '_sunlight', '_sun_light', '_sunlight_mangle', '_sun_mangle', '_sun_angle',
+      '_sunlight_color', '_sun_color', '_sunlight_penumbra',
+      '_sunlight2', '_sunlight3',
+      '_bounce', '_bouncescale', '_bouncecolorscale',
+      '_dist', '_range', '_gamma', '_anglescale', '_anglesense',
+      '_dirt', '_dirty', '_dirtdepth', '_dirtscale', '_dirtgain'
+    ]) ws[key] = null;
 
     // Minlight
     const ml = parseInt(document.getElementById('adj_minlight').value);
-    if (ml > 0) ws['_minlight'] = String(ml);
-    const mlc = document.getElementById('adj_mincolor').value.trim();
-    if (ml > 0 && mlc && mlc !== '255 255 255') ws['_minlight_color'] = mlc;
+    if (ml !== 0) ws['_minlight'] = String(ml);
+    const mlc = normalizeNumericList(document.getElementById('adj_mincolor').value, 3, '255 255 255');
+    if (ml !== 0 && mlc && mlc !== '255 255 255') ws['_minlight_color'] = mlc;
 
     // Sunlight
     const sl = parseInt(document.getElementById('adj_sunlight').value);
-    if (sl > 0) {
+    if (sl !== 0) {
       ws['_sunlight'] = String(sl);
-      ws['_sunlight_mangle'] = document.getElementById('adj_sunmangle').value.trim();
-      const sc = document.getElementById('adj_suncolor').value.trim();
+      ws['_sunlight_mangle'] = normalizeNumericList(document.getElementById('adj_sunmangle').value, 3, '0 -90 0');
+      const sc = normalizeNumericList(document.getElementById('adj_suncolor').value, 3, '255 255 255');
       if (sc && sc !== '255 255 255') ws['_sunlight_color'] = sc;
       const pen = parseInt(document.getElementById('adj_penumbra').value);
       if (pen > 0) ws['_sunlight_penumbra'] = String(pen);
     }
 
     const sl2 = parseInt(document.getElementById('adj_sunlight2').value);
-    if (sl2 > 0) ws['_sunlight2'] = String(sl2);
+    if (sl2 !== 0) ws['_sunlight2'] = String(sl2);
     const sl3 = parseInt(document.getElementById('adj_sunlight3').value);
-    if (sl3 > 0) ws['_sunlight3'] = String(sl3);
+    if (sl3 !== 0) ws['_sunlight3'] = String(sl3);
 
     // Bounce
     const bounce = parseInt(document.getElementById('adj_bounce').value);
@@ -2518,15 +3070,16 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
     }
 
     // Command line flags
-    const flags = [inferred.outputFlag];
+    const flags = [];
+    if (inferred.outputFlag) flags.push(inferred.outputFlag);
     const useExtra4 = document.getElementById('adj_extra4').checked;
     const useExtra = document.getElementById('adj_extra').checked;
     if (useExtra4) flags.push('-extra4');
     else if (useExtra) flags.push('-extra');
     const soft = parseInt(document.getElementById('adj_soft').value);
-    if (soft > 0) flags.push(`-soft ${soft}`);
+    if (soft > 0) flags.push('-soft', String(soft));
 
-    const cmdStr = ['light', ...flags, bspName].join(' \\\n  ');
+    const cmdStr = ['light', ...flags, bspName].map(shellQuote).join(' \\\n  ');
     document.getElementById('cmdText').textContent = cmdStr;
 
     // Build .ent
@@ -2536,10 +3089,13 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
     // Worldspawn-only view
     const wsLines = [];
     const mergedWs = { ...worldspawn, ...ws };
+    for (const [k, v] of Object.entries(ws)) {
+      if (v === null || v === '') delete mergedWs[k];
+    }
     for (const [k, v] of Object.entries(mergedWs)) {
       if (k === '_keyOrder' || k === 'classname') continue;
       if (k === 'light' || lightingPrefixes.some(p => k.startsWith(p))) {
-        const isOverride = ws[k] !== undefined;
+        const isOverride = Object.prototype.hasOwnProperty.call(ws, k);
         wsLines.push(`${isOverride ? '* ' : '  '}"${k}" "${v}"`);
       }
     }
@@ -2553,7 +3109,7 @@ function renderOutput(bsp, lit, grayInfo, entities, worldspawn, lightEnts, light
     document.getElementById('downloadEnt').onclick = () =>
       download(bspName.replace(/\.bsp$/i, '.ent'), entStr);
     document.getElementById('downloadEntCRC').onclick = () =>
-      download(bspName.replace(/\.bsp$/i, '') + '@' + bsp.crc + '.ent', entStr);
+      download(bspName.replace(/\.bsp$/i, '') + '@' + bsp.entCRCHex + '.ent', entStr);
     document.getElementById('downloadCmd').onclick = () =>
       download('light_command.sh', '#!/bin/sh\n' + cmdStr + '\n');
   }
@@ -2613,9 +3169,9 @@ function drawFaceAtlas(bsp, lit, faceAnalysis, overbright) {
   const canvas = document.getElementById('atlasCanvas');
   if (!canvas) return;
 
-  const SCALE = 2;
   const PAD = 1;
   const ATLAS_W = 512;
+  const ATLAS_MAX_H = 2048;
 
   // Pack face lightmaps into rows
   let curX = 0, curY = 0, rowH = 0;
@@ -2625,23 +3181,25 @@ function drawFaceAtlas(bsp, lit, faceAnalysis, overbright) {
     const lm = faceAnalysis.infos[fi];
     if (!lm || lm.lightofs < 0) continue;
 
-    const pw = lm.width * SCALE, ph = lm.height * SCALE;
-    if (curX + pw + PAD > ATLAS_W) {
+    const scale = lm.width * 2 <= ATLAS_W ? 2 : 1;
+    const pw = lm.width * scale, ph = lm.height * scale;
+    // Extended/decoupled lightmaps may be wider than this diagnostic atlas.
+    // Omitting them is preferable to writing past one row into the next.
+    if (pw > ATLAS_W || ph > ATLAS_MAX_H) continue;
+    if (curX > 0 && curX + pw > ATLAS_W) {
       curX = 0;
       curY += rowH + PAD;
       rowH = 0;
     }
-    placements.push({ fi, x: curX, y: curY, w: lm.width, h: lm.height, pw, ph });
+    if (curY + ph > ATLAS_MAX_H) break;
+    placements.push({ fi, x: curX, y: curY, w: lm.width, h: lm.height, pw, ph, scale });
     curX += pw + PAD;
     if (ph > rowH) rowH = ph;
-
-    // Limit total height
-    if (curY > 2048) break;
   }
 
   const totalH = curY + rowH + PAD;
   canvas.width = ATLAS_W;
-  canvas.height = Math.min(totalH, 2048);
+  canvas.height = Math.max(1, Math.min(totalH, ATLAS_MAX_H));
   canvas.style.width = ATLAS_W + 'px';
   canvas.style.height = canvas.height + 'px';
 
@@ -2653,10 +3211,12 @@ function drawFaceAtlas(bsp, lit, faceAnalysis, overbright) {
 
   for (const p of placements) {
     const lm = faceAnalysis.infos[p.fi];
+    const styleOffset = getFaceStyleOffset(lm, 0, true);
+    if (styleOffset < 0) continue;
 
     for (let ly = 0; ly < p.h; ly++) {
       for (let lx = 0; lx < p.w; lx++) {
-        const sampleIdx = lm.lightofs + ly * p.w + lx;
+        const sampleIdx = styleOffset + ly * p.w + lx;
         if (sampleIdx >= lit.numSamples) continue;
 
         let r = lit.data[sampleIdx * 3];
@@ -2665,11 +3225,11 @@ function drawFaceAtlas(bsp, lit, faceAnalysis, overbright) {
         if (overbright) { r = Math.min(255, r * 2); g = Math.min(255, g * 2); b = Math.min(255, b * 2); }
 
         // Draw scaled pixel
-        for (let sy = 0; sy < SCALE; sy++) {
-          for (let sx = 0; sx < SCALE; sx++) {
-            const px = p.x + lx * SCALE + sx;
-            const py = p.y + ly * SCALE + sy;
-            if (py >= canvas.height) continue;
+        for (let sy = 0; sy < p.scale; sy++) {
+          for (let sx = 0; sx < p.scale; sx++) {
+            const px = p.x + lx * p.scale + sx;
+            const py = p.y + ly * p.scale + sy;
+            if (px >= ATLAS_W || py >= canvas.height) continue;
             const off = (py * ATLAS_W + px) * 4;
             imgData.data[off] = r;
             imgData.data[off + 1] = g;
@@ -2693,13 +3253,13 @@ function drawLinearLightmap(lit, overbright) {
   const atlasW = 512;
   const atlasH = Math.ceil(maxPx / atlasW);
   canvas.width = atlasW;
-  canvas.height = atlasH;
+  canvas.height = Math.max(1, atlasH);
   canvas.style.width = atlasW + 'px';
-  canvas.style.height = atlasH + 'px';
+  canvas.style.height = canvas.height + 'px';
 
   const mul = overbright ? 2 : 1;
   const ctx = canvas.getContext('2d');
-  const imgData = ctx.createImageData(atlasW, atlasH);
+  const imgData = ctx.createImageData(atlasW, canvas.height);
   for (let i = 0; i < maxPx; i++) {
     const off = i * 4;
     imgData.data[off]     = Math.min(255, lit.data[i * 3] * mul);
@@ -2711,7 +3271,13 @@ function drawLinearLightmap(lit, overbright) {
 }
 
 function escHTML(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function shellQuote(value) {
+  const s = String(value);
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(s)) return s;
+  return `'${s.replace(/'/g, `'"'"'`)}'`;
 }
 
 function download(filename, content) {
