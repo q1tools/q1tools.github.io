@@ -671,6 +671,38 @@ button:active {
   box-shadow: none;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+button:disabled:hover {
+  border-color: var(--line);
+  background: linear-gradient(180deg, rgba(30, 38, 50, 0.9), rgba(18, 24, 33, 0.95));
+  box-shadow: none;
+}
+
+button[aria-busy="true"]::after {
+  display: inline-block;
+  width: 0.75em;
+  height: 0.75em;
+  margin-left: 0.6em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+  vertical-align: -0.08em;
+  animation: busy-spin 0.8s linear infinite;
+}
+
+@keyframes busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 button:focus-visible,
 select:focus-visible {
   outline: none;
@@ -976,6 +1008,67 @@ select:focus-visible {
 
 .property-actions button {
   margin-top: 0;
+}
+
+.print-export-grid {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(130px, 1.2fr);
+  gap: 8px 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.print-export-grid label {
+  margin-top: 0 !important;
+}
+
+.print-export-grid select,
+.print-export-grid input {
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.print-export-grid input {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(18, 24, 33, 0.8);
+  color: var(--text);
+  padding: 8px 9px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.print-export-grid input:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(95, 214, 224, 0.15);
+}
+
+.print-export-option {
+  margin-top: 10px;
+}
+
+.print-analysis {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(95, 214, 224, 0.2);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 11, 16, 0.28);
+}
+
+.print-analysis.is-clean {
+  border-color: rgba(162, 224, 95, 0.28);
+  color: #c9eca1;
+}
+
+.print-analysis.is-warning {
+  border-color: rgba(255, 199, 107, 0.34);
+  color: #ffd58f;
+}
+
+.print-export-caveat {
+  margin-bottom: 0;
 }
 
 .skin-actions {

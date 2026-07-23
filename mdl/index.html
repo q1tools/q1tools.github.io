@@ -528,12 +528,82 @@
         </div>
       </details>
 
+      <details id="print-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>3D Print Export</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <p class="hint">Freezes the displayed pose, converts it to millimetres, and automatically repairs it into a printable solid. 3MF is recommended because it stores units explicitly.</p>
+
+          <div class="print-export-grid">
+            <label for="print-format">Format</label>
+            <select id="print-format">
+              <option value="3mf" selected>3MF (recommended)</option>
+              <option value="stl">Binary STL</option>
+            </select>
+
+            <label for="print-height">Upright Height (mm)</label>
+            <input id="print-height" type="number" value="100" min="1" max="1000" step="1">
+
+            <label for="print-orientation">Build-plate Orientation</label>
+            <select id="print-orientation">
+              <option value="z-up" selected>Z up (upright)</option>
+              <option value="x-up">X up (back down)</option>
+              <option value="neg-x-up">−X up (front down)</option>
+              <option value="y-up">Y up</option>
+              <option value="neg-y-up">−Y up</option>
+              <option value="neg-z-up">−Z up (inverted)</option>
+            </select>
+
+            <label for="print-repair-mode">Solid Repair</label>
+            <select id="print-repair-mode">
+              <option value="auto" selected>Automatic (preserve facets)</option>
+              <option value="solid">Robust voxel solid</option>
+              <option value="off">Diagnostics only</option>
+            </select>
+
+            <label for="print-repair-resolution">Voxel Detail</label>
+            <select id="print-repair-resolution">
+              <option value="48">Coarse / smaller file</option>
+              <option value="64" selected>Balanced</option>
+              <option value="96">Fine</option>
+              <option value="128">Very fine / larger file</option>
+            </select>
+          </div>
+
+          <label class="checkbox print-export-option">
+            <input id="print-center-toggle" type="checkbox" checked>
+            <span>Center on the build plate</span>
+          </label>
+          <label class="checkbox print-export-option">
+            <input id="print-ground-toggle" type="checkbox" checked>
+            <span>Place the lowest point at Z = 0</span>
+          </label>
+          <label class="checkbox print-export-option">
+            <input id="print-base-toggle" type="checkbox">
+            <span>Add an oval print base (forces robust solid repair)</span>
+          </label>
+
+          <div class="print-export-grid">
+            <label for="print-base-thickness">Base Thickness (mm)</label>
+            <input id="print-base-thickness" type="number" value="2" min="0.5" max="20" step="0.5">
+
+            <label for="print-base-margin">Base Margin (mm)</label>
+            <input id="print-base-margin" type="number" value="2" min="0" max="20" step="0.5">
+          </div>
+
+          <div id="print-analysis" class="print-analysis hint">Load a model to analyze its current pose.</div>
+          <button id="print-export-button" type="button" aria-describedby="print-export-caveat">Export Print File</button>
+          <p id="print-export-caveat" class="hint print-export-caveat">Automatic mode welds collapsed MDL edges and seals holes before using a voxel fallback only when necessary. Robust mode also unions overlaps and gives fragile surfaces at least voxel-scale thickness. Final solid repair runs in the background when the app is served over HTTP.</p>
+        </div>
+      </details>
+
       <section id="save-panel" class="panel is-hidden" aria-hidden="true">
         <h2>Save</h2>
         <div class="property-actions">
           <button id="save-model-button" type="button">Save .mdl</button>
           <button id="save-map-button" type="button">Save .map</button>
-          <div id="save-model-status" class="hint">Edit fields below, then save or export the model.</div>
+          <div id="save-model-status" class="hint" aria-live="polite">Edit fields below, then save or export the model.</div>
         </div>
       </section>
     </aside>
@@ -597,6 +667,7 @@
     </main>
   </div>
 
+  <script src="./print-export.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

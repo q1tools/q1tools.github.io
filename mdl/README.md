@@ -1,6 +1,6 @@
-# Quake MDL Viewer
+# Quake MDL Tool
 
-This is a standalone browser app for viewing Quake `.mdl` alias models.
+This is a standalone browser app for viewing, editing, and exporting Quake `.mdl` alias models.
 
 Features:
 
@@ -13,6 +13,8 @@ Features:
 - Plays pose animation in the browser
 - Previews palette fullbright pixels separately from lit base skin pixels
 - Applies Quake-style player `topcolor` / `bottomcolor` remapping
+- Exports the displayed pose for 3D printing as unit-aware `.3mf` or binary `.stl`
+- Scales print exports in millimetres, orients and grounds them, cleans bad faces and winding, and reports mesh manifoldness
 
 ## Compatibility notes
 
@@ -41,12 +43,14 @@ Features:
 
 ## Run
 
-You can open `index.html` directly in a browser.
+You can open `index.html` directly in a browser. Serving the folder over HTTP is
+recommended because it lets the print exporter run expensive solid repair in a
+background worker instead of temporarily occupying the UI thread.
 
 If your browser is stricter about local file access, run a tiny HTTP server in this folder:
 
 ```bash
-cd /Users/timbergeron/codedev/q1tools.github.io/mdl
+cd path/to/mdl
 python3 -m http.server 8000
 ```
 
@@ -64,3 +68,51 @@ Then open:
 3. For `player.mdl`, enable Quake player colors and adjust shirt / pants values.
 
 If you load `pak0.pak`, the app will auto-detect both `progs/*.mdl` and `gfx/palette.lmp`, and the detected palette will override the built-in default.
+
+## 3D printing
+
+The exporter repairs the displayed pose in the browser, so Blender is not required:
+
+1. Select an animation frame and pause on the pose you want.
+2. Open **3D Print Export**.
+3. Set the intended upright height in millimetres and choose the build-plate orientation.
+4. Leave **Solid Repair** on **Automatic** for the closest match to the original Quake facets.
+5. Enable the oval base if the feet, tail, or a weapon need a stable plinth.
+6. Prefer **3MF** because it records millimetres explicitly. Use binary STL only when a slicer does not accept 3MF.
+7. Export once the report says **Watertight manifold**, then inspect the slicer's layer preview.
+
+The export captures the exact displayed pose, including interpolation while animation is playing. Automatic repair:
+
+- removes invalid, zero-area, duplicate, and redundant interior faces;
+- welds pose vertices only along MDL edges that collapsed to the same point;
+- makes adjacent winding consistent, points closed shells outward, and uses a
+  centroid-majority orientation for non-planar open shells;
+- fills ordinary holes and reinforces collinear holes with a sub-layer-height patch;
+- falls back to a volumetric solid only when local repair cannot produce a positive-volume manifold;
+- reports all repair actions, final dimensions, topology, shell count, voxel size, area, and solid volume.
+
+The repair choices are:
+
+- **Automatic (preserve facets)** — recommended. It keeps the original triangles wherever possible and invokes the volumetric fallback only for pathological topology.
+- **Robust voxel solid** — always unions overlaps and gives open or fragile surfaces at least voxel-scale thickness. Use this for thin claws, weapons, intersecting parts, or a model that a particular slicer still dislikes.
+- **Diagnostics only** — runs the original conservative cleanup without changing holes or non-manifold topology.
+
+**Voxel Detail** controls the fallback grid. Balanced is a good starting point; Fine and Very Fine retain more detail but can take several seconds and produce much larger files. The live report gives the actual voxel size in millimetres. Adding the optional base forces Robust mode and unions an oval base below the grounded model. The exporter caps height, source geometry, voxel work, and output complexity with actionable errors instead of allowing an accidental or malformed input to exhaust browser memory. A background repair that exceeds two minutes is stopped and is not repeated on the UI thread; lower Voxel Detail before retrying.
+
+Practical starting sizes are 40–60 mm for a resin miniature and 100 mm or more for an FDM character. Compact idle/walk poses generally need fewer supports than attacks with extended limbs. Automatic repair makes a slicer-ready closed solid, but it does not generate printer-specific supports; always inspect the layer preview. Neither 3MF nor STL includes the indexed Quake skin, so the result is an uncolored low-poly mesh intended for painting.
+
+## Tests
+
+Run the dependency-free print-export tests with:
+
+```bash
+node tests/print-export.test.js
+node tests/print-export-worker.test.js
+node tests/app-parser.test.js
+```
+
+Sweep every stored pose and every adjacent 50% interpolated pose in the bundled PAK with:
+
+```bash
+node tests/pak-print-sweep.test.js
+```
