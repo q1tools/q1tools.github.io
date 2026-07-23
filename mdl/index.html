@@ -158,6 +158,11 @@
           </section>
 
           <section class="authoring-note">
+            <h3>Debug One-Texel Seams</h3>
+            <p>A thin black line is often a UV alignment error rather than missing geometry. The bundled ID1 Grunt (<code>progs/soldier.mdl</code>) has a known line along its left side because the back-facing islands on the atlas's right half sit one texel too far right; moving those islands one texel left aligns them. The UV Texel Nudge tool can apply that exact back-face S offset and reports shared vertices that also affect the front. Treat this as a model-specific correction, then check other seams with nearest filtering before moving UVs.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>Flood Fill Pixel</h3>
             <p>QuakeSpasm-family engines still flood-fill alias skins from texel 0. Keep that texel out of the sampled artwork or use a guard texel so flood fill cannot rewrite visible art.</p>
           </section>
@@ -168,28 +173,68 @@
           </section>
 
           <section class="authoring-note">
+            <h3>Packed Vertex Precision</h3>
+            <p>Vanilla <code>IDPO</code> MDL stores mesh topology once, then each pose stores an unsigned-byte X, Y, and Z plus a normal index for every vertex. Header scale and origin map each axis onto only 256 coordinate levels (0-255), so a large all-pose bounding box produces coarse steps. This format quantization can cause snapping or “vertex wobble” even with interpolation disabled; lerp only exposes motion between separately rounded poses. Keep bounds tight, avoid distant outlier or hide-away poses, and prefer MD3 when a large or precise animated mesh needs more positional resolution.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>Blender Export Habits</h3>
-            <p>Use Blender Unit System None when treating 1 Blender unit as 1 Quake map unit. Material slots can become MDL skin slots, but each skin must match the same mesh and UV layout. MDL export is happiest with one combined mesh; use shape keys for copied frame poses, and expect frame groups to need cleanup in dedicated MDL tools.</p>
+            <p>Use Blender Unit System None when treating 1 Blender unit as 1 Quake map unit. Material slots can become MDL skin slots, but each skin must match the same mesh and UV layout. MDL export is happiest with one combined mesh.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Frame Numbers And Names</h3>
+            <p>MDL poses and QuakeC frame indices are zero-based, while many Blender MDL workflows place pose 0 on timeline frame 1. Frame ranges are inclusive—77 through 97 contains 21 poses and normally exports as MDL indices 0-20. Many exporters sample Blender's configured playback/export range, and some also expect the playhead at its first frame, so extend the end when appending poses and rewind before export. Keep an explicit range map and verify the exported count after every insert or deletion. QuakeC <code>$frame</code> names are readable compile-time aliases for the same numeric indices used by <code>self.frame</code> and <code>self.weaponframe</code>, not model precaching.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Baked Shape-Key Editing</h3>
+            <p>MDL animation has no bones. A relative Basis edit adds the same object-space vertex offset to every pose, so lengthening a sword or head there will not follow its changing local rotation and can warp later poses. Keep Relative mode and active-key editing enabled; for a local correction, the Blender timeline frame and selected pose key must match, with that key at 1 and the other pose keys at 0. Otherwise an edit can appear to do nothing or alter the wrong pose. Deleting pose keys may leave keyed influence curves behind, so inspect the Action/F-curves and rebuild the 0→1→0 weights when retiming. See the <a href="https://www.youtube.com/watch?v=rm6iKVf0Upg" target="_blank" rel="noopener noreferrer">Blender shape-key walkthrough</a>.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Adding Poses And Attachments</h3>
+            <p>To append a pose, add a relative shape key, key its value to 0 before the intended frame, 1 on that frame, and 0 immediately after it, then extend the export range and verify the result in the frame tree. In this tool, Duplicate Pose inserts an editable copy beside the selected pose, while Duplicate Sequence appends a separately named copy of the active sequence. Joining new un-keyed geometry to a baked model does not invent motion for it. In Blender, a separate rigid helper can follow translation and rotation by vertex-parenting it to three non-collinear animated vertices, but do not assume an MDL exporter will bake a separate object correctly; use an armature and rebake, or an MD3 workflow, for major or multi-object changes.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Sequences Versus Frame Groups</h3>
+            <p>Importers and viewers may collect numbered names such as <code>stand1</code>, <code>stand2</code>, and <code>stand3</code> into a display sequence. That organization is not an MDL frame group. A true group is one top-level frame containing multiple timed poses that cycle automatically, as used by flames; <code>self.frame</code> selects the top-level group index rather than each internal pose. Blender add-ons can flatten, duplicate, freeze, or merge these groups, so recheck group boundaries and pose counts after export.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Verify The Loaded Asset</h3>
+            <p>An apparently failed export may be the wrong file loading. Within one QSS-M game directory, package content has priority over regular loose files, so a model inside a PAK can mask the copy in <code>progs/</code>. Confirm the active game and model path, then isolate the conflicting package or test from a later, higher-priority game directory before debugging the animation.</p>
           </section>
 
           <section class="authoring-note">
             <h3>Rigs And Variant Models</h3>
-            <p>For Quake-style remakes, a Remaster MD5 armature can be a useful animation base, but expect manual cleanup when fitting it to old MDL poses. For state changes like headless deaths or alternate held weapons, a separate MDL plus a code-side model swap can be cleaner than mutating the original animation set.</p>
+            <p>For Quake-style remakes, a Remaster MD5 armature and animations can be a useful base: import the MD5 mesh, apply its animations to that armature, fit the new mesh to a neutral pose, and expect manual weight and pose cleanup. Mirror tools help when reconstructing a symmetrical neutral pose from an old MDL. Object animation is quick for blockouts, but an armature is easier to revise and rebake. Viewmodels can omit hands or use low-detail fists as part of the weapon; hand and elbow IK targets simplify placement, while extending an arm beyond the elbow improves melee range at the cost of more cleanup and more visible MDL wobble.</p>
           </section>
 
           <section class="authoring-note">
-            <h3>Animation Edge Cases</h3>
-            <p>Very short frame times such as 0.05 or 0.025 can make muzzle flashes feel snappy, but interpolation is engine-dependent. QuakeC timing can drive individual weapon frames with short nextthink intervals, and r_lerpmodels changes whether muzzle flashes hold, blend, or jump.</p>
+            <h3>Append Or Swap Variants</h3>
+            <p>A death or damage variant can be appended as more poses in the original MDL, preserving its model path and existing sequences, or placed in a separate MDL selected with QuakeC <code>setmodel</code>. After duplicating a sequence, Collapse Vertex Region can select its head vertices from one reference pose and collapse those same indices to the animated boundary in every copied pose without welding them. Verify the intended degenerate triangles remain. A separate headless model can instead delete the head and close the neck, costs a model swap and new code sequence, and is usually easier to rig, texture, and maintain.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Preview Engine Interpolation</h3>
+            <p>Quake engines interpolate each corresponding vertex in a straight line between stored poses; Blender's stepped shape-key preview and its Bézier or easing controls do not reproduce that runtime path. Large rotations, translations, or rescaling can compress, invert, or apparently remove volume between frames. Add intermediate poses and use smaller angular steps. For alternating Nailgun flashes, two meshes that expand and collapse in place avoid dragging one flash across both barrels. Collapse/move/expand tricks can also create teleports or card swaps, but keep topology fixed and remember that distant poses worsen MDL quantization.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Animation Timing</h3>
+            <p>Original QuakeC commonly advances alias animation at 0.1-second intervals (10 fps). A 0.05-second step (20 fps) is a practical smoother starting point for fast weapon motion; 30-40 fps can reduce rotation distortion further but costs more authored poses. Timing can vary by QuakeC frame range, so the main action may remain at 10 fps while a muzzle flash uses a shorter <code>nextthink</code> interval. Test the actual engine because interpolation and network timing affect the result.</p>
           </section>
 
           <section class="authoring-note">
             <h3>Forcing Jump Cuts</h3>
-            <p>Swapping between duplicate model names can force a stop-motion jump cut because the engine has no shared vertices to interpolate. This is useful for spinning barrels, revolver chambers, hard resets, and wind-down-to-idle transitions that smear under normal lerp.</p>
+            <p>Swapping an entity between two separate, identical MDL paths resets animation interpolation in QSS-M because it does not lerp across a model change. This can force stop-motion poses, instant repositioning, spinning-barrel stops, and concealed reload resets without relying on a player's cvars; test other engines before depending on it. In QSS-M, <code>r_lerpmodels 0</code> disables model interpolation, the default value <code>1</code> honors muzzle-flash and no-lerp resets, and <code>2</code> keeps interpolation through those exceptions.</p>
           </section>
 
           <section class="authoring-note">
             <h3>Viewmodel Framing</h3>
-            <p>Weapon scale, bobbing, FOV, and status-bar mode can change what clips or becomes visible. Test viewmodels at both low and high FOV, especially hidden muzzle flashes, backfaces, and off-screen moving parts.</p>
+            <p>A useful Blender starting camera is at world origin, rotated X 90°, Y 0°, Z 270°, looking toward the positive X export axis. Blender camera FOV is not numerically interchangeable with Quake's FOV: aspect ratio, sensor fit, engine FOV adaptation, status-bar mode, weapon scale, and bobbing all affect the result. Match an in-game screenshot, then test low and high FOV in-engine—especially hidden muzzle flashes, backfaces, forearms, and off-screen moving parts.</p>
           </section>
 
           <section class="authoring-note">
@@ -249,6 +294,32 @@
 
           <canvas id="skin-preview" width="256" height="256"></canvas>
           <div id="skin-status" class="hint">No skin loaded</div>
+
+          <details class="property-card editor-subtools" aria-label="UV coordinate tools">
+            <summary class="editor-subtools-summary">
+              <h3>UV Texel Nudge</h3>
+            </summary>
+            <div class="editor-subtools-content">
+              <div class="compact-edit-grid">
+                <label for="uv-nudge-scope">Vertices</label>
+                <select id="uv-nudge-scope">
+                  <option value="back">Used by back faces</option>
+                  <option value="back-only">Used only by back faces</option>
+                  <option value="front">Used by front faces</option>
+                  <option value="seam">Marked on-seam</option>
+                  <option value="all">All texture vertices</option>
+                </select>
+
+                <label for="uv-nudge-s">S / horizontal</label>
+                <input id="uv-nudge-s" type="number" value="-1" step="1">
+
+                <label for="uv-nudge-t">T / vertical</label>
+                <input id="uv-nudge-t" type="number" value="0" step="1">
+              </div>
+              <button id="uv-nudge-apply" type="button">Apply Texel Nudge</button>
+              <p id="uv-nudge-status" class="hint" aria-live="polite">Offsets integer MDL texture coordinates. Vertices shared by front and back faces affect both sides.</p>
+            </div>
+          </details>
 
           <details class="property-card skin-palette-tools" aria-label="Skin palette mapping">
             <summary class="skin-palette-summary">
@@ -372,6 +443,39 @@
           <div class="control-row">
             <button id="obj-tools-apply" type="button">Apply</button>
             <button id="obj-tools-reset" type="button">Reset</button>
+          </div>
+
+          <div class="obj-tools-section region-collapse-tools">
+            <h3>Collapse Vertex Region</h3>
+            <div class="compact-edit-grid">
+              <label for="region-collapse-axis">Axis</label>
+              <select id="region-collapse-axis">
+                <option value="0">X</option>
+                <option value="1">Y</option>
+                <option value="2" selected>Z</option>
+              </select>
+
+              <label for="region-collapse-side">Select</label>
+              <select id="region-collapse-side">
+                <option value="above">Above cutoff</option>
+                <option value="below">Below cutoff</option>
+              </select>
+
+              <label for="region-collapse-cutoff">Cutoff</label>
+              <input id="region-collapse-cutoff" type="number" value="0" step="0.5">
+
+              <label for="region-collapse-scope">Apply to</label>
+              <select id="region-collapse-scope">
+                <option value="pose">Current pose</option>
+                <option value="sequence" selected>Current sequence</option>
+                <option value="all">All poses</option>
+              </select>
+            </div>
+            <div class="control-row">
+              <button id="region-collapse-suggest" type="button">Suggest Cutoff</button>
+              <button id="region-collapse-apply" type="button">Collapse Region</button>
+            </div>
+            <p id="region-collapse-status" class="hint" aria-live="polite">Vertex indices are selected from the displayed pose, then collapsed to the adjoining boundary in each target pose. Vertices are never merged.</p>
           </div>
         </div>
       </details>
@@ -503,14 +607,14 @@
             <div class="property-edit-grid">
               <label class="property-input-row">
                 <span class="property-input-label">Sequence</span>
-                <input id="anim-sequence-name" type="text" spellcheck="false" autocomplete="off">
+                <input id="anim-sequence-name" type="text" maxlength="16" spellcheck="false" autocomplete="off">
               </label>
               <label class="property-input-row">
                 <span class="property-input-label">Pose Name</span>
-                <input id="anim-pose-name" type="text" spellcheck="false" autocomplete="off">
+                <input id="anim-pose-name" type="text" maxlength="16" spellcheck="false" autocomplete="off">
               </label>
               <label class="property-input-row">
-                <span class="property-input-label">Duration</span>
+                <span class="property-input-label">Group Pose Duration</span>
                 <input id="anim-pose-duration" type="number" min="0.001" step="0.001">
               </label>
             </div>
@@ -518,7 +622,12 @@
               <button id="anim-apply-pose" type="button">Apply Pose</button>
               <button id="anim-rename-sequence" type="button">Rename Sequence</button>
             </div>
-            <div id="anim-editor-status" class="hint">Select a frame to edit names and timing.</div>
+            <div class="control-row animation-structure-actions">
+              <button id="anim-duplicate-pose" type="button">Duplicate Pose</button>
+              <button id="anim-delete-pose" type="button">Delete Pose</button>
+              <button id="anim-duplicate-sequence" type="button">Duplicate Sequence</button>
+            </div>
+            <div id="anim-editor-status" class="hint" aria-live="polite">Select a frame to edit names and timing.</div>
           </div>
 
           <label class="checkbox">

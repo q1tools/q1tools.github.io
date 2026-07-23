@@ -13,12 +13,20 @@
   const GENERATED_SOLID_SKIN_SIZE = 16;
   const MDL_IDENT_IDPO = "IDPO";
   const MDL_IDENT_MD16 = "MD16";
+  const MDL_FRAME_NAME_BYTES = 16;
   const ALIAS_ONSEAM = 0x20;
   const VANILLA_MAX_ALIAS_VERTS = 1024;
   const VANILLA_MAX_ALIAS_POSES = 256;
   const QSSM_MAX_ALIAS_VERTS = 0x7fff;
   const QSSM_MAX_ALIAS_POSES = 1024;
   const QSSM_MAX_SKINS = 32;
+  const MAX_ALIAS_TRIANGLES = 65536;
+  const MAX_ALIAS_SKIN_DIMENSION = 8192;
+  const MAX_ALIAS_SKIN_PIXELS = 16 * 1024 * 1024;
+  const MAX_MDL_FILE_BYTES = 256 * 1024 * 1024;
+  const MAX_DECODED_SKIN_BYTES = 128 * 1024 * 1024;
+  const MAX_DECODED_POSE_VERTICES = 8 * 1024 * 1024;
+  const MAX_PAK_ENTRIES = 65536;
   const VANILLA_MAX_ALIAS_SKIN_HEIGHT = 480;
   const QSSM_SKIN_ANIM_TEXTURE_SLOTS = 4;
   const FULLBRIGHT_MIN_PALETTE_INDEX = 224;
@@ -285,7 +293,8 @@
     normalizeFrameIntervals: { id: "normalize-frame-intervals", label: "Normalize Frame Intervals" },
     normalizeSkinIntervals: { id: "normalize-skin-intervals", label: "Normalize Skin Intervals" },
     repairSeamFlags: { id: "repair-seam-flags", label: "Repair Seam Flags" },
-    optimizeFlatPrismOutlineNormals: { id: "optimize-flat-prism-outline-normals", label: "Optimize Outline Normals" },
+    useGeometryLightingNormals: { id: "use-geometry-lighting-normals", label: "Use Geometry Normals" },
+    optimizeFlatPrismOutlineNormals: { id: "optimize-flat-prism-outline-normals", label: "Bias Normals For Outline" },
     useUniformFrameTiming: { id: "use-uniform-frame-timing", label: "Use Uniform Frame Timing" },
   };
 
@@ -315,6 +324,9 @@
     animPoseDuration: document.getElementById("anim-pose-duration"),
     animApplyPose: document.getElementById("anim-apply-pose"),
     animRenameSequence: document.getElementById("anim-rename-sequence"),
+    animDuplicatePose: document.getElementById("anim-duplicate-pose"),
+    animDeletePose: document.getElementById("anim-delete-pose"),
+    animDuplicateSequence: document.getElementById("anim-duplicate-sequence"),
     animEditorStatus: document.getElementById("anim-editor-status"),
     interpolateToggle: document.getElementById("interpolate-toggle"),
     importSkinButton: document.getElementById("import-skin-button"),
@@ -341,10 +353,28 @@
     bottomValue: document.getElementById("bottomcolor-value"),
     skinPreview: document.getElementById("skin-preview"),
     skinStatus: document.getElementById("skin-status"),
+    uvNudgeScope: document.getElementById("uv-nudge-scope"),
+    uvNudgeS: document.getElementById("uv-nudge-s"),
+    uvNudgeT: document.getElementById("uv-nudge-t"),
+    uvNudgeApply: document.getElementById("uv-nudge-apply"),
+    uvNudgeStatus: document.getElementById("uv-nudge-status"),
     propertiesGrid: document.getElementById("properties-grid"),
     saveModelButton: document.getElementById("save-model-button"),
     saveMapButton: document.getElementById("save-map-button"),
     saveModelStatus: document.getElementById("save-model-status"),
+    printPanel: document.getElementById("print-panel"),
+    printFormat: document.getElementById("print-format"),
+    printHeight: document.getElementById("print-height"),
+    printOrientation: document.getElementById("print-orientation"),
+    printRepairMode: document.getElementById("print-repair-mode"),
+    printRepairResolution: document.getElementById("print-repair-resolution"),
+    printCenterToggle: document.getElementById("print-center-toggle"),
+    printGroundToggle: document.getElementById("print-ground-toggle"),
+    printBaseToggle: document.getElementById("print-base-toggle"),
+    printBaseThickness: document.getElementById("print-base-thickness"),
+    printBaseMargin: document.getElementById("print-base-margin"),
+    printAnalysis: document.getElementById("print-analysis"),
+    printExportButton: document.getElementById("print-export-button"),
     viewerShell: document.querySelector(".viewer-shell"),
     viewerLayout: document.getElementById("viewer-layout"),
     viewModeOrbit: document.getElementById("view-mode-orbit"),
@@ -371,6 +401,13 @@
     objAlignGround: document.getElementById("obj-align-ground"),
     objToolsApply: document.getElementById("obj-tools-apply"),
     objToolsReset: document.getElementById("obj-tools-reset"),
+    regionCollapseAxis: document.getElementById("region-collapse-axis"),
+    regionCollapseSide: document.getElementById("region-collapse-side"),
+    regionCollapseCutoff: document.getElementById("region-collapse-cutoff"),
+    regionCollapseScope: document.getElementById("region-collapse-scope"),
+    regionCollapseSuggest: document.getElementById("region-collapse-suggest"),
+    regionCollapseApply: document.getElementById("region-collapse-apply"),
+    regionCollapseStatus: document.getElementById("region-collapse-status"),
     lightingPanel: document.getElementById("lighting-panel"),
     lightAzimuthRange: document.getElementById("light-azimuth-range"),
     lightAzimuthValue: document.getElementById("light-azimuth-value"),
@@ -500,6 +537,8 @@
     faIconsLoading: false,
     faSelectedIcon: null,
     currentSkinFrameIndex: 0,
+    lastPrintAnalysisTime: 0,
+    printExportBusy: false,
     drag: null,
     resizingSidebar: null,
     sampleCache: {
@@ -679,6 +718,37 @@
     dom.saveMapButton.addEventListener("click", async () => {
       await saveCurrentModelAsMap();
     });
+    dom.printExportButton.addEventListener("click", async () => {
+      await exportCurrentModelForPrint();
+    });
+    [
+      dom.printFormat,
+      dom.printHeight,
+      dom.printOrientation,
+      dom.printRepairMode,
+      dom.printRepairResolution,
+      dom.printCenterToggle,
+      dom.printGroundToggle,
+      dom.printBaseToggle,
+      dom.printBaseThickness,
+      dom.printBaseMargin,
+    ].forEach((control) => {
+      const useInputEvent = [
+        dom.printHeight,
+        dom.printBaseThickness,
+        dom.printBaseMargin,
+      ].includes(control);
+      control.addEventListener(useInputEvent ? "input" : "change", () => {
+        syncPrintRepairControls();
+        updatePrintExportAnalysis();
+      });
+    });
+    syncPrintRepairControls();
+    dom.printPanel.addEventListener("toggle", () => {
+      if (dom.printPanel.open) {
+        updatePrintExportAnalysis();
+      }
+    });
 
     dom.objToolsApply.addEventListener("click", () => {
       applyObjectTransform();
@@ -694,6 +764,30 @@
 
     dom.objToolsReset.addEventListener("click", () => {
       resetObjectToolsInputs();
+    });
+
+    dom.regionCollapseAxis.addEventListener("change", () => {
+      suggestRegionCollapseCutoff();
+    });
+
+    dom.regionCollapseSide.addEventListener("change", () => {
+      suggestRegionCollapseCutoff();
+    });
+
+    dom.regionCollapseCutoff.addEventListener("input", () => {
+      updateRegionCollapseSelectionStatus();
+    });
+
+    dom.regionCollapseScope.addEventListener("change", () => {
+      updateRegionCollapseSelectionStatus();
+    });
+
+    dom.regionCollapseSuggest.addEventListener("click", () => {
+      suggestRegionCollapseCutoff();
+    });
+
+    dom.regionCollapseApply.addEventListener("click", () => {
+      applyRegionCollapse();
     });
 
     dom.importSkinButton.addEventListener("click", () => {
@@ -714,6 +808,10 @@
 
     dom.exportUvPngButton.addEventListener("click", async () => {
       await exportCurrentUvAsPng();
+    });
+
+    dom.uvNudgeApply.addEventListener("click", () => {
+      applyUvTexelNudge();
     });
 
     dom.svgImportInput.addEventListener("change", async (event) => {
@@ -1001,6 +1099,18 @@
       renameActiveSequence();
     });
 
+    dom.animDuplicatePose.addEventListener("click", () => {
+      duplicateActivePose();
+    });
+
+    dom.animDeletePose.addEventListener("click", () => {
+      deleteActivePose();
+    });
+
+    dom.animDuplicateSequence.addEventListener("click", () => {
+      duplicateActiveSequence();
+    });
+
     dom.interpolateToggle.addEventListener("change", () => {
       state.interpolate = dom.interpolateToggle.checked;
       state.geometryDirty = true;
@@ -1281,6 +1391,7 @@
       updateTimelineRange();
       resetCamera();
       updatePlaybackControls();
+      suggestRegionCollapseCutoff();
       syncModelDependentPanels();
       updateSkinStatus();
       syncFrameTreeSelection(state.manualFrameIndex);
@@ -1395,6 +1506,8 @@
     updatePlaybackControls();
     syncFrameTreeSelection(state.manualFrameIndex);
     state.geometryDirty = true;
+    updateRegionCollapseSelectionStatus();
+    updatePrintExportAnalysis();
   }
 
   function findFirstPlayableFrameGroupIndex(model) {
@@ -1824,12 +1937,15 @@
     dom.skinPaletteTargetButton.disabled = !state.model;
     dom.skinPaletteApplyButton.disabled = !state.model;
     dom.skinPaletteClearButton.disabled = !state.model;
+    dom.uvNudgeApply.disabled = !state.model;
     dom.recolorToggle.disabled = !state.model;
     dom.topRange.disabled = !state.model;
     dom.bottomRange.disabled = !state.model;
     dom.playToggle.disabled = !state.model || !hasPlayableGroup;
     dom.frameRange.disabled = !state.model || poseCount <= 1;
     dom.resetCamera.disabled = !state.model;
+    dom.regionCollapseSuggest.disabled = !state.model;
+    dom.regionCollapseApply.disabled = !state.model;
     updateAnimationEditor();
   }
 
@@ -1843,6 +1959,8 @@
     updatePlaybackControls();
     syncFrameTreeSelection(state.manualFrameIndex);
     state.geometryDirty = true;
+    updateRegionCollapseSelectionStatus();
+    updatePrintExportAnalysis();
   }
 
   function updateAnimationEditor() {
@@ -1856,6 +1974,9 @@
       dom.animPoseDuration.disabled = true;
       dom.animApplyPose.disabled = true;
       dom.animRenameSequence.disabled = true;
+      dom.animDuplicatePose.disabled = true;
+      dom.animDeletePose.disabled = true;
+      dom.animDuplicateSequence.disabled = true;
       dom.animEditorStatus.textContent = state.model
         ? "Select a frame to edit names and timing."
         : "Load a model to edit animation names and timing.";
@@ -1863,14 +1984,32 @@
     }
 
     const disableEdits = state.playing;
+    const storesDuration = !!context.topFrame && (
+      context.topFrame.type === "group" ||
+      context.topFrame.poseIndices.length > 1
+    );
+    const sequenceSuffixWidth = getSequenceNameSuffixWidth(state.model, context.activeGroup);
+    dom.animSequenceName.maxLength = Math.max(1, MDL_FRAME_NAME_BYTES - sequenceSuffixWidth);
+    dom.animSequenceName.title = sequenceSuffixWidth
+      ? `${sequenceSuffixWidth} of the ${MDL_FRAME_NAME_BYTES} MDL name bytes are reserved for numeric pose suffixes.`
+      : `MDL names store at most ${MDL_FRAME_NAME_BYTES} single-byte characters.`;
     dom.animSequenceName.value = context.sequenceName;
     dom.animPoseName.value = context.pose?.name || `pose_${context.poseIndex}`;
     dom.animPoseDuration.value = context.duration.toFixed(3).replace(/\.?0+$/, "");
     dom.animSequenceName.disabled = disableEdits || context.activeGroup.type === "all";
     dom.animPoseName.disabled = disableEdits;
-    dom.animPoseDuration.disabled = disableEdits;
+    dom.animPoseDuration.disabled = disableEdits || !storesDuration;
+    dom.animPoseDuration.title = storesDuration
+      ? "Stored in this MDL frame group."
+      : "Single-frame timing is controlled by QuakeC and is not stored in the MDL.";
     dom.animApplyPose.disabled = disableEdits;
     dom.animRenameSequence.disabled = disableEdits || context.activeGroup.type === "all";
+    dom.animDuplicatePose.disabled = disableEdits || state.model.poses.length >= QSSM_MAX_ALIAS_POSES;
+    dom.animDeletePose.disabled = disableEdits || state.model.poses.length <= 1;
+    dom.animDuplicateSequence.disabled =
+      disableEdits ||
+      context.activeGroup.type === "all" ||
+      state.model.poses.length + context.activeGroup.poseIndices.length > QSSM_MAX_ALIAS_POSES;
 
     if (state.playing) {
       dom.animEditorStatus.textContent = "Pause playback to edit pose names and timing.";
@@ -1880,7 +2019,11 @@
     const groupLabel = context.activeGroup.type === "all"
       ? "All frames view"
       : (context.activeGroup.treeLabel || context.activeGroup.label);
-    dom.animEditorStatus.textContent = `Editing pose ${context.poseIndexInGroup + 1} of ${context.activeGroup.poseIndices.length} in ${groupLabel}.`;
+    const timingNote = storesDuration
+      ? " This pose duration is stored in its MDL frame group."
+      : " Single-frame timing is controlled by QuakeC, not stored in the MDL.";
+    dom.animEditorStatus.textContent =
+      `Editing pose ${context.poseIndexInGroup + 1} of ${context.activeGroup.poseIndices.length} in ${groupLabel}.${timingNote}`;
   }
 
   function getSelectedPoseEditContext() {
@@ -1938,6 +2081,20 @@
     return { topFrameIndex: -1, poseOffset: 0 };
   }
 
+  function getSequenceNameSuffixWidth(model, group) {
+    const poseCount = group?.poseIndices?.length || 0;
+    if (poseCount <= 1) {
+      return 0;
+    }
+    return Math.max(
+      String(poseCount).length,
+      ...group.poseIndices.map((poseIndex) => {
+        const match = (model?.poses?.[poseIndex]?.name || "").match(/(\d+)$/);
+        return match ? match[1].length : 0;
+      })
+    );
+  }
+
   function applyActivePoseEdits() {
     const context = getSelectedPoseEditContext();
     if (!context || !context.pose) {
@@ -1945,13 +2102,19 @@
       return;
     }
 
-    const nextPoseName = dom.animPoseName.value.trim();
-    const nextDuration = parseFloat(dom.animPoseDuration.value);
-    if (!nextPoseName) {
-      setSaveStatus("Pose name cannot be empty.");
+    let nextPoseName;
+    try {
+      nextPoseName = requireEditableMdlFrameName(dom.animPoseName.value, "Pose name");
+    } catch (error) {
+      setSaveStatus(error.message);
       return;
     }
-    if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
+    const storesDuration = !!context.topFrame && (
+      context.topFrame.type === "group" ||
+      context.topFrame.poseIndices.length > 1
+    );
+    const nextDuration = storesDuration ? parseFloat(dom.animPoseDuration.value) : context.duration;
+    if (storesDuration && (!Number.isFinite(nextDuration) || nextDuration <= 0)) {
       setSaveStatus("Pose duration must be greater than zero.");
       return;
     }
@@ -1960,13 +2123,15 @@
     if (context.topFrame && context.topFrame.poseIndices.length <= 1) {
       context.topFrame.name = nextPoseName;
     }
-    if (context.topFrame) {
+    if (storesDuration) {
       setTopFramePoseDuration(context.topFrame, context.topFramePoseOffset, nextDuration);
     }
 
     state.playing = false;
     rebuildAnimationViewForPose(context.poseIndex, context.activeGroup.type === "all");
-    setSaveStatus(`Updated pose ${nextPoseName} to ${formatNumber(nextDuration)}s. Save .mdl to export changes.`);
+    setSaveStatus(storesDuration
+      ? `Updated pose ${nextPoseName} to ${formatNumber(nextDuration)}s. Save .mdl to export changes.`
+      : `Renamed pose to ${nextPoseName}. Single-frame timing remains controlled by QuakeC.`);
   }
 
   function renameActiveSequence() {
@@ -1976,32 +2141,45 @@
       return;
     }
 
-    const baseName = dom.animSequenceName.value.trim();
-    if (!baseName) {
-      setSaveStatus("Sequence name cannot be empty.");
+    let baseName;
+    try {
+      baseName = requireEditableMdlFrameName(dom.animSequenceName.value, "Sequence name");
+    } catch (error) {
+      setSaveStatus(error.message);
       return;
     }
 
     const poseCount = context.activeGroup.poseIndices.length;
-    const suffixWidth = Math.max(
-      poseCount > 1 ? String(poseCount).length : 0,
-      ...context.activeGroup.poseIndices.map((poseIndex) => {
-        const match = (state.model.poses[poseIndex]?.name || "").match(/(\d+)$/);
-        return match ? match[1].length : 0;
-      })
-    );
-    const touchedTopFrames = new Set();
-
-    context.activeGroup.poseIndices.forEach((poseIndex, index) => {
+    const suffixWidth = getSequenceNameSuffixWidth(state.model, context.activeGroup);
+    const renamedPoses = context.activeGroup.poseIndices.map((poseIndex, index) => {
       const existingName = state.model.poses[poseIndex]?.name || "";
       const match = existingName.match(/(\d+)$/);
       let suffix = "";
       if (poseCount > 1) {
         suffix = match?.[1] || String(index + 1).padStart(Math.max(suffixWidth, 1), "0");
       }
-      state.model.poses[poseIndex].name = `${baseName}${suffix}`;
+      return {
+        poseIndex,
+        name: `${baseName}${suffix}`,
+        topFrameIndex: context.activeGroup.topFrameIndices?.[index],
+      };
+    });
+    try {
+      renamedPoses.forEach(({ name }) => requireEditableMdlFrameName(name, "Generated pose name"));
+    } catch (error) {
+      const maxSuffixLength = Math.max(
+        0,
+        ...renamedPoses.map(({ name }) => Math.max(0, name.length - baseName.length))
+      );
+      setSaveStatus(
+        `${error.message} Use at most ${Math.max(1, MDL_FRAME_NAME_BYTES - maxSuffixLength)} characters for this sequence name.`
+      );
+      return;
+    }
 
-      const topFrameIndex = context.activeGroup.topFrameIndices?.[index];
+    const touchedTopFrames = new Set();
+    renamedPoses.forEach(({ poseIndex, name, topFrameIndex }) => {
+      state.model.poses[poseIndex].name = name;
       if (Number.isInteger(topFrameIndex) && topFrameIndex >= 0) {
         touchedTopFrames.add(topFrameIndex);
       }
@@ -2018,6 +2196,426 @@
     state.playing = false;
     rebuildAnimationViewForPose(context.poseIndex, false);
     setSaveStatus(`Renamed sequence to ${baseName}. Save .mdl to export changes.`);
+  }
+
+  function requireStorableMdlFrameName(value, label = "Frame name") {
+    const name = String(value ?? "");
+    if (!name) {
+      throw new Error(`${label} cannot be empty.`);
+    }
+    if (name.length > MDL_FRAME_NAME_BYTES) {
+      throw new Error(`${label} must fit the MDL limit of ${MDL_FRAME_NAME_BYTES} single-byte characters.`);
+    }
+    for (let index = 0; index < name.length; index++) {
+      const code = name.charCodeAt(index);
+      if (code > 0xff) {
+        throw new Error(`${label} must use single-byte Latin-1 characters.`);
+      }
+      if (code === 0) {
+        throw new Error(`${label} cannot contain a null byte.`);
+      }
+    }
+    return name;
+  }
+
+  function requireEditableMdlFrameName(value, label = "Frame name") {
+    const name = requireStorableMdlFrameName(value, label);
+    for (let index = 0; index < name.length; index++) {
+      const code = name.charCodeAt(index);
+      if (code < 0x20 || code === 0x7f) {
+        throw new Error(`${label} cannot contain control characters.`);
+      }
+    }
+    return name;
+  }
+
+  function sanitizeGeneratedMdlFrameName(value, fallback = "pose") {
+    let name = "";
+    for (const character of String(value ?? "")) {
+      const code = character.charCodeAt(0);
+      name += code >= 0x20 && code !== 0x7f && code <= 0xff ? character : "_";
+    }
+    return name.trim().slice(0, MDL_FRAME_NAME_BYTES) || fallback;
+  }
+
+  function clonePoseData(pose, name = pose?.name || "") {
+    if (!pose?.positions) {
+      throw new Error("The selected pose has no vertex positions.");
+    }
+    return {
+      name,
+      positions: new Float32Array(pose.positions),
+      lightnormalIndices: pose.lightnormalIndices
+        ? new Uint8Array(pose.lightnormalIndices)
+        : new Uint8Array(pose.positions.length / 3),
+    };
+  }
+
+  function alphabeticSuffix(index) {
+    let value = Math.max(1, Math.floor(index));
+    let out = "";
+    while (value > 0) {
+      value -= 1;
+      out = String.fromCharCode(97 + (value % 26)) + out;
+      value = Math.floor(value / 26);
+    }
+    return out;
+  }
+
+  function suggestDuplicatePoseName(model, sourceName) {
+    const cleanName = sanitizeGeneratedMdlFrameName(sourceName, "pose");
+    const match = cleanName.match(/^(.*?)(\d+)$/);
+    const existingNames = new Set(
+      (model.poses || []).map((pose) => String(pose?.name || "").slice(0, MDL_FRAME_NAME_BYTES))
+    );
+    if (match) {
+      const base = match[1];
+      let nextNumber = parseInt(match[2], 10) + 1;
+      (model.poses || []).forEach((pose) => {
+        const poseMatch = String(pose?.name || "").match(/^(.*?)(\d+)$/);
+        if (poseMatch && poseMatch[1] === base) {
+          nextNumber = Math.max(nextNumber, parseInt(poseMatch[2], 10) + 1);
+        }
+      });
+      while (true) {
+        const suffix = String(nextNumber).padStart(match[2].length, "0");
+        const candidate = `${base.slice(0, Math.max(MDL_FRAME_NAME_BYTES - suffix.length, 0))}${suffix}`;
+        if (!existingNames.has(candidate)) {
+          return candidate;
+        }
+        nextNumber += 1;
+      }
+    }
+
+    let attempt = 0;
+    while (true) {
+      const marker = attempt === 0 ? "copy" : `d${alphabeticSuffix(attempt)}`;
+      const suffix = `_${marker}`;
+      const candidate =
+        `${cleanName.slice(0, Math.max(MDL_FRAME_NAME_BYTES - suffix.length, 0))}${suffix}`;
+      if (!existingNames.has(candidate)) {
+        return candidate;
+      }
+      attempt += 1;
+    }
+  }
+
+  function duplicateModelPose(model, poseIndex, requestedName = "") {
+    if (!model?.poses?.[poseIndex]) {
+      throw new Error("Select a valid pose to duplicate.");
+    }
+    if (model.poses.length >= QSSM_MAX_ALIAS_POSES) {
+      throw new Error(`The model already has the QSS-M limit of ${QSSM_MAX_ALIAS_POSES} poses.`);
+    }
+    if ((model.poses.length + 1) * model.numVerts > MAX_DECODED_POSE_VERTICES) {
+      throw new Error("Duplicating this pose would exceed the browser pose-memory safety limit.");
+    }
+
+    const sourcePose = model.poses[poseIndex];
+    const source = findPoseSource(model, poseIndex);
+    const sourceFrame = source.topFrameIndex >= 0 ? model.topFrames[source.topFrameIndex] : null;
+    if (sourceFrame && !Array.isArray(sourceFrame.poseIndices)) {
+      throw new Error("The selected pose belongs to a malformed top-level frame.");
+    }
+    const sourceIsGroup = !!sourceFrame && (
+      sourceFrame.type === "group" ||
+      sourceFrame.poseIndices.length > 1
+    );
+    const addsTopFrame = !sourceIsGroup;
+    if (addsTopFrame && model.topFrames.length >= QSSM_MAX_ALIAS_POSES) {
+      throw new Error(`The model already has the QSS-M limit of ${QSSM_MAX_ALIAS_POSES} top-level frames.`);
+    }
+
+    const suggestedName = String(requestedName ?? "").trim() || suggestDuplicatePoseName(model, sourcePose.name);
+    const name = requireEditableMdlFrameName(suggestedName, "Duplicate pose name");
+    const clonedPose = clonePoseData(sourcePose, name);
+    let groupDurations = null;
+    let insertOffset = -1;
+    if (sourceIsGroup) {
+      groupDurations = deriveDurations(sourceFrame.intervals, sourceFrame.poseIndices.length);
+      insertOffset = clamp(source.poseOffset + 1, 0, sourceFrame.poseIndices.length);
+    }
+
+    const newPoseIndex = model.poses.length;
+    model.poses.push(clonedPose);
+
+    if (sourceIsGroup) {
+      sourceFrame.poseIndices.splice(insertOffset, 0, newPoseIndex);
+      groupDurations.splice(insertOffset, 0, groupDurations[source.poseOffset] || DEFAULT_FRAME_DURATION);
+      sourceFrame.intervals = deriveIntervalsFromDurations(groupDurations);
+    } else {
+      const newFrame = {
+        type: "single",
+        name,
+        poseIndices: [newPoseIndex],
+        intervals: [DEFAULT_FRAME_DURATION],
+      };
+      if (source.topFrameIndex >= 0) {
+        model.topFrames.splice(source.topFrameIndex + 1, 0, newFrame);
+      } else {
+        model.topFrames.push(newFrame);
+      }
+    }
+
+    model.numFrames = model.topFrames.length;
+    return {
+      poseIndex: newPoseIndex,
+      name,
+    };
+  }
+
+  function makeUniqueSequenceBase(model, sourceBase, suffixWidth = 1) {
+    const cleanBase = sanitizeGeneratedMdlFrameName(sourceBase, "sequence");
+    const maxBaseLength = Math.max(1, MDL_FRAME_NAME_BYTES - Math.max(suffixWidth, 0));
+    const existing = new Set(
+      buildPoseEntries(model).map((entry, index) => inferSequenceName(entry.name, index))
+    );
+    let attempt = 0;
+    while (true) {
+      const marker = attempt === 0 ? "copy" : `d${alphabeticSuffix(attempt)}`;
+      const suffix = `_${marker}`;
+      const candidate =
+        `${cleanBase.slice(0, Math.max(maxBaseLength - suffix.length, 0))}${suffix}`.slice(0, maxBaseLength);
+      if (!existing.has(candidate)) {
+        return candidate;
+      }
+      attempt += 1;
+    }
+  }
+
+  function duplicateModelSequence(model, group, requestedBase = "") {
+    if (!model || !group?.poseIndices?.length || group.type === "all") {
+      throw new Error("Select a named sequence to duplicate.");
+    }
+    const sourcePoseIndices = group.poseIndices.slice();
+    sourcePoseIndices.forEach((poseIndex) => {
+      if (!Number.isInteger(poseIndex) || !model.poses?.[poseIndex]?.positions) {
+        throw new Error("The selected sequence contains a missing or invalid source pose.");
+      }
+    });
+    if (model.poses.length + sourcePoseIndices.length > QSSM_MAX_ALIAS_POSES) {
+      throw new Error(`Duplicating this sequence would exceed the ${QSSM_MAX_ALIAS_POSES}-pose limit.`);
+    }
+    if ((model.poses.length + sourcePoseIndices.length) * model.numVerts > MAX_DECODED_POSE_VERTICES) {
+      throw new Error("Duplicating this sequence would exceed the browser pose-memory safety limit.");
+    }
+
+    let copiedTopFrameCount = 0;
+    let previousSourceKey = null;
+    sourcePoseIndices.forEach((_, index) => {
+      const sourceTopFrameIndex = Number.isInteger(group.topFrameIndices?.[index])
+        ? group.topFrameIndices[index]
+        : -1;
+      if (sourceTopFrameIndex >= model.topFrames.length) {
+        throw new Error("The selected sequence references a missing top-level frame.");
+      }
+      const sourceKey = sourceTopFrameIndex >= 0 ? `frame:${sourceTopFrameIndex}` : `pose:${index}`;
+      if (sourceKey !== previousSourceKey) {
+        copiedTopFrameCount += 1;
+        previousSourceKey = sourceKey;
+      }
+    });
+    if (model.topFrames.length + copiedTopFrameCount > QSSM_MAX_ALIAS_POSES) {
+      throw new Error(`Duplicating this sequence would exceed the ${QSSM_MAX_ALIAS_POSES}-frame limit.`);
+    }
+
+    const suffixWidth = Math.max(1, String(sourcePoseIndices.length).length);
+    const requested = String(requestedBase ?? "").trim();
+    const sequenceBase = requested
+      ? requireEditableMdlFrameName(requested, "Duplicate sequence name")
+      : makeUniqueSequenceBase(model, group.treeLabel || group.name, suffixWidth);
+    const frameCopies = [];
+    let activeFrameCopy = null;
+    let firstPoseIndex = -1;
+    const copiedPoses = [];
+
+    sourcePoseIndices.forEach((sourcePoseIndex, index) => {
+      const sourceTopFrameIndex = Number.isInteger(group.topFrameIndices?.[index])
+        ? group.topFrameIndices[index]
+        : -1;
+      const sourceFrame = sourceTopFrameIndex >= 0 ? model.topFrames[sourceTopFrameIndex] : null;
+      const sourceKey = sourceTopFrameIndex >= 0 ? `frame:${sourceTopFrameIndex}` : `pose:${index}`;
+      if (!activeFrameCopy || activeFrameCopy.sourceKey !== sourceKey) {
+        activeFrameCopy = {
+          sourceKey,
+          sourceTopFrameIndex,
+          sourceFrame,
+          poseIndices: [],
+          durations: [],
+        };
+        frameCopies.push(activeFrameCopy);
+      }
+
+      const poseName = sourcePoseIndices.length > 1
+        ? `${sequenceBase}${String(index + 1).padStart(suffixWidth, "0")}`
+        : sequenceBase;
+      requireEditableMdlFrameName(poseName, "Generated duplicate pose name");
+      const newPoseIndex = model.poses.length + copiedPoses.length;
+      copiedPoses.push(clonePoseData(model.poses[sourcePoseIndex], poseName));
+      if (firstPoseIndex < 0) {
+        firstPoseIndex = newPoseIndex;
+      }
+      activeFrameCopy.poseIndices.push(newPoseIndex);
+      activeFrameCopy.durations.push(Math.max(group.durations?.[index] || DEFAULT_FRAME_DURATION, 0.001));
+    });
+
+    const copiedFrames = frameCopies.map((copy) => {
+      const preserveGroup = copy.sourceFrame?.type === "group";
+      return {
+        type: preserveGroup || copy.poseIndices.length > 1 ? "group" : "single",
+        name: copy.poseIndices.length > 1
+          ? sequenceBase
+          : copiedPoses[copy.poseIndices[0] - model.poses.length]?.name || sequenceBase,
+        poseIndices: copy.poseIndices,
+        intervals: deriveIntervalsFromDurations(copy.durations),
+      };
+    });
+
+    model.poses.push(...copiedPoses);
+    model.topFrames.push(...copiedFrames);
+    model.numFrames = model.topFrames.length;
+    return {
+      poseIndex: firstPoseIndex,
+      name: sequenceBase,
+      poseCount: sourcePoseIndices.length,
+      frameCount: frameCopies.length,
+    };
+  }
+
+  function deleteModelPose(model, poseIndex) {
+    if (!model?.poses?.[poseIndex]) {
+      throw new Error("Select a valid pose to delete.");
+    }
+    if (model.poses.length <= 1) {
+      throw new Error("An MDL must retain at least one pose.");
+    }
+
+    const timelineBefore = buildPoseEntries(model);
+    const timelinePosition = Math.max(0, timelineBefore.findIndex((entry) => entry.poseIndex === poseIndex));
+    const deletedName = model.poses[poseIndex].name || `pose_${poseIndex}`;
+    const sourceFrames = model.topFrames?.length
+      ? model.topFrames
+      : model.poses.map((pose, index) => ({
+          type: "single",
+          name: pose.name || `pose_${index}`,
+          poseIndices: [index],
+          intervals: [DEFAULT_FRAME_DURATION],
+        }));
+    const nextFrames = [];
+
+    sourceFrames.forEach((frame) => {
+      if (!Array.isArray(frame.poseIndices)) {
+        throw new Error("The model contains a malformed top-level frame.");
+      }
+      if (!frame.poseIndices.every((framePoseIndex) => (
+        Number.isInteger(framePoseIndex) &&
+        framePoseIndex >= 0 &&
+        framePoseIndex < model.poses.length
+      ))) {
+        throw new Error("The model contains a top-level frame with an invalid pose reference.");
+      }
+      const durations = deriveDurations(frame.intervals, frame.poseIndices.length);
+      const nextPoseIndices = [];
+      const nextDurations = [];
+      frame.poseIndices.forEach((framePoseIndex, offset) => {
+        if (framePoseIndex === poseIndex) {
+          return;
+        }
+        nextPoseIndices.push(framePoseIndex > poseIndex ? framePoseIndex - 1 : framePoseIndex);
+        nextDurations.push(durations[offset] || DEFAULT_FRAME_DURATION);
+      });
+      if (!nextPoseIndices.length) {
+        return;
+      }
+      nextFrames.push({
+        ...frame,
+        type: nextPoseIndices.length > 1 ? frame.type : "single",
+        name: nextPoseIndices.length > 1
+          ? frame.name
+          : model.poses[frame.poseIndices.find((index) => index !== poseIndex)]?.name || frame.name,
+        poseIndices: nextPoseIndices,
+        intervals: deriveIntervalsFromDurations(nextDurations),
+      });
+    });
+
+    model.poses.splice(poseIndex, 1);
+    model.topFrames = nextFrames;
+    model.numFrames = model.topFrames.length;
+
+    const timelineAfter = buildPoseEntries(model);
+    const nextEntry = timelineAfter[clamp(timelinePosition, 0, timelineAfter.length - 1)] || timelineAfter[0];
+    return {
+      poseIndex: nextEntry?.poseIndex ?? 0,
+      name: deletedName,
+    };
+  }
+
+  function commitModelStructureEdit(poseIndex, message) {
+    state.model.numFrames = state.model.topFrames.length;
+    state.model.render = buildRenderData(state.model);
+    rebuildAnimationViewForPose(poseIndex, false);
+    populateProperties(state.model);
+    uploadModelBuffers();
+    state.geometryDirty = true;
+    state.textureDirty = true;
+    suggestRegionCollapseCutoff();
+    updatePrintExportAnalysis();
+    setSaveStatus(message);
+  }
+
+  function duplicateActivePose() {
+    const context = getSelectedPoseEditContext();
+    if (!context) {
+      setSaveStatus("Select a pose to duplicate.");
+      return;
+    }
+    try {
+      const result = duplicateModelPose(state.model, context.poseIndex);
+      commitModelStructureEdit(
+        result.poseIndex,
+        `Duplicated pose as ${result.name}. Edit the copy, then save .mdl to export it.`
+      );
+    } catch (error) {
+      setSaveStatus(error.message);
+    }
+  }
+
+  function duplicateActiveSequence() {
+    const context = getSelectedPoseEditContext();
+    if (!context || context.activeGroup.type === "all") {
+      setSaveStatus("Select a named sequence to duplicate.");
+      return;
+    }
+    try {
+      const result = duplicateModelSequence(state.model, context.activeGroup);
+      commitModelStructureEdit(
+        result.poseIndex,
+        `Appended ${result.poseCount} copied pose${result.poseCount === 1 ? "" : "s"} as ${result.name}.`
+      );
+    } catch (error) {
+      setSaveStatus(error.message);
+    }
+  }
+
+  function deleteActivePose() {
+    const context = getSelectedPoseEditContext();
+    if (!context) {
+      setSaveStatus("Select a pose to delete.");
+      return;
+    }
+    const poseName = context.pose?.name || `pose_${context.poseIndex}`;
+    if (typeof window.confirm === "function" && !window.confirm(`Delete pose "${poseName}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      const result = deleteModelPose(state.model, context.poseIndex);
+      commitModelStructureEdit(
+        result.poseIndex,
+        `Deleted pose ${result.name}. Save .mdl to export the shortened animation.`
+      );
+    } catch (error) {
+      setSaveStatus(error.message);
+    }
   }
 
   function setTopFramePoseDuration(frame, poseOffset, duration) {
@@ -2083,6 +2681,7 @@
       dom.lightingPanel,
       dom.displayPanel,
       dom.validationPanel,
+      dom.printPanel,
       dom.savePanel,
     ];
 
@@ -2091,6 +2690,9 @@
       panel.setAttribute("aria-hidden", hasModel ? "false" : "true");
     });
 
+    dom.uvNudgeStatus.textContent = hasModel
+      ? "Offsets integer MDL texture coordinates. Vertices shared by front and back faces affect both sides."
+      : "Load a model to edit texture coordinates.";
     syncSaveControls();
   }
 
@@ -2099,11 +2701,20 @@
     const canExportMap = canExportModelAsMap(state.model);
     dom.saveModelButton.disabled = !hasModel;
     dom.saveMapButton.disabled = !canExportMap;
+    dom.printExportButton.disabled =
+      !hasModel ||
+      !window.QuakePrintExport ||
+      state.printExportBusy;
+    dom.printExportButton.setAttribute(
+      "aria-busy",
+      state.printExportBusy ? "true" : "false"
+    );
     dom.saveMapButton.title = !hasModel
       ? "Load a model before exporting a .map."
       : state.model?.mapExportData?.kind === "flat-prism"
         ? "Export the generated solid as clean Quake .map brushwork."
         : "Export the current pose as Quake .map brushwork (one brush per triangle).";
+    updatePrintExportAnalysis();
   }
 
 
@@ -2274,6 +2885,9 @@
       case VALIDATION_FIXES.repairSeamFlags.id:
         repairSeamFlags();
         break;
+      case VALIDATION_FIXES.useGeometryLightingNormals.id:
+        useGeometryLightingNormals();
+        break;
       case VALIDATION_FIXES.optimizeFlatPrismOutlineNormals.id:
         optimizeFlatPrismOutlineNormals();
         break;
@@ -2442,7 +3056,35 @@
 
     state.model.exportLightnormalIndices = true;
     updateValidationPanel();
-    setSaveStatus(`Optimized outline normals for ${updated} pose${updated === 1 ? "" : "s"}. Save .mdl to export changes.`);
+    setSaveStatus(`Biased normals toward flat-prism outlines for ${updated} pose${updated === 1 ? "" : "s"}. Save .mdl to export changes.`);
+  }
+
+  function useGeometryLightingNormals() {
+    if (!state.model?.poses?.length) {
+      return;
+    }
+
+    let updated = 0;
+    state.model.poses.forEach((pose) => {
+      if (!pose?.positions) {
+        return;
+      }
+      pose.lightnormalIndices = computeAliasLightnormalIndices(
+        pose.positions,
+        state.model.triangles,
+        state.model.numVerts,
+      );
+      updated += 1;
+    });
+
+    if (!updated) {
+      setSaveStatus("No geometry normals could be computed.");
+      return;
+    }
+
+    state.model.exportLightnormalIndices = false;
+    updateValidationPanel();
+    setSaveStatus(`Computed geometry lighting normals for ${updated} pose${updated === 1 ? "" : "s"}. Save .mdl to export changes.`);
   }
 
   function useUniformFrameTiming() {
@@ -3269,6 +3911,335 @@
     }
   }
 
+  function getPrintExportOptions() {
+    const repairMode = dom.printRepairMode.value;
+    const repair = repairMode !== "off";
+    const addBase = repair && dom.printBaseToggle.checked;
+    const repairResolution = parseInt(dom.printRepairResolution.value, 10);
+    if (repair && !Number.isFinite(repairResolution)) {
+      throw new Error("Choose a Voxel Detail setting.");
+    }
+    return {
+      targetHeightMm: parseFloat(dom.printHeight.value),
+      orientation: dom.printOrientation.value,
+      centerXY: dom.printCenterToggle.checked,
+      groundZ: dom.printGroundToggle.checked,
+      repair,
+      forceVoxelRepair: repairMode === "solid" || addBase,
+      voxelFallback: repair,
+      repairResolution: repair ? repairResolution : 64,
+      addBase,
+      baseThicknessMm: parseFloat(dom.printBaseThickness.value),
+      baseMarginMm: parseFloat(dom.printBaseMargin.value),
+    };
+  }
+
+  function syncPrintRepairControls() {
+    const repair = dom.printRepairMode.value !== "off";
+    const addBase = repair && dom.printBaseToggle.checked;
+    dom.printRepairResolution.disabled = !repair;
+    dom.printBaseToggle.disabled = !repair;
+    dom.printBaseThickness.disabled = !addBase;
+    dom.printBaseMargin.disabled = !addBase;
+  }
+
+  function buildCurrentPrintMesh(options = {}) {
+    if (!state.model) {
+      throw new Error("Load a model before exporting a print file.");
+    }
+    if (!window.QuakePrintExport) {
+      throw new Error("The 3D print exporter did not load.");
+    }
+
+    const positions = getCurrentMapExportPositions(state.model);
+    if (!positions?.length) {
+      throw new Error("No pose geometry is available for print export.");
+    }
+    const printOptions = getPrintExportOptions();
+    if (options.livePreview && printOptions.repair) {
+      printOptions.voxelFallback = false;
+    }
+    return window.QuakePrintExport.prepareMesh(
+      positions,
+      state.model.triangles,
+      printOptions
+    );
+  }
+
+  function updatePrintExportAnalysis() {
+    if (!dom.printAnalysis) {
+      return;
+    }
+
+    dom.printAnalysis.classList.remove("is-clean", "is-warning");
+    if (!state.model) {
+      dom.printAnalysis.textContent = "Load a model to analyze its current pose.";
+      return;
+    }
+    if (!window.QuakePrintExport) {
+      dom.printAnalysis.classList.add("is-warning");
+      dom.printAnalysis.textContent = "The 3D print exporter did not load.";
+      return;
+    }
+
+    try {
+      const mesh = buildCurrentPrintMesh({ livePreview: true });
+      const dimensions = mesh.bounds.dimensions.map((value) => `${formatNumber(value)} mm`).join(" × ");
+      const cleanupCount =
+        mesh.stats.invalidTrianglesRemoved +
+        mesh.stats.degenerateTrianglesRemoved +
+        mesh.stats.duplicateTrianglesRemoved +
+        mesh.stats.nonManifoldFacesRemoved;
+      const lines = [
+        `${dimensions}`,
+        `${mesh.stats.outputTriangles} triangles • ${mesh.stats.shells} shell${mesh.stats.shells === 1 ? "" : "s"}${cleanupCount ? ` • ${cleanupCount} bad face${cleanupCount === 1 ? "" : "s"} removed` : ""}`,
+      ];
+      const repairActions = [];
+      if (mesh.stats.verticesWelded) {
+        repairActions.push(`${mesh.stats.verticesWelded} collapsed edge vert${mesh.stats.verticesWelded === 1 ? "ex" : "ices"} welded`);
+      }
+      if (mesh.stats.holesFilled) {
+        repairActions.push(`${mesh.stats.holesFilled} hole${mesh.stats.holesFilled === 1 ? "" : "s"} sealed`);
+      }
+      if (mesh.stats.collapsedHolesInflated) {
+        repairActions.push(`${mesh.stats.collapsedHolesInflated} collapsed patch${mesh.stats.collapsedHolesInflated === 1 ? "" : "es"} reinforced`);
+      }
+      if (mesh.stats.nonManifoldFacesRemoved) {
+        repairActions.push(`${mesh.stats.nonManifoldFacesRemoved} interior fin${mesh.stats.nonManifoldFacesRemoved === 1 ? "" : "s"} removed`);
+      }
+      if (mesh.stats.nonManifoldPruneIncomplete) {
+        repairActions.push("complex non-manifold region deferred to robust repair");
+      }
+      if (repairActions.length && !mesh.stats.voxelRepairApplied) {
+        lines.push(`Facet-preserving repair: ${repairActions.join(", ")}.`);
+      }
+      if (mesh.stats.voxelRepairApplied) {
+        const base = mesh.stats.printBaseAdded ? " • oval base added" : "";
+        lines.push(
+          `Robust solid repair: ${formatNumber(mesh.stats.voxelSizeMm)} mm voxels ` +
+          `unioned and thickened the mesh${base}.`
+        );
+      }
+
+      const deferredVoxelRepair =
+        mesh.options.repair &&
+        !mesh.stats.voxelRepairApplied &&
+        (mesh.options.forceVoxelRepair || !mesh.stats.watertight);
+      if (deferredVoxelRepair) {
+        lines.push("Robust solid repair will run on the exact displayed pose when exported.");
+        dom.printAnalysis.classList.add("is-clean");
+      } else if (mesh.stats.watertight) {
+        const volume = mesh.stats.volumeMm3 === null
+          ? ""
+          : ` • solid volume ${formatNumber(mesh.stats.volumeMm3 / 1000)} cm³`;
+        lines.push(`Watertight manifold${volume}.`);
+        dom.printAnalysis.classList.add("is-clean");
+      } else {
+        const issues = [];
+        if (mesh.stats.boundaryEdges) {
+          issues.push(`${mesh.stats.boundaryEdges} open boundary edge${mesh.stats.boundaryEdges === 1 ? "" : "s"}`);
+        }
+        if (mesh.stats.nonManifoldEdges) {
+          issues.push(`${mesh.stats.nonManifoldEdges} non-manifold edge${mesh.stats.nonManifoldEdges === 1 ? "" : "s"}`);
+        }
+        if (mesh.stats.nonManifoldVertices) {
+          issues.push(`${mesh.stats.nonManifoldVertices} non-manifold vert${mesh.stats.nonManifoldVertices === 1 ? "ex" : "ices"}`);
+        }
+        if (mesh.stats.zeroVolume) {
+          issues.push("zero enclosed volume");
+        }
+        if (mesh.stats.orientationConflicts) {
+          issues.push(`${mesh.stats.orientationConflicts} winding conflict${mesh.stats.orientationConflicts === 1 ? "" : "s"}`);
+        }
+        const prefix = mesh.options.repair
+          ? "Automatic repair could not close this pose"
+          : "Enable solid repair";
+        lines.push(`${prefix}: ${issues.join(", ")}.`);
+        dom.printAnalysis.classList.add("is-warning");
+      }
+      dom.printAnalysis.textContent = lines.join("\n");
+    } catch (error) {
+      dom.printAnalysis.classList.add("is-warning");
+      dom.printAnalysis.textContent = error.message;
+    }
+  }
+
+  async function exportCurrentModelForPrint() {
+    if (!state.model) {
+      setSaveStatus("Load a model before exporting a print file.");
+      return;
+    }
+    if (state.printExportBusy) {
+      return;
+    }
+
+    state.printExportBusy = true;
+    syncSaveControls();
+    try {
+      syncRenderGeometryToModel(state.model);
+      const sample = getCurrentPoseSample();
+      const positions = new Float64Array(getCurrentMapExportPositions(state.model));
+      const printOptions = getPrintExportOptions();
+      const format = dom.printFormat.value === "stl" ? "stl" : "3mf";
+      const suggestedName = window.QuakePrintExport.suggestedFilename(
+        state.model.path,
+        sample.frameName,
+        format
+      );
+      const metadata = format === "3mf"
+        ? {
+          title: suggestedName.replace(/\.3mf$/i, ""),
+          source: state.model.path,
+          pose: sample.frameName,
+        }
+        : null;
+      const mimeType = format === "stl" ? "model/stl" : "model/3mf";
+      const description = format === "stl" ? "Binary STL" : "3MF";
+      let saveHandle = null;
+
+      if (window.showSaveFilePicker) {
+        try {
+          saveHandle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [{
+              description,
+              accept: {
+                [mimeType]: [`.${format}`],
+              },
+            }],
+          });
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            setSaveStatus("Print export cancelled.");
+            return;
+          }
+          console.warn("Native save picker unavailable; using a browser download.", error);
+        }
+      }
+
+      setSaveStatus("Preparing the watertight print file…");
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const result = await prepareAndSerializePrintExport({
+        positions,
+        triangles: state.model.triangles,
+        options: printOptions,
+        format,
+        label: suggestedName,
+        metadata,
+      });
+      const { bytes, mesh } = result;
+
+      if (saveHandle) {
+        const writable = await saveHandle.createWritable();
+        await writable.write(bytes);
+        await writable.close();
+        setSaveStatus(formatPrintExportResult("Saved", suggestedName, mesh));
+      } else {
+        downloadBytes(bytes, suggestedName, mimeType);
+        setSaveStatus(formatPrintExportResult("Exported", suggestedName, mesh));
+      }
+      updatePrintExportAnalysis();
+    } catch (error) {
+      console.error(error);
+      setSaveStatus(`3D print export failed: ${error.message}`);
+      updatePrintExportAnalysis();
+    } finally {
+      state.printExportBusy = false;
+      syncSaveControls();
+    }
+  }
+
+  async function prepareAndSerializePrintExport(request) {
+    if (window.Worker) {
+      try {
+        return await runPrintExportWorker(request);
+      } catch (error) {
+        if (!error?.workerUnavailable) {
+          throw error;
+        }
+        console.warn("Background print export unavailable; using the main thread.", error);
+      }
+    }
+
+    const mesh = window.QuakePrintExport.prepareMesh(
+      request.positions,
+      request.triangles,
+      request.options
+    );
+    const bytes = request.format === "stl"
+      ? window.QuakePrintExport.serializeBinaryStl(mesh, request.label)
+      : window.QuakePrintExport.serialize3mf(mesh, request.metadata);
+    return { bytes, mesh };
+  }
+
+  function runPrintExportWorker(request) {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try {
+        worker = new Worker(new URL("./print-export-worker.js", document.baseURI));
+      } catch (error) {
+        error.workerUnavailable = true;
+        reject(error);
+        return;
+      }
+
+      let settled = false;
+      const timeout = window.setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        worker.terminate();
+        // A timed-out repair may already have consumed substantial CPU. Do not
+        // mark this as worker-unavailable and repeat the same job on the UI thread.
+        reject(new Error("Background print export timed out; lower Voxel Detail and retry."));
+      }, 120000);
+      worker.addEventListener("message", (event) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timeout);
+        worker.terminate();
+        if (event.data?.ok) {
+          resolve(event.data);
+        } else {
+          reject(new Error(event.data?.error || "Background print export failed."));
+        }
+      });
+      worker.addEventListener("error", (event) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timeout);
+        worker.terminate();
+        const error = new Error(event.message || "Background print export could not start.");
+        error.workerUnavailable = true;
+        reject(error);
+      });
+      try {
+        worker.postMessage(request);
+      } catch (error) {
+        settled = true;
+        window.clearTimeout(timeout);
+        worker.terminate();
+        reject(error);
+      }
+    });
+  }
+
+  function formatPrintExportResult(verb, filename, mesh) {
+    const meshHealth = mesh.stats.watertight
+      ? (
+        mesh.stats.voxelRepairApplied
+          ? `watertight robust solid${mesh.stats.printBaseAdded ? " with print base" : ""}`
+          : "watertight"
+      )
+      : `${mesh.stats.boundaryEdges} open edges, ${mesh.stats.nonManifoldEdges} non-manifold edges, and ${mesh.stats.nonManifoldVertices} non-manifold vertices`;
+    return `${verb} ${filename} (${mesh.stats.outputTriangles} triangles, ${meshHealth}).`;
+  }
+
   function setSaveStatus(message) {
     dom.saveModelStatus.textContent = message;
   }
@@ -3938,13 +4909,24 @@
       );
     }
 
+    const flatPrismCapLightingStats = analyzeFlatPrismCapLighting(model);
+    if (flatPrismCapLightingStats.needsRepair) {
+      pushValidationFinding(
+        findings,
+        "warning",
+        "Flat cap normals create in-game lighting bands",
+        `The front/back caps use up to ${flatPrismCapLightingStats.maxDistinctNormals} different loaded normal byte${flatPrismCapLightingStats.maxDistinctNormals === 1 ? "" : "s"}. QSS-M uses these bytes for alias lighting, so a solid-color skin can look triangulated in-game even though the texture is flat.`,
+        [VALIDATION_FIXES.useGeometryLightingNormals]
+      );
+    }
+
     const flatPrismOutlineStats = analyzeFlatPrismOutlineCompatibility(model);
     if (flatPrismOutlineStats.needsRepair) {
       pushValidationFinding(
         findings,
         "warning",
         "Flat-prism normals may overfill QSS-M outlines",
-        `This model is only ${formatNumber(flatPrismOutlineStats.thickness)} units thick, and ${flatPrismOutlineStats.mismatchedNormalCount} of ${flatPrismOutlineStats.totalNormals} loaded normal byte${flatPrismOutlineStats.totalNormals === 1 ? "" : "s"} differ from the flat-prism outline profile. QSS-M offsets r_outline along these normals before culling front faces, so thin text/icons can draw heavy black slabs instead of a clean silhouette.`,
+        `This model is only ${formatNumber(flatPrismOutlineStats.thickness)} units thick, and ${flatPrismOutlineStats.mismatchedNormalCount} of ${flatPrismOutlineStats.totalNormals} loaded normal byte${flatPrismOutlineStats.totalNormals === 1 ? "" : "s"} differ from the flat-prism outline profile. QSS-M offsets r_outline along these normals before culling front faces, so thin text/icons can draw heavy black slabs instead of a clean silhouette. This outline-biased repair can make solid flat caps shade less evenly.`,
         [VALIDATION_FIXES.optimizeFlatPrismOutlineNormals]
       );
     }
@@ -4070,25 +5052,61 @@
     };
   }
 
-  function analyzeAliasSeamUsage(model) {
-    const usage = Array.from({ length: Math.max(model.numVerts || 0, 0) }, () => ({
-      front: false,
-      back: false,
-    }));
+  function analyzeFlatPrismCapLighting(model) {
+    const pose = model.poses?.[0];
+    if (!pose?.positions || !pose.lightnormalIndices?.length || model.exportLightnormalIndices === true) {
+      return { needsRepair: false };
+    }
 
-    model.triangles.forEach((triangle) => {
-      const isFront = !!triangle.facesfront;
-      (triangle.vertIndex || []).forEach((vertexIndex) => {
-        if (!Number.isInteger(vertexIndex) || vertexIndex < 0 || vertexIndex >= usage.length) {
-          return;
-        }
-        if (isFront) {
-          usage[vertexIndex].front = true;
-        } else {
-          usage[vertexIndex].back = true;
-        }
-      });
+    const bounds = computeBounds([pose.positions]);
+    const extents = [
+      bounds.max[0] - bounds.min[0],
+      bounds.max[1] - bounds.min[1],
+      bounds.max[2] - bounds.min[2],
+    ];
+    const broadExtent = Math.max(extents[0], extents[2]);
+    const thickness = extents[1];
+    if (!Number.isFinite(broadExtent) || !Number.isFinite(thickness) || broadExtent <= 0 || thickness / broadExtent > 0.08) {
+      return { needsRepair: false };
+    }
+
+    const capVerticesBySide = [new Set(), new Set()];
+    (model.triangles || []).forEach((triangle) => {
+      const [a, b, c] = triangle.vertIndex || [];
+      if (![a, b, c].every((index) => Number.isInteger(index) && index >= 0 && index < model.numVerts)) {
+        return;
+      }
+      const normal = getTriangleNormalComponents(pose.positions, a, b, c);
+      const length = Math.hypot(normal.x, normal.y, normal.z);
+      if (length <= 1e-8 || Math.abs(normal.y) / length <= 0.85) {
+        return;
+      }
+      const capVertices = normal.y >= 0 ? capVerticesBySide[0] : capVerticesBySide[1];
+      capVertices.add(a);
+      capVertices.add(b);
+      capVertices.add(c);
     });
+
+    let maxDistinctNormals = 0;
+    let totalCapVertices = 0;
+    for (const capVertices of capVerticesBySide) {
+      totalCapVertices += capVertices.size;
+      const normalIndices = new Set();
+      for (const vertexIndex of capVertices) {
+        normalIndices.add(pose.lightnormalIndices[vertexIndex]);
+      }
+      maxDistinctNormals = Math.max(maxDistinctNormals, normalIndices.size);
+    }
+
+    return {
+      needsRepair: totalCapVertices > 0 && maxDistinctNormals > 1,
+      maxDistinctNormals,
+      totalCapVertices,
+    };
+  }
+
+  function analyzeAliasSeamUsage(model) {
+    const usage = collectAliasFaceUsage(model);
 
     const nonStandardSeamIndices = [];
     const frontHalfSharedMissingSeamIndices = [];
@@ -4109,6 +5127,126 @@
       nonStandardSeamIndices,
       frontHalfSharedMissingSeamIndices,
     };
+  }
+
+  function collectAliasFaceUsage(model) {
+    const usage = Array.from({ length: Math.max(model?.numVerts || 0, 0) }, () => ({
+      front: false,
+      back: false,
+    }));
+
+    (model?.triangles || []).forEach((triangle) => {
+      const isFront = !!triangle.facesfront;
+      (triangle.vertIndex || []).forEach((vertexIndex) => {
+        if (!Number.isInteger(vertexIndex) || vertexIndex < 0 || vertexIndex >= usage.length) {
+          return;
+        }
+        if (isFront) {
+          usage[vertexIndex].front = true;
+        } else {
+          usage[vertexIndex].back = true;
+        }
+      });
+    });
+    return usage;
+  }
+
+  function nudgeModelTextureVertices(model, deltaS, deltaT, scope = "all") {
+    if (!model?.stVerts?.length) {
+      throw new Error("The model has no texture vertices to edit.");
+    }
+    if (!Number.isInteger(deltaS) || !Number.isInteger(deltaT)) {
+      throw new Error("UV nudges must use whole texels.");
+    }
+    if (deltaS === 0 && deltaT === 0) {
+      throw new Error("Enter a non-zero S or T texel offset.");
+    }
+
+    const usage = collectAliasFaceUsage(model);
+    const selectedIndices = [];
+    model.stVerts.forEach((st, vertexIndex) => {
+      const vertexUsage = usage[vertexIndex] || { front: false, back: false };
+      const matches =
+        scope === "all" ||
+        (scope === "front" && vertexUsage.front) ||
+        (scope === "back" && vertexUsage.back) ||
+        (scope === "back-only" && vertexUsage.back && !vertexUsage.front) ||
+        (scope === "seam" && !!st.onseam);
+      if (matches) {
+        selectedIndices.push(vertexIndex);
+      }
+    });
+
+    if (!selectedIndices.length) {
+      throw new Error("No texture vertices match the selected UV scope.");
+    }
+
+    const outOfBounds = selectedIndices.filter((vertexIndex) => {
+      const st = model.stVerts[vertexIndex];
+      const nextS = st.s + deltaS;
+      const nextT = st.t + deltaT;
+      if (nextS < 0 || nextS >= model.skinWidth || nextT < 0 || nextT >= model.skinHeight) {
+        return true;
+      }
+      const effectiveBackS = nextS + (usage[vertexIndex]?.back && st.onseam ? model.skinWidth / 2 : 0);
+      return effectiveBackS < 0 || effectiveBackS >= model.skinWidth;
+    });
+
+    if (outOfBounds.length) {
+      throw new Error(
+        `Nudge would move ${outOfBounds.length} selected texture ` +
+        `vert${outOfBounds.length === 1 ? "ex" : "ices"} outside the ${model.skinWidth}×${model.skinHeight} skin.`
+      );
+    }
+
+    selectedIndices.forEach((vertexIndex) => {
+      model.stVerts[vertexIndex].s += deltaS;
+      model.stVerts[vertexIndex].t += deltaT;
+    });
+
+    const sharedCount = selectedIndices.reduce(
+      (count, vertexIndex) => count + (usage[vertexIndex]?.front && usage[vertexIndex]?.back ? 1 : 0),
+      0
+    );
+    return {
+      changed: selectedIndices.length,
+      sharedCount,
+    };
+  }
+
+  function applyUvTexelNudge() {
+    if (!state.model) {
+      return;
+    }
+    const deltaS = Number(dom.uvNudgeS.value);
+    const deltaT = Number(dom.uvNudgeT.value);
+    try {
+      const result = nudgeModelTextureVertices(
+        state.model,
+        deltaS,
+        deltaT,
+        dom.uvNudgeScope.value
+      );
+      state.model.render = buildRenderData(state.model);
+      populateProperties(state.model);
+      updateSkinStatus();
+      updateValidationPanel();
+      uploadModelBuffers();
+      state.textureDirty = true;
+      state.geometryDirty = true;
+
+      const sharedNote = result.sharedCount
+        ? ` ${result.sharedCount} also serve front-facing triangles, so both sides moved.`
+        : "";
+      const message =
+        `Nudged ${result.changed} texture vert${result.changed === 1 ? "ex" : "ices"} ` +
+        `by (${deltaS}, ${deltaT}) texels.${sharedNote}`;
+      dom.uvNudgeStatus.textContent = message;
+      setSaveStatus(`${message} Save .mdl to export changes.`);
+    } catch (error) {
+      dom.uvNudgeStatus.textContent = error.message;
+      setSaveStatus(error.message);
+    }
   }
 
   function countNonUniformFrameTimingGroups(model) {
@@ -4707,6 +5845,7 @@
   }
 
   function parsePak(name, bytes) {
+    requireByteRange(bytes, 0, 12, `${name} PAK header`);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const ident = readASCII(view, 0, 4);
     if (ident !== "PACK") {
@@ -4715,7 +5854,19 @@
 
     const dirOffset = view.getInt32(4, true);
     const dirLength = view.getInt32(8, true);
-    const entryCount = Math.floor(dirLength / 64);
+    if (
+      dirOffset < 12 ||
+      dirLength < 0 ||
+      dirLength % 64 !== 0 ||
+      dirOffset > bytes.length ||
+      dirLength > bytes.length - dirOffset
+    ) {
+      throw new Error(`${name} has an invalid PAK directory`);
+    }
+    const entryCount = dirLength / 64;
+    if (entryCount > MAX_PAK_ENTRIES) {
+      throw new Error(`${name} has too many PAK entries (${entryCount})`);
+    }
     const assets = [];
 
     for (let i = 0; i < entryCount; i++) {
@@ -4723,7 +5874,15 @@
       const path = readASCII(view, entryOffset, 56).replace(/\0.*$/, "");
       const fileOffset = view.getInt32(entryOffset + 56, true);
       const fileSize = view.getInt32(entryOffset + 60, true);
-      const fileBytes = bytes.slice(fileOffset, fileOffset + fileSize);
+      if (
+        fileOffset < 0 ||
+        fileSize < 0 ||
+        fileOffset > bytes.length ||
+        fileSize > bytes.length - fileOffset
+      ) {
+        throw new Error(`${name} has an invalid PAK entry: ${path || `#${i}`}`);
+      }
+      const fileBytes = bytes.subarray(fileOffset, fileOffset + fileSize);
 
       assets.push({
         path,
@@ -6512,8 +7671,11 @@
     }
 
     // QuakeSpasm-family renderers flood-fill alias skins from texel 0. A fully
-    // solid skin would be rewritten to black, so keep one unsampled guard texel.
-    indexed[0] = fillIndex === 0 ? 1 : 0;
+    // solid skin would be rewritten to black, so keep one unsampled seed texel.
+    // The seed must not be black or 255: engines use black as the fill target
+    // and 255 as the flood-fill visited marker, so either value can survive into
+    // the uploaded skin instead of being replaced by the surrounding solid color.
+    indexed[0] = fillIndex === 1 ? 2 : 1;
     return indexed;
   }
 
@@ -8569,6 +9731,7 @@
     updateTimelineRange();
     resetCamera(model.importSourceKind);
     updatePlaybackControls();
+    suggestRegionCollapseCutoff();
     syncModelDependentPanels();
     syncDisplayControls();
     updateSkinStatus();
@@ -8582,6 +9745,10 @@
   // ── End SVG-to-MDL ──────────────────────────────────────────────────────────
 
   function parseMDL(bytes, path) {
+    if (!bytes || bytes.length > MAX_MDL_FILE_BYTES) {
+      throw new Error(`${path}: MDL file exceeds the 256 MiB safety limit`);
+    }
+    requireByteRange(bytes, 0, 84, `${path} MDL header`);
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     let offset = 0;
 
@@ -8625,13 +9792,50 @@
     const size = view.getFloat32(offset, true);
     offset += 4;
 
-    const skinPixelCount = skinWidth * skinHeight;
+    requireIntegerInRange(numSkins, 1, QSSM_MAX_SKINS, `${path} skin count`);
+    requireIntegerInRange(
+      skinWidth,
+      1,
+      MAX_ALIAS_SKIN_DIMENSION,
+      `${path} skin width`
+    );
+    requireIntegerInRange(
+      skinHeight,
+      1,
+      MAX_ALIAS_SKIN_DIMENSION,
+      `${path} skin height`
+    );
+    requireIntegerInRange(numVerts, 1, QSSM_MAX_ALIAS_VERTS, `${path} vertex count`);
+    requireIntegerInRange(numTris, 1, MAX_ALIAS_TRIANGLES, `${path} triangle count`);
+    requireIntegerInRange(numFrames, 1, QSSM_MAX_ALIAS_POSES, `${path} frame count`);
+    if (
+      ![...scale, ...scaleOrigin, boundingRadius, ...eyePosition, size]
+        .every(Number.isFinite)
+    ) {
+      throw new Error(`${path}: MDL header contains a non-finite number`);
+    }
+
+    const skinPixelCount = checkedByteProduct(
+      skinWidth,
+      skinHeight,
+      `${path} skin dimensions`
+    );
+    if (skinPixelCount > MAX_ALIAS_SKIN_PIXELS) {
+      throw new Error(`${path}: MDL skin exceeds the 16 MiB decoded-pixel limit`);
+    }
     const skins = [];
+    let decodedSkinBytes = 0;
     for (let skinIndex = 0; skinIndex < numSkins; skinIndex++) {
+      requireByteRange(bytes, offset, 4, `${path} skin ${skinIndex} type`);
       const skinType = view.getInt32(offset, true);
       offset += 4;
 
       if (skinType === 0) {
+        decodedSkinBytes += skinPixelCount;
+        if (decodedSkinBytes > MAX_DECODED_SKIN_BYTES) {
+          throw new Error(`${path}: decoded skins exceed the 128 MiB safety limit`);
+        }
+        requireByteRange(bytes, offset, skinPixelCount, `${path} skin ${skinIndex}`);
         const skinBytes = bytes.slice(offset, offset + skinPixelCount);
         offset += skinPixelCount;
         skins.push({
@@ -8639,9 +9843,36 @@
           frames: [skinBytes],
           intervals: [DEFAULT_FRAME_DURATION],
         });
-      } else {
+      } else if (skinType === 1) {
+        requireByteRange(bytes, offset, 4, `${path} skin group ${skinIndex}`);
         const groupCount = view.getInt32(offset, true);
         offset += 4;
+        requireIntegerInRange(
+          groupCount,
+          1,
+          QSSM_MAX_ALIAS_POSES,
+          `${path} skin group ${skinIndex} frame count`
+        );
+        const intervalBytes = checkedByteProduct(
+          groupCount,
+          4,
+          `${path} skin group ${skinIndex} intervals`
+        );
+        const pixelBytes = checkedByteProduct(
+          groupCount,
+          skinPixelCount,
+          `${path} skin group ${skinIndex} pixels`
+        );
+        decodedSkinBytes += pixelBytes;
+        if (decodedSkinBytes > MAX_DECODED_SKIN_BYTES) {
+          throw new Error(`${path}: decoded skins exceed the 128 MiB safety limit`);
+        }
+        requireByteRange(
+          bytes,
+          offset,
+          intervalBytes + pixelBytes,
+          `${path} skin group ${skinIndex}`
+        );
         const intervals = [];
         for (let i = 0; i < groupCount; i++) {
           intervals.push(view.getFloat32(offset, true));
@@ -8659,9 +9890,17 @@
           frames,
           intervals,
         });
+      } else {
+        throw new Error(`${path}: unsupported MDL skin type ${skinType}`);
       }
     }
 
+    requireByteRange(
+      bytes,
+      offset,
+      checkedByteProduct(numVerts, 12, `${path} texture vertices`),
+      `${path} texture vertices`
+    );
     const stVerts = new Array(numVerts);
     for (let vertexIndex = 0; vertexIndex < numVerts; vertexIndex++) {
       stVerts[vertexIndex] = {
@@ -8672,6 +9911,12 @@
       offset += 12;
     }
 
+    requireByteRange(
+      bytes,
+      offset,
+      checkedByteProduct(numTris, 16, `${path} triangles`),
+      `${path} triangles`
+    );
     const triangles = new Array(numTris);
     for (let triIndex = 0; triIndex < numTris; triIndex++) {
       triangles[triIndex] = {
@@ -8689,10 +9934,19 @@
     const topFrames = [];
 
     for (let frameIndex = 0; frameIndex < numFrames; frameIndex++) {
+      requireByteRange(bytes, offset, 4, `${path} frame ${frameIndex} type`);
       const frameType = view.getInt32(offset, true);
       offset += 4;
 
       if (frameType === 0) {
+        if (poses.length >= QSSM_MAX_ALIAS_POSES) {
+          throw new Error(
+            `${path}: decoded pose count exceeds ${QSSM_MAX_ALIAS_POSES}`
+          );
+        }
+        if ((poses.length + 1) * numVerts > MAX_DECODED_POSE_VERTICES) {
+          throw new Error(`${path}: decoded poses exceed the browser memory safety limit`);
+        }
         const parsed = parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin, isMd16);
         poses.push({
           name: parsed.name,
@@ -8706,13 +9960,34 @@
           intervals: [DEFAULT_FRAME_DURATION],
         });
         offset = parsed.offset;
-      } else {
+      } else if (frameType === 1) {
+        requireByteRange(bytes, offset, 12, `${path} frame group ${frameIndex}`);
         const groupCount = view.getInt32(offset, true);
         offset += 4;
+        requireIntegerInRange(
+          groupCount,
+          1,
+          QSSM_MAX_ALIAS_POSES,
+          `${path} frame group ${frameIndex} pose count`
+        );
+        if (poses.length + groupCount > QSSM_MAX_ALIAS_POSES) {
+          throw new Error(
+            `${path}: decoded pose count exceeds ${QSSM_MAX_ALIAS_POSES}`
+          );
+        }
+        if ((poses.length + groupCount) * numVerts > MAX_DECODED_POSE_VERTICES) {
+          throw new Error(`${path}: decoded poses exceed the browser memory safety limit`);
+        }
 
         // bbox min + max, not needed for rendering.
         offset += 8;
 
+        requireByteRange(
+          bytes,
+          offset,
+          checkedByteProduct(groupCount, 4, `${path} frame group intervals`),
+          `${path} frame group ${frameIndex} intervals`
+        );
         const intervals = [];
         for (let i = 0; i < groupCount; i++) {
           intervals.push(view.getFloat32(offset, true));
@@ -8739,6 +10014,8 @@
           poseIndices,
           intervals,
         });
+      } else {
+        throw new Error(`${path}: unsupported MDL frame type ${frameType}`);
       }
     }
 
@@ -8770,9 +10047,18 @@
   }
 
   function parseSimpleFrame(view, bytes, offset, numVerts, scale, scaleOrigin, isMd16 = false) {
+    const vertexStride = isMd16 ? 8 : 4;
+    const vertexBytes = checkedByteProduct(
+      numVerts,
+      vertexStride,
+      "MDL pose vertices"
+    );
+    requireByteRange(bytes, offset, 24 + vertexBytes, "MDL pose");
     offset += 4; // bbox min
     offset += 4; // bbox max
-    const name = readASCII(view, offset, 16).replace(/\0.*$/, "");
+    const rawName = readASCII(view, offset, MDL_FRAME_NAME_BYTES);
+    const nullIndex = rawName.indexOf("\0");
+    const name = nullIndex >= 0 ? rawName.slice(0, nullIndex) : rawName;
     offset += 16;
 
     const positions = new Float32Array(numVerts * 3);
@@ -8793,7 +10079,7 @@
         name,
         positions,
         lightnormalIndices,
-        offset: offset + numVerts * 8,
+        offset: offset + vertexBytes,
       };
     }
 
@@ -8818,6 +10104,12 @@
 
   function serializeMDL(model) {
     const chunks = [];
+    if (!model?.poses?.length) {
+      throw new Error("An MDL export requires at least one pose.");
+    }
+    if (model.poses.length > QSSM_MAX_ALIAS_POSES) {
+      throw new Error(`MDL export supports at most ${QSSM_MAX_ALIAS_POSES} loaded poses.`);
+    }
     const topFrames = model.topFrames && model.topFrames.length
       ? model.topFrames
       : model.poses.map((pose, index) => ({
@@ -8826,6 +10118,35 @@
           poseIndices: [index],
           intervals: [DEFAULT_FRAME_DURATION],
         }));
+    if (!topFrames.length || topFrames.length > QSSM_MAX_ALIAS_POSES) {
+      throw new Error(`MDL export requires 1–${QSSM_MAX_ALIAS_POSES} top-level frames.`);
+    }
+    const referencedPoses = new Set();
+    topFrames.forEach((frame, frameIndex) => {
+      if (!Array.isArray(frame.poseIndices) || !frame.poseIndices.length) {
+        throw new Error(`Top-level frame ${frameIndex} has no poses.`);
+      }
+      frame.poseIndices.forEach((poseIndex) => {
+        if (!Number.isInteger(poseIndex) || poseIndex < 0 || poseIndex >= model.poses.length) {
+          throw new Error(`Top-level frame ${frameIndex} references invalid pose ${poseIndex}.`);
+        }
+        if (referencedPoses.has(poseIndex)) {
+          throw new Error(`Pose ${poseIndex} is referenced by more than one top-level frame.`);
+        }
+        referencedPoses.add(poseIndex);
+      });
+    });
+    if (referencedPoses.size !== model.poses.length) {
+      throw new Error(
+        `Top-level frames reference ${referencedPoses.size} of ${model.poses.length} loaded poses; export would lose pose data.`
+      );
+    }
+    const expectedPositionLength = model.numVerts * 3;
+    model.poses.forEach((pose, poseIndex) => {
+      if (!pose?.positions || pose.positions.length !== expectedPositionLength) {
+        throw new Error(`Pose ${poseIndex} does not contain ${model.numVerts} complete vertex positions.`);
+      }
+    });
     const usePoseLightnormalIndices = model.exportLightnormalIndices === true;
     const packedPoses = model.poses.map((pose) => {
       const lightnormalIndices = usePoseLightnormalIndices && pose.lightnormalIndices?.length === model.numVerts
@@ -8976,10 +10297,14 @@
   }
 
   function writeSimpleFrameChunk(chunks, packedPose, name) {
+    if (!packedPose) {
+      throw new Error("A top-level frame references missing packed pose data.");
+    }
+    const safeName = requireStorableMdlFrameName(name, "Frame name");
     const bounds = computePackedBounds(packedPose);
     appendPackedBounds(chunks, bounds.min);
     appendPackedBounds(chunks, bounds.max);
-    appendFixedASCII(chunks, name || "", 16);
+    appendFixedASCII(chunks, safeName, MDL_FRAME_NAME_BYTES);
     chunks.push(packedPose);
   }
 
@@ -9452,6 +10777,229 @@
     dom.objScaleZ.value = 1;
   }
 
+  function analyzeModelVertexRegion(model, referencePoseIndex, axis, side, cutoff) {
+    if (!model?.poses?.[referencePoseIndex]?.positions) {
+      throw new Error("Select a valid reference pose for the region.");
+    }
+    if (![0, 1, 2].includes(axis) || !["above", "below"].includes(side) || !Number.isFinite(cutoff)) {
+      throw new Error("Choose a valid collapse axis, side, and cutoff.");
+    }
+
+    const referencePositions = model.poses[referencePoseIndex].positions;
+    const selected = [];
+    const selectedSet = new Set();
+    for (let vertexIndex = 0; vertexIndex < model.numVerts; vertexIndex++) {
+      const coordinate = referencePositions[vertexIndex * 3 + axis];
+      const matches = side === "above" ? coordinate > cutoff : coordinate < cutoff;
+      if (matches) {
+        selected.push(vertexIndex);
+        selectedSet.add(vertexIndex);
+      }
+    }
+    if (!selected.length) {
+      throw new Error(`No vertices are ${side} the ${formatNumber(cutoff)} cutoff.`);
+    }
+
+    const boundarySet = new Set();
+    (model.triangles || []).forEach((triangle) => {
+      const indices = triangle.vertIndex || [];
+      const hasSelected = indices.some((vertexIndex) => selectedSet.has(vertexIndex));
+      const hasUnselected = indices.some((vertexIndex) => !selectedSet.has(vertexIndex));
+      if (!hasSelected || !hasUnselected) {
+        return;
+      }
+      indices.forEach((vertexIndex) => {
+        if (!selectedSet.has(vertexIndex) && vertexIndex >= 0 && vertexIndex < model.numVerts) {
+          boundarySet.add(vertexIndex);
+        }
+      });
+    });
+
+    return {
+      selected,
+      boundaryIndices: [...boundarySet],
+    };
+  }
+
+  function collapseModelVertexRegion(model, referencePoseIndex, targetPoseIndices, axis, side, cutoff) {
+    const region = analyzeModelVertexRegion(model, referencePoseIndex, axis, side, cutoff);
+    const selected = region.selected;
+    const boundaryIndices = region.boundaryIndices;
+    if (!Array.isArray(targetPoseIndices) || !targetPoseIndices.length) {
+      throw new Error("No target poses are available for the collapse.");
+    }
+    const validTargetPoseIndices = [...new Set(targetPoseIndices)];
+    if (!validTargetPoseIndices.every((poseIndex) => (
+      Number.isInteger(poseIndex) &&
+      model.poses[poseIndex]?.positions?.length === model.numVerts * 3
+    ))) {
+      throw new Error("One or more target poses have invalid vertex data.");
+    }
+
+    const anchors = new Map();
+    validTargetPoseIndices.forEach((poseIndex) => {
+      const positions = model.poses[poseIndex].positions;
+      const anchorIndices = boundaryIndices.length ? boundaryIndices : selected;
+      const anchor = [0, 0, 0];
+      anchorIndices.forEach((vertexIndex) => {
+        const offset = vertexIndex * 3;
+        anchor[0] += positions[offset + 0];
+        anchor[1] += positions[offset + 1];
+        anchor[2] += positions[offset + 2];
+      });
+      anchor[0] /= anchorIndices.length;
+      anchor[1] /= anchorIndices.length;
+      anchor[2] /= anchorIndices.length;
+      if (!anchor.every(Number.isFinite)) {
+        throw new Error(`Pose ${poseIndex} cannot be collapsed because its anchor coordinates are invalid.`);
+      }
+      anchors.set(poseIndex, anchor);
+    });
+
+    validTargetPoseIndices.forEach((poseIndex) => {
+      const pose = model.poses[poseIndex];
+      const anchor = anchors.get(poseIndex);
+
+      selected.forEach((vertexIndex) => {
+        const offset = vertexIndex * 3;
+        pose.positions[offset + 0] = anchor[0];
+        pose.positions[offset + 1] = anchor[1];
+        pose.positions[offset + 2] = anchor[2];
+      });
+      if (model.exportLightnormalIndices === true) {
+        pose.lightnormalIndices = computeAliasLightnormalIndices(
+          pose.positions,
+          model.triangles,
+          model.numVerts
+        );
+      }
+    });
+
+    return {
+      selectedCount: selected.length,
+      boundaryCount: boundaryIndices.length,
+      poseCount: validTargetPoseIndices.length,
+    };
+  }
+
+  function suggestRegionCollapseCutoff() {
+    const context = getSelectedPoseEditContext();
+    if (!context?.pose?.positions) {
+      dom.regionCollapseStatus.textContent = "Load a model and select a pose to choose a collapse region.";
+      return;
+    }
+
+    const axis = clamp(parseInt(dom.regionCollapseAxis.value, 10) || 0, 0, 2);
+    const side = dom.regionCollapseSide.value === "below" ? "below" : "above";
+    const bounds = computeBounds([context.pose.positions]);
+    const min = bounds.min[axis];
+    const max = bounds.max[axis];
+    const cutoff = side === "above"
+      ? min + (max - min) * 0.75
+      : min + (max - min) * 0.25;
+    dom.regionCollapseCutoff.value = formatNumber(cutoff);
+    updateRegionCollapseSelectionStatus(
+      `Suggested the ${side === "above" ? "upper" : "lower"} quarter of pose ${context.poseIndex}.`
+    );
+  }
+
+  function getRegionCollapseTargetPoseIndices(context, scope) {
+    if (scope === "all") {
+      return state.model.poses.map((_, poseIndex) => poseIndex);
+    }
+    if (scope === "sequence") {
+      return context.activeGroup.poseIndices.slice();
+    }
+    return [context.poseIndex];
+  }
+
+  function updateRegionCollapseSelectionStatus(prefix = "") {
+    const context = getSelectedPoseEditContext();
+    if (!context) {
+      dom.regionCollapseStatus.textContent = "Load a model and select a pose to choose a collapse region.";
+      return;
+    }
+
+    const axis = parseInt(dom.regionCollapseAxis.value, 10);
+    const side = dom.regionCollapseSide.value;
+    const cutoff = Number(dom.regionCollapseCutoff.value);
+    const targetPoseIndices = getRegionCollapseTargetPoseIndices(
+      context,
+      dom.regionCollapseScope.value
+    );
+    try {
+      const region = analyzeModelVertexRegion(state.model, context.poseIndex, axis, side, cutoff);
+      const preview =
+        `${region.selected.length} ${region.selected.length === 1 ? "vertex" : "vertices"} selected from ` +
+        `pose ${context.poseIndex}; ${region.boundaryIndices.length} adjoining boundary ` +
+        `${region.boundaryIndices.length === 1 ? "vertex" : "vertices"}; ` +
+        `${targetPoseIndices.length} target pose${targetPoseIndices.length === 1 ? "" : "s"}.`;
+      dom.regionCollapseStatus.textContent = prefix ? `${prefix} ${preview}` : preview;
+    } catch (error) {
+      dom.regionCollapseStatus.textContent = prefix ? `${prefix} ${error.message}` : error.message;
+    }
+  }
+
+  function applyRegionCollapse() {
+    const context = getSelectedPoseEditContext();
+    if (!context) {
+      setSaveStatus("Select a pose before collapsing a vertex region.");
+      return;
+    }
+
+    const axis = parseInt(dom.regionCollapseAxis.value, 10);
+    const side = dom.regionCollapseSide.value;
+    const cutoff = Number(dom.regionCollapseCutoff.value);
+    const targetPoseIndices = getRegionCollapseTargetPoseIndices(
+      context,
+      dom.regionCollapseScope.value
+    );
+
+    try {
+      const preview = analyzeModelVertexRegion(
+        state.model,
+        context.poseIndex,
+        axis,
+        side,
+        cutoff
+      );
+      const prompt =
+        `Collapse ${preview.selected.length} ${preview.selected.length === 1 ? "vertex" : "vertices"} ` +
+        `across ${targetPoseIndices.length} pose${targetPoseIndices.length === 1 ? "" : "s"}? ` +
+        "This changes pose geometry and cannot be undone without reloading the model.";
+      if (typeof window.confirm === "function" && !window.confirm(prompt)) {
+        dom.regionCollapseStatus.textContent = "Collapse cancelled; the model was not changed.";
+        return;
+      }
+      const result = collapseModelVertexRegion(
+        state.model,
+        context.poseIndex,
+        targetPoseIndices,
+        axis,
+        side,
+        cutoff
+      );
+      state.model.render = buildRenderData(state.model);
+      populateProperties(state.model);
+      updateValidationPanel();
+      uploadModelBuffers();
+      state.geometryDirty = true;
+      updatePrintExportAnalysis();
+
+      const boundaryNote = result.boundaryCount
+        ? ` at the ${result.boundaryCount}-vertex adjoining boundary`
+        : " at its per-pose centroid";
+      const message =
+        `Collapsed ${result.selectedCount} ${result.selectedCount === 1 ? "vertex" : "vertices"}` +
+        `${boundaryNote} across ${result.poseCount} pose${result.poseCount === 1 ? "" : "s"}.`;
+      dom.regionCollapseStatus.textContent = message;
+      setSaveStatus(`${message} Vertex count and topology were preserved.`);
+    } catch (error) {
+      dom.regionCollapseStatus.textContent = error.message;
+      setSaveStatus(error.message);
+    }
+  }
+
   function getScopedPoseIndices(render, scope) {
     const poseIndices = [];
     if (scope === "all") {
@@ -9516,6 +11064,7 @@
     state.geometryDirty = true;
     setSaveStatus(message);
     resetObjectToolsInputs();
+    updatePrintExportAnalysis();
   }
 
   function centerModelOnOrigin() {
@@ -9974,6 +11523,10 @@
 
     if (state.model && state.playing) {
       state.playhead += delta * state.playbackSpeed;
+      if (dom.printPanel.open && now - state.lastPrintAnalysisTime >= 400) {
+        state.lastPrintAnalysisTime = now;
+        updatePrintExportAnalysis();
+      }
     }
 
     draw();
@@ -11127,6 +12680,37 @@
       text += String.fromCharCode(view.getUint8(offset + i));
     }
     return text;
+  }
+
+  function requireByteRange(bytes, offset, length, label) {
+    if (
+      !Number.isSafeInteger(offset) ||
+      !Number.isSafeInteger(length) ||
+      offset < 0 ||
+      length < 0 ||
+      offset > bytes.length ||
+      length > bytes.length - offset
+    ) {
+      throw new Error(`${label} is truncated or has an invalid size`);
+    }
+  }
+
+  function checkedByteProduct(first, second, label) {
+    const result = first * second;
+    if (!Number.isSafeInteger(result) || result < 0) {
+      throw new Error(`${label} has an invalid size`);
+    }
+    return result;
+  }
+
+  function requireIntegerInRange(value, minimum, maximum, label) {
+    if (
+      !Number.isInteger(value) ||
+      value < minimum ||
+      value > maximum
+    ) {
+      throw new Error(`${label} must be ${minimum}–${maximum}`);
+    }
   }
 
   function readVec3(view, offset) {
