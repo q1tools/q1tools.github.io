@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Create smaller raw Quake BSP files by safely cropping unused areas from embedded textures.">
+  <title>Quake BSP Texture Trimmer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <a class="back-link" href="../">&larr; Back To Tools</a>
+
+    <header>
+      <div class="eyebrow">Quake map utility</div>
+      <h1>BSP <span>Texture Trimmer</span></h1>
+      <p class="subtitle">
+        Make the raw <code>.bsp</code> smaller for server downloads by cropping unused
+        space from embedded textures. No ZIP wrapper and no installation.
+      </p>
+    </header>
+
+    <section class="intro-grid" aria-label="How the tool works">
+      <article>
+        <div class="step-number">01</div>
+        <h2>Inspect</h2>
+        <p>Find the texture-coordinate area actually reached by every map face.</p>
+      </article>
+      <article>
+        <div class="step-number">02</div>
+        <h2>Crop</h2>
+        <p>Copy a padded, wrapping crop at all four Quake mip levels.</p>
+      </article>
+      <article>
+        <div class="step-number">03</div>
+        <h2>Repack</h2>
+        <p>Rewrite the texture lump and aligned texinfo into a normal BSP.</p>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <div class="kicker">Input</div>
+          <h2>Select a map</h2>
+        </div>
+        <span class="local-badge">Runs locally</span>
+      </div>
+
+      <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-controls="fileInput">
+        <input id="fileInput" type="file" accept=".bsp,application/octet-stream">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <strong id="dropTitle">Drop a .bsp here</strong>
+        <span id="dropHint">or click to choose one from your computer</span>
+        <div class="file-chip" id="fileChip" hidden></div>
+      </div>
+
+      <div class="settings">
+        <label class="setting">
+          <span>
+            <strong>Edge padding</strong>
+            <small>Extra base-mip pixels copied around every used face.</small>
+          </span>
+          <select id="padding">
+            <option value="8" selected>8 px — balanced</option>
+            <option value="16">16 px — safer</option>
+            <option value="32">32 px — conservative</option>
+          </select>
+        </label>
+
+        <label class="setting checkbox-setting">
+          <span>
+            <strong>Rename cropped textures</strong>
+            <small>Avoids incompatible external HD textures replacing the cropped data.</small>
+          </span>
+          <input id="renameTextures" type="checkbox" checked>
+        </label>
+      </div>
+
+      <button class="primary-button" id="trimButton" disabled>
+        <span id="buttonLabel">Analyze &amp; trim BSP</span>
+        <span class="spinner" id="spinner" hidden aria-hidden="true"></span>
+      </button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="results" hidden></section>
+
+    <section class="panel notes">
+      <div class="kicker">Safety profile</div>
+      <h2>What it changes—and what it refuses to guess</h2>
+      <div class="note-grid">
+        <div>
+          <h3>Preserved</h3>
+          <p>Geometry, entities, visibility, lighting, collision, models, and opaque BSPX extension lumps.</p>
+        </div>
+        <div>
+          <h3>Eligible</h3>
+          <p>Standard embedded static textures whose face usage fits one conservative wrapped crop.</p>
+        </div>
+        <div>
+          <h3>Skipped</h3>
+          <p>Sky, liquids, animation frames, fence textures, special surfaces, and nonstandard mip layouts.</p>
+        </div>
+      </div>
+      <div class="warning">
+        The output has a new BSP checksum. Put the same trimmed file on the server and its
+        download host, give it a distinct filename, and test it in the engines you support.
+        Copy any required <code>.lit</code>, <code>.ent</code>, or <code>.vis</code> sidecars
+        to the new map basename as appropriate.
+        Renaming textures can affect mods that attach behavior to ordinary texture names;
+        disabling renaming can instead conflict with client-side replacement textures.
+      </div>
+    </section>
+
+    <footer>
+      Inspired by <a href="https://github.com/matthewearl/unusedtex">unusedtex</a>.
+      BSP29, BSP2, and BSPX handling follows
+      <a href="https://github.com/ericwa/ericw-tools">ericw-tools</a>.
+      Everything stays in your browser.
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

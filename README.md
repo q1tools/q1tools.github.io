@@ -28,6 +28,7 @@ No installs, no build step — everything runs client-side in the browser.
 | **VIS Tool** | Compute PVS visibility data for BSP maps |
 | **LIT Reverse Engineer** | Analyze BSP/LIT lighting and reconstruct settings |
 | **BSP→SVG** | Render Quake BSP maps to SVG |
+| **BSP Texture Trimmer** | Shrink raw `.bsp` files by cropping unused embedded texture area |
 | **Demo Tool** | Play, parse and edit `.dem` / `.dz` demos |
 | **Name Maker** | Generate colored Quake player names |
 | **IP Log Viewer** | Inspect Quake server IP logs |
@@ -125,6 +126,16 @@ Renders Quake BSP maps to SVG.
 | --- | --- |
 | ericw-tools | https://github.com/ericwa/ericw-tools |
 | Joshua's Quake Tools | https://joshua.itch.io/quake-tools |
+
+### BSP Texture Trimmer
+
+Crops unused area from embedded BSP textures. See
+[`bsptrim/THIRD_PARTY_NOTICES.md`](bsptrim/THIRD_PARTY_NOTICES.md).
+
+| Source | Link |
+| --- | --- |
+| unusedtex (Matthew Earl) | https://github.com/matthewearl/unusedtex |
+| ericw-tools | https://github.com/ericwa/ericw-tools |
 
 ### Quake Tree
 
