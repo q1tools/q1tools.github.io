@@ -309,6 +309,10 @@ body.tool-index {
     color: #8ed2d9;
 }
 
+.tool-grid .bsptrim-tool-icon {
+    color: #f0b04c;
+}
+
 body.tool-index footer {
     position: fixed;
 }
