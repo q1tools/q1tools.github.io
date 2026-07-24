@@ -179,6 +179,24 @@ code {
     transform: translateY(-1px);
 }
 
+.input-requirements {
+    display: grid;
+    gap: 4px;
+    margin: -3px 14px 14px;
+    padding: 10px 12px;
+    border-left: 3px solid #d2a861;
+    border-radius: 4px;
+    background: rgba(24, 28, 28, 0.72);
+    color: #b9c6c5;
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.input-requirements strong {
+    color: #fff2d6;
+    font-size: 0.84rem;
+}
+
 .quick-row {
     display: flex;
     flex-wrap: wrap;

@@ -1102,7 +1102,7 @@
     function updateDropZoneEmpty(els) {
         els.dropThumb.hidden = true;
         els.dropIcon.hidden = false;
-        els.dropTitle.textContent = "Drop a 2:1 panorama";
+        els.dropTitle.textContent = "Drop a true 360\u00b0 panorama";
         els.dropHint.textContent = "JPG, PNG, WebP, AVIF, or Radiance HDR";
     }
 

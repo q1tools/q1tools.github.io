@@ -34,9 +34,14 @@
                     <input id="fileInput" type="file" accept=".jpg,.jpeg,.png,.webp,.avif,.hdr,image/jpeg,image/png,image/webp,image/avif" hidden>
                     <canvas id="dropThumb" width="180" height="90" hidden></canvas>
                     <i id="dropIcon" class="fa-solid fa-cloud-sun"></i>
-                    <strong id="dropTitle">Drop a 2:1 panorama</strong>
+                    <strong id="dropTitle">Drop a true 360&deg; panorama</strong>
                     <span id="dropHint">JPG, PNG, WebP, AVIF, or Radiance HDR</span>
                 </label>
+
+                <div class="input-requirements">
+                    <strong>Input requirements</strong>
+                    <span>Use a true 360&deg; equirectangular panorama with a 2:1 aspect ratio, seamless left/right edges, and correctly formed zenith and nadir poles. A standard flat 2:1 image will not convert correctly.</span>
+                </div>
 
                 <div class="quick-row">
                     <select id="samplePreset" class="mini-select" aria-label="Sample sky">
