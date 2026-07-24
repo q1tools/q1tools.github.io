@@ -121,6 +121,24 @@
 
           <label class="toggle-row">
             <span>
+              <strong>Merge convex fragments</strong>
+              <small>Rejoins BSP-split fragments whose union stays convex.</small>
+            </span>
+            <input id="mergeFragments" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle-row">
+            <span>
+              <strong>Recover clip brushes</strong>
+              <small>Un-expands collision hull 1 to restore clip-only volumes.</small>
+            </span>
+            <input id="recoverClipBrushes" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle-row">
+            <span>
               <strong>Extract textures to WAD</strong>
               <small>Writes a matching .wad and sets worldspawn "wad".</small>
             </span>

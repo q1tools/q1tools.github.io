@@ -497,3 +497,104 @@ test("local ericw BSP fixture parses when available", async (t) => {
   assert.ok(result.diagnostics.outputSides >= result.diagnostics.outputBrushes * 4);
   assert.match(result.mapText, /"classname" "worldspawn"/);
 });
+
+test("hull expansion tables match the compiler-side qbsp values", () => {
+  assert.deepEqual(__test.hullExpansion({ }, 1), [[-16, -16, -32], [16, 16, 24]]);
+  assert.deepEqual(__test.hullExpansion({ }, 2), [[-32, -32, -64], [32, 32, 24]]);
+  assert.deepEqual(__test.hullExpansion({ halfLife: true }, 1), [[-16, -16, -36], [16, 16, 36]]);
+  assert.deepEqual(__test.hullExpansion({ hexen2: true }, 5), [[-28, -28, -40], [28, 28, 40]]);
+  assert.equal(__test.hullExpansion({ }, 3), null);
+});
+
+test("plane un-expansion inverts qbsp's ExpandBrush offsets", () => {
+  const hull1 = __test.hullExpansion({ }, 1);
+  // top of a 96-tall clip brush expands to 120; un-expansion restores 96
+  assert.equal(__test.unexpandPlane({ normal: [0, 0, 1], dist: 120 }, hull1).dist, 96);
+  // bottom plane (outward -z) expands down by 32
+  assert.equal(__test.unexpandPlane({ normal: [0, 0, -1], dist: 32 }, hull1).dist, 0);
+  // axial x expands by 16
+  assert.equal(__test.unexpandPlane({ normal: [1, 0, 0], dist: 112 }, hull1).dist, 96);
+  // zero-component axes contribute nothing
+  assert.equal(__test.unexpandPlane({ normal: [0, 1, 0], dist: 48 }, hull1).dist, 32);
+});
+
+function testBoxBrush(mins, maxs, texture = "wall") {
+  const planes = [
+    { normal: [1, 0, 0], dist: maxs[0] },
+    { normal: [-1, 0, 0], dist: -mins[0] },
+    { normal: [0, 1, 0], dist: maxs[1] },
+    { normal: [0, -1, 0], dist: -mins[1] },
+    { normal: [0, 0, 1], dist: maxs[2] },
+    { normal: [0, 0, -1], dist: -mins[2] }
+  ];
+  const brush = {
+    source: "tree",
+    sourceIndex: 0,
+    contents: -2,
+    offset: undefined,
+    sides: planes.map((plane) => ({
+      plane, faces: [], texture, valve: null, flags: 0, value: 0
+    }))
+  };
+  return __test.stabilizeBrushGeometry(brush, [], "test");
+}
+
+test("merges adjacent convex fragments into one brush", () => {
+  const a = testBoxBrush([0, 0, 0], [64, 64, 64]);
+  const b = testBoxBrush([64, 0, 0], [128, 64, 64]);
+  const merged = __test.tryMergeBrushPair(a, b, "test");
+  assert.ok(merged, "expected boxes sharing a full face to merge");
+  assert.equal(merged.sides.length, 6);
+  const xs = merged.sides.flatMap((side) => side.winding.map((point) => point[0]));
+  assert.equal(Math.min(...xs), 0);
+  assert.equal(Math.max(...xs), 128);
+});
+
+test("refuses merges whose union would not be convex", () => {
+  // offset in y: union is an L, not convex
+  const a = testBoxBrush([0, 0, 0], [64, 64, 64]);
+  const b = testBoxBrush([64, 32, 0], [128, 96, 64]);
+  assert.equal(__test.tryMergeBrushPair(a, b, "test"), null);
+  // different contents never merge
+  const c = testBoxBrush([64, 0, 0], [128, 64, 64]);
+  c.contents = -3;
+  assert.equal(__test.tryMergeBrushPair(a, c, "test"), null);
+});
+
+test("refuses merges that would lose a real texture boundary", () => {
+  const a = testBoxBrush([0, 0, 0], [64, 64, 64]);
+  const b = testBoxBrush([64, 0, 0], [128, 64, 64]);
+  // both top sides carry different matched compiled faces
+  const topA = a.sides.find((side) => side.plane.normal[2] > 0.9);
+  const topB = b.sides.find((side) => side.plane.normal[2] > 0.9);
+  topA.matchedFace = 1; topA.matchedTexinfo = 1; topA.texture = "wall_a";
+  topB.matchedFace = 2; topB.matchedTexinfo = 2; topB.texture = "wall_b";
+  assert.equal(__test.tryMergeBrushPair(a, b, "test"), null);
+});
+
+test("fragment merge passes reassemble chains of fragments", () => {
+  const fragments = [
+    testBoxBrush([0, 0, 0], [32, 64, 64]),
+    testBoxBrush([32, 0, 0], [64, 64, 64]),
+    testBoxBrush([64, 0, 0], [96, 64, 64]),
+    testBoxBrush([96, 0, 0], [128, 64, 64])
+  ];
+  const bsp = {};
+  const merged = __test.mergeConvexFragments(bsp, fragments, [], "test");
+  assert.equal(merged.length, 1);
+  assert.equal(bsp.fragmentMerges, 3);
+  assert.equal(merged[0].mergedCount, 4);
+});
+
+test("writes a Half-Life WAD3 with palettes preserved", () => {
+  const lumps = [{ name: "hl_wall", data: new Uint8Array(100).fill(3) }];
+  const wad3 = new Uint8Array(__test.buildWad2(lumps, true));
+  assert.equal(String.fromCharCode(...wad3.slice(0, 4)), "WAD3");
+  const view = new DataView(wad3.buffer);
+  const dirOffset = view.getInt32(8, true);
+  assert.equal(wad3[dirOffset + 12], 0x43); // WAD3 miptex lump type
+  const wad2 = new Uint8Array(__test.buildWad2(lumps, false));
+  assert.equal(String.fromCharCode(...wad2.slice(0, 4)), "WAD2");
+  const dir2 = new DataView(wad2.buffer).getInt32(8, true);
+  assert.equal(wad2[dir2 + 12], 0x44);
+});

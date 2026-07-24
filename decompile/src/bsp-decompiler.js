@@ -592,7 +592,12 @@ function parseQ1(reader, ident, warnings) {
   );
   const surfedges = readRecords(reader, lumps.surfedges, 4, "surfedges", warnings, (offset) => reader.i32(offset));
 
-  const textures = parseQ1Textures(reader, lumps.textures, warnings, format.q64);
+  const markStride = format.bsp2 ? 4 : 2;
+  const marksurfaces = readRecords(reader, lumps.marksurfaces, markStride, "marksurfaces", warnings, (offset) =>
+    format.bsp2 ? reader.u32(offset) : reader.u16(offset)
+  );
+
+  const textures = parseQ1Textures(reader, lumps.textures, warnings, format);
   for (const info of texinfo) {
     info.texture = textures[info.miptex]?.name || "__missing";
   }
@@ -629,15 +634,17 @@ function parseQ1(reader, ident, warnings) {
 
   const bsp = {
     reader, format, headerSize, lumps, planes, vertices, nodes, texinfo,
-    faces, clipnodes, leaves, edges, surfedges, models, textures, entities,
-    entityText, bspx, warnings
+    faces, clipnodes, leaves, edges, surfedges, marksurfaces, models,
+    textures, entities, entityText, bspx, warnings
   };
   validateQ1References(bsp);
   buildFaceGeometry(bsp);
   return bsp;
 }
 
-function parseQ1Textures(reader, lump, warnings, q64 = false) {
+function parseQ1Textures(reader, lump, warnings, format = {}) {
+  const q64 = Boolean(format.q64);
+  const halfLife = Boolean(format.halfLife);
   if (lump.length < 4) return [];
   const count = reader.i32(lump.offset);
   if (count < 0 || count > MAX_RECORDS || 4 + count * 4 > lump.length) {
@@ -669,7 +676,7 @@ function parseQ1Textures(reader, lump, warnings, q64 = false) {
       external: false,
       pixels: null
     };
-    describeMiptexPixels(reader, lump, relative, headerSize, texture);
+    describeMiptexPixels(reader, lump, relative, headerSize, texture, halfLife);
     textures[i] = texture;
   }
   return textures;
@@ -678,7 +685,7 @@ function parseQ1Textures(reader, lump, warnings, q64 = false) {
 // Resolve the embedded miptex pixel block so it can be copied verbatim into a
 // Quake WAD2. Mip offsets are stored relative to the miptex start, so the block
 // stays self-consistent when the [start, start + size) range is copied as-is.
-function describeMiptexPixels(reader, lump, relative, headerSize, texture) {
+function describeMiptexPixels(reader, lump, relative, headerSize, texture, halfLife = false) {
   const { width, height } = texture;
   if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
       || width > 16_384 || height > 16_384) {
@@ -707,15 +714,32 @@ function describeMiptexPixels(reader, lump, relative, headerSize, texture) {
     texture.external = true;
     return;
   }
+  // Half-Life miptex append a palette after the last mip: a 16-bit color
+  // count (always 256) followed by count RGB triplets. WAD3 consumers need
+  // it, so the copied block must include it; without a complete palette the
+  // texture is only usable as an external reference.
+  if (halfLife) {
+    if (relative + extent + 2 > lump.length) {
+      texture.external = true;
+      return;
+    }
+    const colors = reader.u16(lump.offset + relative + extent);
+    if (colors < 1 || colors > 256 || relative + extent + 2 + colors * 3 > lump.length) {
+      texture.external = true;
+      return;
+    }
+    extent += 2 + colors * 3;
+  }
   texture.pixels = { blockOffset: lump.offset + relative, blockSize: extent };
 }
 
-const TYP_MIPTEX = 0x44;
+const TYP_MIPTEX = 0x44; // WAD2 (Quake)
+const TYP_HL_MIPTEX = 0x43; // WAD3 (Half-Life)
 
-// Build a Quake WAD2 file from the miptex blocks a BSP embeds, so decompiled
-// MAP files open in an editor with their textures visible. Returns a summary
-// with a transferable ArrayBuffer, or a summary with buffer=null when nothing
-// embeddable was found.
+// Build a Quake WAD2 (or Half-Life WAD3) file from the miptex blocks a BSP
+// embeds, so decompiled MAP files open in an editor with their textures
+// visible. Returns a summary with a transferable ArrayBuffer, or a summary
+// with buffer=null when nothing embeddable was found.
 function extractQ1Wad(bsp) {
   if (bsp.format.family !== "q1") return null;
   if (bsp.format.q64) {
@@ -742,10 +766,16 @@ function extractQ1Wad(bsp) {
     lumps.push({ name, data: bsp.reader.bytes.subarray(blockOffset, blockOffset + blockSize) });
   }
   if (!lumps.length) return { buffer: null, recovered: 0, embedded, external };
-  return { buffer: buildWad2(lumps), recovered: lumps.length, embedded, external };
+  return {
+    buffer: buildWad2(lumps, bsp.format.halfLife),
+    recovered: lumps.length,
+    embedded,
+    external,
+    halfLife: Boolean(bsp.format.halfLife)
+  };
 }
 
-function buildWad2(lumps) {
+function buildWad2(lumps, halfLife = false) {
   const HEADER_SIZE = 12;
   const ENTRY_SIZE = 32;
   const align4 = (value) => (value + 3) & ~3;
@@ -761,7 +791,8 @@ function buildWad2(lumps) {
 
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
-  out[0] = 0x57; out[1] = 0x41; out[2] = 0x44; out[3] = 0x32; // "WAD2"
+  out[0] = 0x57; out[1] = 0x41; out[2] = 0x44; // "WAD2" or "WAD3"
+  out[3] = halfLife ? 0x33 : 0x32;
   view.setInt32(4, lumps.length, true);
   view.setInt32(8, infoTableOffset, true);
 
@@ -776,7 +807,7 @@ function buildWad2(lumps) {
     view.setInt32(entry, filePos, true);
     view.setInt32(entry + 4, size, true);      // disksize (uncompressed)
     view.setInt32(entry + 8, size, true);      // size
-    out[entry + 12] = TYP_MIPTEX;
+    out[entry + 12] = halfLife ? TYP_HL_MIPTEX : TYP_MIPTEX;
     out[entry + 13] = 0;                        // compression: none
     // entry + 14..15 padding stays zero.
     const encoded = nameEncoder.encode(lump.name).subarray(0, 16);
@@ -981,7 +1012,7 @@ function parseQ2(reader, ident, warnings) {
   const bsp = {
     reader, format, headerSize, lumps, planes, vertices, nodes, texinfo, faces,
     leaves, leafbrushes, edges, surfedges, models, brushes, brushsides,
-    entities, entityText, bspx, warnings, clipnodes: [], textures: []
+    entities, entityText, bspx, warnings, clipnodes: [], textures: [], marksurfaces: []
   };
   validateQ2References(bsp);
   buildFaceGeometry(bsp);
@@ -1291,7 +1322,12 @@ export const __test = {
   escapeMapString,
   basenameWithoutExtension,
   extractQ1Wad,
-  buildWad2
+  buildWad2,
+  hullExpansion,
+  unexpandPlane,
+  tryMergeBrushPair,
+  mergeConvexFragments,
+  stabilizeBrushGeometry
 };
 
 // ---------------------------------------------------------------------------
@@ -1485,16 +1521,40 @@ function indexedFaceCandidates(faceIndex, plane, brushPlanes) {
   return candidates;
 }
 
+// The faces a leaf marks as touching it are a richer texture-candidate source
+// than the faces stored on each contributing node: they survive redundant-plane
+// removal and equivalent-plane deduplication, both of which can drop the node
+// that carried the matching face list.
+function leafFaceCandidates(bsp, leafIndex, plane, brushPlanes, excludeFaces) {
+  const leaf = bsp.leaves[leafIndex];
+  if (!leaf || !bsp.marksurfaces.length) return [];
+  const candidates = [];
+  const count = Math.max(0, leaf.markSurfaceCount);
+  for (let i = 0; i < count; i++) {
+    const markIndex = leaf.firstMarkSurface + i;
+    if (markIndex < 0 || markIndex >= bsp.marksurfaces.length) break;
+    const face = bsp.faces[bsp.marksurfaces[markIndex]];
+    if (!face || excludeFaces.has(face.index)) continue;
+    if (!planesEquivalent(plane, face.orientedPlane, 0.002, 0.1)) continue;
+    const clipped = clipPolygonToBrush(face.points, brushPlanes);
+    const area = polygonArea(clipped);
+    if (clipped && area > 1e-4) candidates.push({ face, poly: clipped, area });
+  }
+  return candidates;
+}
+
 function initialLeafBrush(bsp, task, warnings, context) {
   const planes = removeRedundantPlanes(task.planes, warnings, context);
   if (planes.length < 4) {
     warnings.push(`${context}: skipped a leaf volume with fewer than four useful planes.`);
     return null;
   }
-  const sides = planes.map((plane) => ({
-    plane,
-    faces: nodeFaceCandidates(bsp, plane, planes)
-  }));
+  const sides = planes.map((plane) => {
+    const faces = nodeFaceCandidates(bsp, plane, planes);
+    const seen = new Set(faces.map((candidate) => candidate.face.index));
+    faces.push(...leafFaceCandidates(bsp, task.leafIndex, plane, planes, seen));
+    return { plane, faces };
+  });
   return {
     source: "tree",
     sourceIndex: task.leafIndex ?? -1,
@@ -1733,6 +1793,7 @@ function decorateBrush(bsp, brush, options, warnings = null, context = "brush") 
     side.flags = info?.flags || 0;
     side.value = info?.value || 0;
     side.matchedFace = candidate?.face.index;
+    side.matchedTexinfo = candidate?.face.texinfo;
   }
 
   // Match ericw-tools' useful hidden-face cleanup: copy the texture from the
@@ -1752,6 +1813,141 @@ function decorateBrush(bsp, brush, options, warnings = null, context = "brush") 
     if (closest) side.texture = closest.texture;
   }
   return brush;
+}
+
+// ---------------------------------------------------------------------------
+// Convex fragment merging
+//
+// BSP compilation shatters source brushes into leaf fragments. When two
+// recovered fragments share an interior plane and every vertex of each lies
+// inside the other's remaining half-spaces, their union is exactly the
+// intersection of the remaining half-spaces (a convex brush), so replacing
+// the pair with that union is lossless. Repeated passes reassemble large
+// convex regions of the original brushwork.
+// ---------------------------------------------------------------------------
+
+const MERGE_EPSILON = 0.02;
+const MAX_MERGE_SIDES = 48;
+const MAX_MERGE_PASSES = 16;
+const MAX_MERGE_BRUSHES = 60_000;
+
+function mergeableSource(brush) {
+  return brush.source === "tree" || brush.source === "clip" || brush.source === "clipRecovered";
+}
+
+function collectBrushPoints(brush) {
+  const points = [];
+  for (const side of brush.sides) {
+    for (const point of side.winding || []) points.push(point);
+  }
+  return points;
+}
+
+function pointsBehindSides(points, sides) {
+  for (const side of sides) {
+    for (const point of points) {
+      if (distanceToPlane(point, side.plane) > MERGE_EPSILON) return false;
+    }
+  }
+  return true;
+}
+
+function mergedSideTexturesConflict(a, b) {
+  if (a.matchedFace === undefined || b.matchedFace === undefined) return false;
+  return a.texture !== b.texture || a.matchedTexinfo !== b.matchedTexinfo;
+}
+
+function tryMergeBrushPair(a, b, context) {
+  if (a.contents !== b.contents || a.offset !== b.offset) return null;
+
+  let sharedA = -1;
+  let sharedB = -1;
+  for (let i = 0; i < a.sides.length; i++) {
+    const flipped = flipPlane(a.sides[i].plane);
+    for (let j = 0; j < b.sides.length; j++) {
+      if (!planesEquivalent(flipped, b.sides[j].plane, 0.0001, 0.01)) continue;
+      if (sharedA >= 0) return null; // two shared planes: union cannot be convex
+      sharedA = i;
+      sharedB = j;
+    }
+  }
+  if (sharedA < 0) return null;
+
+  const restA = a.sides.filter((side, i) => i !== sharedA);
+  const restB = b.sides.filter((side, j) => j !== sharedB);
+  if (!pointsBehindSides(collectBrushPoints(a), restB)) return null;
+  if (!pointsBehindSides(collectBrushPoints(b), restA)) return null;
+
+  const sides = restA.map((side) => ({ ...side, faces: [] }));
+  for (const sideB of restB) {
+    const paired = sides.find((side) => planesEquivalent(side.plane, sideB.plane, 0.0001, 0.01));
+    if (!paired) {
+      sides.push({ ...sideB, faces: [] });
+      continue;
+    }
+    if (mergedSideTexturesConflict(paired, sideB)) return null;
+    if (paired.matchedFace === undefined && sideB.matchedFace !== undefined) {
+      paired.texture = sideB.texture;
+      paired.valve = sideB.valve;
+      paired.flags = sideB.flags;
+      paired.value = sideB.value;
+      paired.matchedFace = sideB.matchedFace;
+      paired.matchedTexinfo = sideB.matchedTexinfo;
+    }
+  }
+  if (sides.length < 4 || sides.length > MAX_MERGE_SIDES) return null;
+
+  const merged = {
+    source: a.source,
+    sourceIndex: a.sourceIndex,
+    contents: a.contents,
+    offset: a.offset,
+    mergedCount: (a.mergedCount || 1) + (b.mergedCount || 1),
+    sides
+  };
+  return stabilizeBrushGeometry(merged, null, context);
+}
+
+function mergeConvexFragments(bsp, brushes, warnings, context) {
+  if (brushes.length < 2 || brushes.length > MAX_MERGE_BRUSHES) return brushes;
+  let current = brushes;
+  for (let pass = 0; pass < MAX_MERGE_PASSES; pass++) {
+    const index = new Map();
+    for (let i = 0; i < current.length; i++) {
+      if (!mergeableSource(current[i])) continue;
+      for (const side of current[i].sides) {
+        const key = planeKey(side.plane);
+        if (!index.has(key)) index.set(key, []);
+        index.get(key).push(i);
+      }
+    }
+
+    const dead = new Set();
+    let mergedAny = false;
+    for (let i = 0; i < current.length; i++) {
+      if (dead.has(i) || !mergeableSource(current[i])) continue;
+      for (const side of current[i].sides) {
+        const partners = index.get(planeKey(flipPlane(side.plane)));
+        if (!partners) continue;
+        let merged = null;
+        for (const j of partners) {
+          if (j === i || dead.has(j) || !current[j]) continue;
+          merged = tryMergeBrushPair(current[i], current[j], context);
+          if (merged) {
+            current[i] = merged;
+            dead.add(j);
+            bsp.fragmentMerges = (bsp.fragmentMerges || 0) + 1;
+            mergedAny = true;
+            break;
+          }
+        }
+        if (merged) break; // sides changed; retry this brush next pass
+      }
+    }
+    if (!mergedAny) break;
+    current = current.filter((brush, i) => !dead.has(i));
+  }
+  return current;
 }
 
 function makeGeometryOnlyBrush(bsp, task, warnings, context) {
@@ -1932,6 +2128,168 @@ function recoverQ2Model(bsp, model, modelNumber, options, warnings, includeAreaP
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Clip-brush recovery
+//
+// Quake-family clip brushes exist only in the collision hulls: qbsp expands
+// them into clipnodes and leaves no trace in hull 0, so a plain decompile
+// silently loses them. qbsp's ExpandBrush moves every plane outward by
+// dot(corner, normal) where corner picks the hull-size extreme per axis.
+// That is exactly invertible, so hull 1 solids can be shrunk back to source
+// geometry; volumes that hull 0 reports as open space are clip brushes.
+// ---------------------------------------------------------------------------
+
+// Compiler-side hull expansion tables (mins, maxs) per hull index, as used by
+// qbsp's ExpandBrush. Note these differ from the engine's clip_mins/clip_maxs
+// (id's compiler uses a z-shifted player box; the engine compensates).
+function hullExpansion(format, hullNumber) {
+  let table;
+  if (format.halfLife) {
+    table = [null,
+      [[-16, -16, -36], [16, 16, 36]],
+      [[-32, -32, -32], [32, 32, 32]],
+      [[-16, -16, -18], [16, 16, 18]]];
+  } else if (format.hexen2) {
+    table = [null,
+      [[-16, -16, -32], [16, 16, 24]],
+      [[-24, -24, -20], [24, 24, 20]],
+      [[-16, -16, -16], [16, 16, 12]],
+      [[-8, -8, -8], [8, 8, 8]],
+      [[-28, -28, -40], [28, 28, 40]]];
+  } else {
+    table = [null,
+      [[-16, -16, -32], [16, 16, 24]],
+      [[-32, -32, -64], [32, 32, 24]]];
+  }
+  return table[hullNumber] || null;
+}
+
+function unexpandPlane(plane, expansion) {
+  const [mins, maxs] = expansion;
+  let offset = 0;
+  for (let axis = 0; axis < 3; axis++) {
+    if (plane.normal[axis] > 0) offset += plane.normal[axis] * maxs[axis];
+    else if (plane.normal[axis] < 0) offset += plane.normal[axis] * mins[axis];
+  }
+  return { ...plane, dist: plane.dist - offset };
+}
+
+// Exact box-versus-BSP overlap test against hull 0. A hull-1 solid point is
+// explained by ordinary geometry exactly when the hull-sized box around it
+// touches hull 0 solid; when the box is wall-free, only a clip brush can have
+// produced the hull-1 solid there.
+function boxIntersectsHull0Solid(bsp, model, mins, maxs) {
+  const stack = [model.headnodes[0]];
+  let guard = 0;
+  while (stack.length) {
+    if (++guard > 200_000) return true; // conservative: assume geometry explains it
+    const node = stack.pop();
+    if (node < 0) {
+      const leaf = bsp.leaves[-node - 1];
+      // Sky is non-solid in hull 0 but compiled solid into the clip hulls.
+      if (leaf && (leaf.contents === CONTENTS.SOLID || leaf.contents === CONTENTS.SKY)) return true;
+      continue;
+    }
+    if (node >= bsp.nodes.length) return true;
+    const current = bsp.nodes[node];
+    const plane = bsp.planes[current.plane];
+    let nearest = -plane.dist;
+    let furthest = -plane.dist;
+    for (let axis = 0; axis < 3; axis++) {
+      const low = plane.normal[axis] * mins[axis];
+      const high = plane.normal[axis] * maxs[axis];
+      nearest += Math.min(low, high);
+      furthest += Math.max(low, high);
+    }
+    if (furthest > 0) stack.push(current.children[0]);
+    if (nearest < 0) stack.push(current.children[1]);
+  }
+  return false;
+}
+
+function averagePoint(points) {
+  const sum = [0, 0, 0];
+  for (const point of points) {
+    sum[0] += point[0];
+    sum[1] += point[1];
+    sum[2] += point[2];
+  }
+  return points.length ? scale3(sum, 1 / points.length) : sum;
+}
+
+const MIN_CLIP_EXTENT = 0.25;
+
+function recoverClipBrushes(bsp, model, modelNumber, warnings) {
+  const result = [];
+  if (bsp.format.family !== "q1" || !bsp.clipnodes.length) return result;
+  if (model.headnodes.length < 2) return result;
+  const expansion = hullExpansion(bsp.format, 1);
+  if (!expansion) return result;
+
+  let tasks;
+  try {
+    tasks = collectQ1ClipTasks(bsp, model, modelNumber, 1);
+  } catch (error) {
+    warnings.push(`Model ${modelNumber}: clip recovery skipped (${error.message})`);
+    return result;
+  }
+
+  // The compiler hull is the negation of the engine trace box (qbsp expands
+  // with a z-flipped player box and the engine compensates), so the box that
+  // decides "is p inside expand(hull0 solid)" is [p - cmaxs, p - cmins].
+  // Slight inflation makes exact tangency count as wall contact.
+  const testMins = sub3(scale3(expansion[1], -1), [0.5, 0.5, 0.5]);
+  const testMaxs = add3(scale3(expansion[0], -1), [0.5, 0.5, 0.5]);
+  const muted = []; // per-volume noise; a single summary warning is emitted instead
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    if (task.contents !== CONTENTS.SOLID) continue;
+    const context = `model ${modelNumber}, hull 1 clip volume ${i}`;
+
+    // First decide, in expanded hull-1 space, whether ordinary geometry can
+    // explain this solid volume: sample interior points and check whether the
+    // hull-sized box around each one touches hull 0 solid. Expanded walls and
+    // wall-bridged narrow gaps always keep wall contact; only clip brushes
+    // produce hull-1 solid with a wall-free box.
+    const expanded = stabilizeBrushGeometry({
+      sides: removeRedundantPlanes(task.planes, muted, context).map((plane) => ({ plane, faces: [] }))
+    }, null, context);
+    if (!expanded) continue;
+    const centroid = averagePoint(collectBrushPoints(expanded));
+    const samples = [centroid];
+    for (const side of expanded.sides) {
+      if (!side.winding) continue;
+      const sideCenter = averagePoint(side.winding);
+      samples.push(
+        add3(scale3(centroid, 0.5), scale3(sideCenter, 0.5)),
+        add3(scale3(centroid, 0.15), scale3(sideCenter, 0.85))
+      );
+    }
+    const clipEvidence = samples.some((point) =>
+      !boxIntersectsHull0Solid(bsp, model, add3(point, testMins), add3(point, testMaxs))
+    );
+    if (!clipEvidence) continue;
+
+    const planes = task.planes.map((plane) =>
+      Number.isInteger(plane.clipnodeIndex) ? unexpandPlane(plane, expansion) : plane
+    );
+    const reduced = removeRedundantPlanes(planes, muted, context);
+    if (reduced.length < 4) continue;
+    const brush = {
+      source: "clipRecovered",
+      sourceIndex: i,
+      contents: CONTENTS.CLIP,
+      sides: reduced.map((plane) => ({ plane, faces: [] }))
+    };
+    if (!decorateBrush(bsp, brush, { recoverTextures: false }, null, context)) continue;
+
+    const bounds = brushBounds(brush);
+    if (!bounds || bounds.maxs.some((value, axis) => value - bounds.mins[axis] < MIN_CLIP_EXTENT)) continue;
+    result.push(brush);
+  }
+  return result;
+}
+
 function parseOrigin(entity) {
   const value = entityGet(entity, "origin");
   if (!value) return null;
@@ -2007,6 +2365,12 @@ function recoverEntityBrushes(bsp, entity, entityIndex, options, warnings) {
         warnings.push(`Model ${modelNumber} has no BSPX BRUSHLIST entry; no geometry was emitted for BSPX-only mode.`);
       } else {
         brushes = recoverQ1TreeModel(bsp, model, modelNumber, options, warnings);
+        // BSPX BRUSHLIST stores the original brushes (clip included), so only
+        // tree-recovered models need the collision hulls mined for lost clip
+        // brushes.
+        if (options.hullNumber === 0 && options.recoverClipBrushes) {
+          brushes = brushes.concat(recoverClipBrushes(bsp, model, modelNumber, warnings));
+        }
       }
     }
   }
@@ -2016,8 +2380,15 @@ function recoverEntityBrushes(bsp, entity, entityIndex, options, warnings) {
       for (const side of brush.sides) {
         side.texture = bsp.format.family === "q2" ? "e1u1/trigger" : "trigger";
         if (bsp.format.family === "q2") side.flags = 0x80;
+        // The uniform trigger texture supersedes matched-face identity, so
+        // stale texinfo must not block fragment merging.
+        side.matchedFace = undefined;
+        side.matchedTexinfo = undefined;
       }
     }
+  }
+  if (options.mergeFragments && brushes.length > 1) {
+    brushes = mergeConvexFragments(bsp, brushes, warnings, `entity ${entityIndex} fragment merge`);
   }
   if (offset && brushes.length) {
     for (const brush of brushes) brush.offset = offset;
@@ -2136,8 +2507,11 @@ function writeBrush(bsp, brush, options, lines, brushNumber) {
           ? `Q2 brush ${brush.sourceIndex}`
           : brush.source === "clip"
             ? `collision hull ${brush.sourceIndex}`
-            : "origin helper";
-    lines.push(`// brush ${brushNumber}: recovered from ${label}`);
+            : brush.source === "clipRecovered"
+              ? `clip volume ${brush.sourceIndex} (un-expanded from hull 1)`
+              : "origin helper";
+    const mergeNote = brush.mergedCount > 1 ? `, merged from ${brush.mergedCount} convex fragments` : "";
+    lines.push(`// brush ${brushNumber}: recovered from ${label}${mergeNote}`);
   }
   lines.push("{");
   for (const side of brush.sides) {
@@ -2267,6 +2641,8 @@ function normalizeOptions(options) {
     hullNumber,
     recoverTextures: options.recoverTextures !== false,
     splitTextures: options.splitTextures !== false,
+    mergeFragments: options.mergeFragments !== false,
+    recoverClipBrushes: options.recoverClipBrushes !== false,
     extractTextures: options.extractTextures !== false,
     writeComments: options.writeComments !== false,
     fileName: options.fileName || "input.bsp",
@@ -2373,6 +2749,13 @@ export function decompileBsp(buffer, rawOptions = {}) {
   if (bsp.textureProjectionRepairs) {
     warnings.push(`Repaired ${bsp.textureProjectionRepairs.toLocaleString()} invalid compiled texture projection(s) with stable face-aligned axes.`);
   }
+  const clipRecoveredCount = recoveredEntities.reduce(
+    (sum, entry) => sum + entry.brushes.filter((brush) => brush.source === "clipRecovered").length,
+    0
+  );
+  if (clipRecoveredCount) {
+    warnings.push(`Recovered ${clipRecoveredCount.toLocaleString()} clip brush(es) by un-expanding collision hull 1; clip recovery is heuristic, so inspect them before shipping.`);
+  }
   if (preview.truncated) warnings.push(`Preview was capped at ${PREVIEW_SEGMENT_LIMIT.toLocaleString()} unique segments; MAP output is complete.`);
   if (!preview.segments.length) {
     preview.mins = [0, 0];
@@ -2425,6 +2808,8 @@ export function decompileBsp(buffer, rawOptions = {}) {
       outputBrushes: counters.brushes,
       outputSides: counters.sides,
       exactBrushes,
+      fragmentsMerged: bsp.fragmentMerges || 0,
+      clipBrushesRecovered: clipRecoveredCount,
       textureProjectionRepairs: bsp.textureProjectionRepairs || 0,
       geometrySideRepairs: bsp.geometrySideRepairs || 0,
       sourceCounts,

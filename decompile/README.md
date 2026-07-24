@@ -13,8 +13,13 @@ Files never leave the browser.
 - FTE/ericw BSPX `BRUSHLIST` version 1
 - Quake 1-family hull 0 leaf reconstruction and clipnode hulls 1–3
 - Entity/submodel recovery, origin brushes, trigger textures, Valve 220 texinfo
-- Embedded-texture extraction to a matching Quake WAD2 with worldspawn `"wad"` wiring
+- Embedded-texture extraction to a matching Quake WAD2 — or Half-Life WAD3 with
+  palettes preserved — with worldspawn `"wad"` wiring
 - Texture-boundary splitting, bounded parsing/output, cycle/depth guards, and diagnostics
+- Convex fragment merging that rejoins BSP-shattered pieces of the original brushwork
+- Clip-brush recovery: collision hull 1 is un-expanded back to source-space
+  clip volumes that hull 0 cannot explain
+- Leaf marksurface texture matching in addition to per-node face lists
 - TrenchBroom-native game/format headers and winding-derived plane points
 - Invalid texture-projection repair and empty/redundant convex-side cleanup
 - Blue Shift BSP30 swapped entity/plane lump compatibility
@@ -101,6 +106,30 @@ BSP Forge adds:
 11. **Tolerant BSPX material matching.** A neighborhood spatial index matches
     stored source-brush planes to compiled faces across normal/distance
     quantization boundaries before texture-boundary splitting.
+12. **Convex fragment merging.** BSP compilation shatters brushes into leaf
+    fragments; when two recovered fragments share an interior plane and each
+    one's vertices lie inside the other's remaining half-spaces, their union
+    is exactly the merged half-space intersection, so the pair is replaced
+    losslessly. Repeated passes reassemble large convex runs of the original
+    brushwork (typically a 15–35% brush-count reduction on real maps), and
+    merges that would erase a real texture boundary are refused.
+13. **Clip-brush recovery.** Quake clip brushes survive only in the collision
+    hulls, so every conventional decompile silently drops them. BSP Forge
+    walks hull 1, inverts qbsp's exact `ExpandBrush` plane offsets (using the
+    compiler-side hull tables, which are z-flipped relative to the engine's),
+    and keeps volumes whose interior admits a hull-sized box that touches no
+    hull-0 solid — geometry alone cannot produce such a volume. Recovered
+    brushes reproduce identical hull-1 collision; where a clip brush was
+    flush against walls the un-expansion may not be source-identical, which
+    the output comments and a summary note flag.
+14. **Half-Life WAD3 extraction.** BSP30 embedded miptex carry a 256-color
+    palette after the last mip level; BSP Forge copies it intact and emits a
+    proper `WAD3` container (lump type 0x43) instead of a palette-truncating
+    WAD2.
+15. **Leaf marksurface texture matching.** Texture candidates come from the
+    leaf's own marksurface list as well as per-node face lists, recovering
+    materials in cases where redundant-plane removal or duplicate-plane
+    merging drops the node that carried the matching face.
 
 `bsputil` remains a mature, fast, scriptable native reference and also supports
 many BSP inspection and mutation operations outside BSP-to-MAP recovery. BSP

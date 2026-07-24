@@ -16,6 +16,8 @@ const elements = {
   precision: $("#precision"),
   recoverTextures: $("#recoverTextures"),
   splitTextures: $("#splitTextures"),
+  mergeFragments: $("#mergeFragments"),
+  recoverClipBrushes: $("#recoverClipBrushes"),
   extractTextures: $("#extractTextures"),
   writeComments: $("#writeComments"),
   progress: $("#progress"),
@@ -153,6 +155,9 @@ function setRunning(running) {
     elements.precision,
     elements.recoverTextures,
     elements.splitTextures,
+    elements.mergeFragments,
+    elements.recoverClipBrushes,
+    elements.extractTextures,
     elements.writeComments
   ]) {
     control.disabled = running;
@@ -181,6 +186,8 @@ function optionValues() {
     precision: Number(elements.precision.value),
     recoverTextures: elements.recoverTextures.checked,
     splitTextures: elements.splitTextures.checked,
+    mergeFragments: elements.mergeFragments.checked,
+    recoverClipBrushes: elements.recoverClipBrushes.checked,
     extractTextures: elements.extractTextures.checked,
     writeComments: elements.writeComments.checked
   };
@@ -298,6 +305,8 @@ function renderDiagnostics(result) {
     diagnostic("Models / entities", `${formatNumber(d.models)} / ${formatNumber(d.entities)}`),
     diagnostic("BSPX lumps", d.bspxLumps.length ? d.bspxLumps.join(", ") : "none"),
     diagnostic("Exact stored brushes", formatNumber(d.exactBrushes)),
+    diagnostic("Fragments merged", formatNumber(d.fragmentsMerged)),
+    diagnostic("Clip brushes recovered", formatNumber(d.clipBrushesRecovered)),
     diagnostic("Clipped sides pruned", formatNumber(d.geometrySideRepairs)),
     diagnostic("UV repairs", formatNumber(d.textureProjectionRepairs)),
     diagnostic("WAD textures", describeWadTextures(d))
