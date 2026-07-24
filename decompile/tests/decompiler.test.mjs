@@ -9,10 +9,38 @@ function align4(value) {
   return (value + 3) & ~3;
 }
 
-function makeSyntheticBsp29({ bspx = false, signature = 29 } = {}) {
+// A minimal but valid Quake miptex lump: a directory of one texture followed by
+// its 40-byte header and four packed mip levels of solid pixel data.
+function buildQuakeTextureLump(name = "test_wall", width = 16, height = 16) {
+  const headerSize = 40;
+  const mip = (level) => (width >> level) * (height >> level);
+  const off0 = headerSize;
+  const off1 = off0 + mip(0);
+  const off2 = off1 + mip(1);
+  const off3 = off2 + mip(2);
+  const miptexSize = off3 + mip(3);
+  const dirSize = 8; // int32 count + one int32 offset
+  const buf = new Uint8Array(dirSize + miptexSize);
+  const view = new DataView(buf.buffer);
+  view.setInt32(0, 1, true);
+  view.setInt32(4, dirSize, true); // miptex offset relative to lump start
+  buf.set(encoder.encode(name), dirSize);
+  view.setUint32(dirSize + 16, width, true);
+  view.setUint32(dirSize + 20, height, true);
+  view.setUint32(dirSize + 24, off0, true);
+  view.setUint32(dirSize + 28, off1, true);
+  view.setUint32(dirSize + 32, off2, true);
+  view.setUint32(dirSize + 36, off3, true);
+  buf.fill(7, dirSize + off0, dirSize + miptexSize);
+  return buf;
+}
+
+function makeSyntheticBsp29({ bspx = false, signature = 29, embedTexture = false } = {}) {
   const headerSize = 124;
   const entities = encoder.encode('{\n"classname" "worldspawn"\n"message" "synthetic cube"\n}\n\0');
   const q64TextureLength = signature === " 46Q" ? 52 : 0;
+  const textureLump = embedTexture ? buildQuakeTextureLump() : null;
+  const textureLength = q64TextureLength || (textureLump ? textureLump.length : 0);
   const leavesLength = 28;
   const modelsLength = 64;
   const brushListLength = bspx ? 16 + 28 : 0;
@@ -21,7 +49,7 @@ function makeSyntheticBsp29({ bspx = false, signature = 29 } = {}) {
   const entityOffset = cursor;
   cursor = align4(cursor + entities.length);
   const textureOffset = cursor;
-  cursor = align4(cursor + q64TextureLength);
+  cursor = align4(cursor + textureLength);
   const leafOffset = cursor;
   cursor = align4(cursor + leavesLength);
   const modelOffset = cursor;
@@ -42,7 +70,7 @@ function makeSyntheticBsp29({ bspx = false, signature = 29 } = {}) {
     view.setInt32(8 + index * 8, length, true);
   };
   setLump(0, entityOffset, entities.length);
-  setLump(2, textureOffset, q64TextureLength);
+  setLump(2, textureOffset, textureLength);
   setLump(10, leafOffset, leavesLength);
   setLump(14, modelOffset, modelsLength);
   bytes.set(entities, entityOffset);
@@ -53,6 +81,8 @@ function makeSyntheticBsp29({ bspx = false, signature = 29 } = {}) {
     view.setUint32(textureOffset + 24, 32, true);
     view.setUint32(textureOffset + 28, 32, true);
     view.setInt32(textureOffset + 32, 2, true);
+  } else if (textureLump) {
+    bytes.set(textureLump, textureOffset);
   }
 
   // One solid leaf.
@@ -309,6 +339,77 @@ test("prefers exact BSPX BRUSHLIST geometry in automatic mode", () => {
   assert.equal(result.diagnostics.exactBrushes, 1);
   assert.equal(result.diagnostics.geometryPath, "BSPX BRUSHLIST");
   assert.match(result.mapText, /\( 32 -32 32 \)/);
+});
+
+function parseWad2(buffer) {
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  const magic = String.fromCharCode(...bytes.subarray(0, 4));
+  const numLumps = view.getInt32(4, true);
+  const infoOffset = view.getInt32(8, true);
+  const lumps = [];
+  for (let i = 0; i < numLumps; i++) {
+    const entry = infoOffset + i * 32;
+    const filePos = view.getInt32(entry, true);
+    const diskSize = view.getInt32(entry + 4, true);
+    let end = entry + 16;
+    while (end < entry + 32 && bytes[end] !== 0) end++;
+    lumps.push({
+      filePos,
+      diskSize,
+      size: view.getInt32(entry + 8, true),
+      type: bytes[entry + 12],
+      compression: bytes[entry + 13],
+      name: String.fromCharCode(...bytes.subarray(entry + 16, end)),
+      data: bytes.subarray(filePos, filePos + diskSize)
+    });
+  }
+  return { magic, numLumps, infoOffset, lumps };
+}
+
+test("extracts embedded textures into a matching Quake WAD2", () => {
+  const buffer = makeSyntheticBsp29({ embedTexture: true });
+  const bsp = parseBsp(buffer);
+  assert.equal(bsp.textures[0].name, "test_wall");
+  assert.equal(bsp.textures[0].external, false);
+  assert.ok(bsp.textures[0].pixels);
+
+  const result = decompileBsp(buffer, { fileName: "wadcube.bsp", writeComments: false });
+  assert.ok(result.wad, "expected a WAD payload");
+  assert.equal(result.wad.fileName, "wadcube.decompile.wad");
+  assert.equal(result.wad.recovered, 1);
+  assert.equal(result.diagnostics.wadTextures, 1);
+  assert.equal(result.diagnostics.texturesEmbedded, 1);
+  assert.equal(result.diagnostics.texturesExternal, 0);
+  // The decompiled worldspawn points TrenchBroom at the generated WAD.
+  assert.match(result.mapText, /"wad" "wadcube\.decompile\.wad"/);
+
+  const wad = parseWad2(result.wad.buffer);
+  assert.equal(wad.magic, "WAD2");
+  assert.equal(wad.numLumps, 1);
+  assert.equal(wad.lumps[0].name, "test_wall");
+  assert.equal(wad.lumps[0].type, 0x44); // TYP_MIPTEX
+  assert.equal(wad.lumps[0].compression, 0);
+  // The lump is the verbatim miptex: header name matches and mip data is intact.
+  const lumpView = new DataView(wad.lumps[0].data.buffer, wad.lumps[0].data.byteOffset, wad.lumps[0].data.byteLength);
+  assert.equal(lumpView.getUint32(16, true), 16); // width
+  assert.equal(lumpView.getUint32(20, true), 16); // height
+  assert.equal(wad.lumps[0].data[40], 7);         // first mip0 pixel
+});
+
+test("omits WAD extraction when no pixel data is embedded", () => {
+  const buffer = makeSyntheticBsp29(); // texture lump absent
+  const result = decompileBsp(buffer, { fileName: "notex.bsp", writeComments: false });
+  assert.equal(result.wad, null);
+  assert.doesNotMatch(result.mapText, /"wad" "/);
+
+  const disabled = decompileBsp(makeSyntheticBsp29({ embedTexture: true }), {
+    fileName: "off.bsp",
+    writeComments: false,
+    extractTextures: false
+  });
+  assert.equal(disabled.wad, null);
+  assert.doesNotMatch(disabled.mapText, /"wad" "/);
 });
 
 test("rejects unknown BSP signatures with an actionable error", () => {

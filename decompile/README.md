@@ -13,6 +13,7 @@ Files never leave the browser.
 - FTE/ericw BSPX `BRUSHLIST` version 1
 - Quake 1-family hull 0 leaf reconstruction and clipnode hulls 1–3
 - Entity/submodel recovery, origin brushes, trigger textures, Valve 220 texinfo
+- Embedded-texture extraction to a matching Quake WAD2 with worldspawn `"wad"` wiring
 - Texture-boundary splitting, bounded parsing/output, cycle/depth guards, and diagnostics
 - TrenchBroom-native game/format headers and winding-derived plane points
 - Invalid texture-projection repair and empty/redundant convex-side cleanup
@@ -33,6 +34,27 @@ Generated maps should be treated as high-quality forensic/editor source, not a
 bit-exact reconstruction of an unavailable original. Eight-decimal plane and
 texture serialization is the default because it avoids avoidable off-plane
 rounding warnings when recovered MAP files are compiled again.
+
+## Texture extraction (self-contained WAD output)
+
+Quake BSPs normally embed the mipmapped texture pixels that `qbsp` pulled from a
+WAD at compile time. When "Extract textures to WAD" is enabled (the default),
+BSP Forge copies those embedded miptex blocks verbatim into a Quake `WAD2`
+alongside the recovered MAP, and sets `"wad" "<name>.decompile.wad"` on
+worldspawn. The result opens in TrenchBroom with textures visible and needs no
+hunt for the original source WAD:
+
+```
+mymap.bsp → mymap.decompile.map + mymap.decompile.wad
+```
+
+Only textures with real embedded pixel data are written. Textures that merely
+reference an external WAD — Half-Life BSP30 external textures, or a `qbsp
+-notex` build that omits pixel data — are counted and reported as external, not
+fabricated. Quake 64 remaster textures use a nonstandard miptex header and
+palette, so WAD extraction is skipped for that container with a diagnostic note.
+The diagnostics panel reports how many textures were embedded, external, and
+written, plus the resulting WAD size.
 
 ## Improvements over `bsputil --decompile`
 

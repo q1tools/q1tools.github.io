@@ -658,14 +658,131 @@ function parseQ1Textures(reader, lump, warnings, q64 = false) {
       continue;
     }
     const offset = lump.offset + relative;
-    textures[i] = {
+    const texture = {
       name: reader.cString(offset, 16) || "__unnamed",
       width: reader.u32(offset + 16),
       height: reader.u32(offset + 20),
-      scaleShift: q64 ? reader.i32(offset + 24) : 0
+      scaleShift: q64 ? reader.i32(offset + 24) : 0,
+      // Pixel-data recovery for WAD extraction. `external` marks textures that
+      // carry no embedded mip data (Half-Life external references or -notex
+      // builds); `pixels` locates the verbatim miptex block when it is present.
+      external: false,
+      pixels: null
     };
+    describeMiptexPixels(reader, lump, relative, headerSize, texture);
+    textures[i] = texture;
   }
   return textures;
+}
+
+// Resolve the embedded miptex pixel block so it can be copied verbatim into a
+// Quake WAD2. Mip offsets are stored relative to the miptex start, so the block
+// stays self-consistent when the [start, start + size) range is copied as-is.
+function describeMiptexPixels(reader, lump, relative, headerSize, texture) {
+  const { width, height } = texture;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
+      || width > 16_384 || height > 16_384) {
+    texture.external = true;
+    return;
+  }
+  // The four mip offsets sit immediately after name(16)+width(4)+height(4),
+  // i.e. headerSize - 16 bytes into the miptex (24 for Quake, 28 for Quake 64).
+  const mipBase = relative + (headerSize - 16);
+  let extent = headerSize;
+  let anyOffset = false;
+  for (let mip = 0; mip < 4; mip++) {
+    const mipOffset = reader.u32(lump.offset + mipBase + mip * 4);
+    if (mipOffset === 0) continue;
+    anyOffset = true;
+    const mipBytes = (width >> mip) * (height >> mip);
+    if (mipOffset < headerSize || relative + mipOffset + mipBytes > lump.length) {
+      // A referenced mip runs outside the texture lump; treat the whole texture
+      // as external rather than emitting a corrupt WAD lump.
+      texture.external = true;
+      return;
+    }
+    extent = Math.max(extent, mipOffset + mipBytes);
+  }
+  if (!anyOffset) {
+    texture.external = true;
+    return;
+  }
+  texture.pixels = { blockOffset: lump.offset + relative, blockSize: extent };
+}
+
+const TYP_MIPTEX = 0x44;
+
+// Build a Quake WAD2 file from the miptex blocks a BSP embeds, so decompiled
+// MAP files open in an editor with their textures visible. Returns a summary
+// with a transferable ArrayBuffer, or a summary with buffer=null when nothing
+// embeddable was found.
+function extractQ1Wad(bsp) {
+  if (bsp.format.family !== "q1") return null;
+  if (bsp.format.q64) {
+    return { buffer: null, recovered: 0, embedded: 0, external: 0, skippedFormat: true };
+  }
+  const textures = bsp.textures || [];
+  const seen = new Set();
+  const lumps = [];
+  let embedded = 0;
+  let external = 0;
+  for (const texture of textures) {
+    if (!texture) continue;
+    const name = texture.name;
+    if (!name || name === "__missing" || name === "__unnamed") continue;
+    if (texture.external || !texture.pixels) {
+      external++;
+      continue;
+    }
+    embedded++;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue; // WAD2 lump names must be unique.
+    seen.add(key);
+    const { blockOffset, blockSize } = texture.pixels;
+    lumps.push({ name, data: bsp.reader.bytes.subarray(blockOffset, blockOffset + blockSize) });
+  }
+  if (!lumps.length) return { buffer: null, recovered: 0, embedded, external };
+  return { buffer: buildWad2(lumps), recovered: lumps.length, embedded, external };
+}
+
+function buildWad2(lumps) {
+  const HEADER_SIZE = 12;
+  const ENTRY_SIZE = 32;
+  const align4 = (value) => (value + 3) & ~3;
+
+  let cursor = HEADER_SIZE;
+  const offsets = lumps.map((lump) => {
+    const at = cursor;
+    cursor += align4(lump.data.length);
+    return at;
+  });
+  const infoTableOffset = cursor;
+  const total = infoTableOffset + lumps.length * ENTRY_SIZE;
+
+  const out = new Uint8Array(total);
+  const view = new DataView(out.buffer);
+  out[0] = 0x57; out[1] = 0x41; out[2] = 0x44; out[3] = 0x32; // "WAD2"
+  view.setInt32(4, lumps.length, true);
+  view.setInt32(8, infoTableOffset, true);
+
+  const nameEncoder = new TextEncoder();
+  for (let i = 0; i < lumps.length; i++) {
+    const lump = lumps[i];
+    const filePos = offsets[i];
+    const size = lump.data.length;
+    out.set(lump.data, filePos);
+
+    const entry = infoTableOffset + i * ENTRY_SIZE;
+    view.setInt32(entry, filePos, true);
+    view.setInt32(entry + 4, size, true);      // disksize (uncompressed)
+    view.setInt32(entry + 8, size, true);      // size
+    out[entry + 12] = TYP_MIPTEX;
+    out[entry + 13] = 0;                        // compression: none
+    // entry + 14..15 padding stays zero.
+    const encoded = nameEncoder.encode(lump.name).subarray(0, 16);
+    out.set(encoded, entry + 16);              // name (null-padded, ≤16 bytes)
+  }
+  return out.buffer;
 }
 
 function detectQ1ModelStride(reader, lump, format, counts) {
@@ -1172,7 +1289,9 @@ export const __test = {
   validTextureProjection,
   safeTextureName,
   escapeMapString,
-  basenameWithoutExtension
+  basenameWithoutExtension,
+  extractQ1Wad,
+  buildWad2
 };
 
 // ---------------------------------------------------------------------------
@@ -2066,9 +2185,12 @@ function writeEntity(bsp, entity, entityIndex, recovered, options, lines, counte
     if (skipModelKey && key === "model" && value.startsWith("*")) continue;
     if (recovered.offset && key === "origin") continue;
     if (recovered.areaPortal && key === "style") continue;
+    // The extracted WAD replaces any original wad reference on worldspawn.
+    if (entityIndex === 0 && options.wadFileName && key === "wad") continue;
     lines.push(`"${escapeMapString(key)}" "${escapeMapString(value)}"`);
   }
   if (entityIndex === 0 && !entityGet(entity, "classname")) lines.push("\"classname\" \"worldspawn\"");
+  if (entityIndex === 0 && options.wadFileName) lines.push(`"wad" "${escapeMapString(options.wadFileName)}"`);
 
   for (const brush of recovered.brushes) {
     if (counters.brushes >= MAX_OUTPUT_BRUSHES) {
@@ -2145,6 +2267,7 @@ function normalizeOptions(options) {
     hullNumber,
     recoverTextures: options.recoverTextures !== false,
     splitTextures: options.splitTextures !== false,
+    extractTextures: options.extractTextures !== false,
     writeComments: options.writeComments !== false,
     fileName: options.fileName || "input.bsp",
     onProgress: typeof options.onProgress === "function" ? options.onProgress : () => {}
@@ -2189,6 +2312,23 @@ export function decompileBsp(buffer, rawOptions = {}) {
   }
   if (options.hullNumber > 0 && options.geometrySource === "bspx") {
     warnings.push("BSPX BRUSHLIST contains unexpanded source brushes; the selected compiled collision hull was ignored in BSPX-only mode.");
+  }
+
+  const baseName = basenameWithoutExtension(options.fileName);
+  let wad = null;
+  if (options.extractTextures) {
+    wad = extractQ1Wad(bsp);
+    if (wad?.buffer) {
+      wad.fileName = `${baseName}.decompile.wad`;
+      options.wadFileName = wad.fileName;
+    }
+    if (wad?.skippedFormat) {
+      warnings.push("Quake 64 remaster textures use a nonstandard miptex header and palette; no WAD was extracted.");
+    } else if (wad && !wad.buffer && wad.external > 0 && wad.embedded === 0) {
+      warnings.push(`All ${wad.external} texture(s) reference external WADs with no embedded pixel data (e.g. a -notex or Half-Life external build); no WAD was extracted.`);
+    } else if (wad?.buffer && wad.external > 0) {
+      warnings.push(`${wad.external} texture(s) had no embedded pixel data and were omitted from the extracted WAD.`);
+    }
   }
 
   options.onProgress(0.16, `Parsed ${bsp.format.name}; recovering entities…`);
@@ -2255,12 +2395,14 @@ export function decompileBsp(buffer, rawOptions = {}) {
   else if (sourceCounts.clip) geometryPath = `clipnode hull ${options.hullNumber}`;
   else if (sourceCounts.tree) geometryPath = "BSP leaf reconstruction";
   else geometryPath = "No brush geometry recovered";
-  const baseName = basenameWithoutExtension(options.fileName);
   options.onProgress(1, "MAP recovery complete.");
 
   return {
     fileName: `${baseName}.decompile.map`,
     mapText,
+    wad: wad?.buffer
+      ? { fileName: wad.fileName, buffer: wad.buffer, recovered: wad.recovered, external: wad.external }
+      : null,
     preview,
     warnings: [...new Set(warnings)],
     diagnostics: {
@@ -2274,6 +2416,10 @@ export function decompileBsp(buffer, rawOptions = {}) {
       leaves: bsp.leaves.length,
       faces: bsp.faces.length,
       textures: bsp.format.family === "q2" ? bsp.texinfo.length : bsp.textures.filter(Boolean).length,
+      texturesEmbedded: wad ? wad.embedded : 0,
+      texturesExternal: wad ? wad.external : 0,
+      wadTextures: wad?.buffer ? wad.recovered : 0,
+      wadBytes: wad?.buffer ? wad.buffer.byteLength : 0,
       bspxLumps: Object.keys(bsp.bspx.entries),
       bspxBrushes: bspxBrushCount,
       outputBrushes: counters.brushes,

@@ -13,7 +13,8 @@ self.onmessage = (event) => {
         self.postMessage({ type: "progress", progress, message });
       }
     });
-    self.postMessage({ type: "complete", result });
+    const transfer = result.wad?.buffer instanceof ArrayBuffer ? [result.wad.buffer] : [];
+    self.postMessage({ type: "complete", result }, transfer);
   } catch (error) {
     self.postMessage({
       type: "error",

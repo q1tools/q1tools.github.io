@@ -16,6 +16,7 @@ const elements = {
   precision: $("#precision"),
   recoverTextures: $("#recoverTextures"),
   splitTextures: $("#splitTextures"),
+  extractTextures: $("#extractTextures"),
   writeComments: $("#writeComments"),
   progress: $("#progress"),
   progressBar: $("#progressBar"),
@@ -30,6 +31,7 @@ const elements = {
   diagnosticsTab: $("#diagnosticsTab"),
   sourceTab: $("#sourceTab"),
   downloadButton: $("#downloadButton"),
+  downloadWadButton: $("#downloadWadButton"),
   copyButton: $("#copyButton"),
   mapCanvas: $("#mapCanvas"),
   canvasReset: $("#canvasReset")
@@ -62,6 +64,9 @@ function formatNumber(number) {
 function setResultActions(enabled) {
   elements.downloadButton.disabled = !enabled;
   elements.copyButton.disabled = !enabled;
+  const hasWad = enabled && !!state.result?.wad;
+  elements.downloadWadButton.hidden = !hasWad;
+  elements.downloadWadButton.disabled = !hasWad;
 }
 
 async function sniffFormat(file) {
@@ -176,6 +181,7 @@ function optionValues() {
     precision: Number(elements.precision.value),
     recoverTextures: elements.recoverTextures.checked,
     splitTextures: elements.splitTextures.checked,
+    extractTextures: elements.extractTextures.checked,
     writeComments: elements.writeComments.checked
   };
 }
@@ -269,6 +275,15 @@ function diagnostic(label, value) {
   return item;
 }
 
+function describeWadTextures(d) {
+  if (d.wadTextures) {
+    const extra = d.texturesExternal ? `, ${formatNumber(d.texturesExternal)} external` : "";
+    return `${formatNumber(d.wadTextures)} (${formatBytes(d.wadBytes)})${extra}`;
+  }
+  if (d.texturesExternal) return "external references only";
+  return "none";
+}
+
 function renderDiagnostics(result) {
   const d = result.diagnostics;
   elements.diagnosticsPanel.replaceChildren();
@@ -284,7 +299,8 @@ function renderDiagnostics(result) {
     diagnostic("BSPX lumps", d.bspxLumps.length ? d.bspxLumps.join(", ") : "none"),
     diagnostic("Exact stored brushes", formatNumber(d.exactBrushes)),
     diagnostic("Clipped sides pruned", formatNumber(d.geometrySideRepairs)),
-    diagnostic("UV repairs", formatNumber(d.textureProjectionRepairs))
+    diagnostic("UV repairs", formatNumber(d.textureProjectionRepairs)),
+    diagnostic("WAD textures", describeWadTextures(d))
   );
   elements.diagnosticsPanel.append(summary);
 
@@ -390,6 +406,20 @@ function downloadResult() {
     if (state.downloadUrl === url) state.downloadUrl = null;
     URL.revokeObjectURL(url);
   }, 1000);
+}
+
+function downloadWad() {
+  const wad = state.result?.wad;
+  if (!wad) return;
+  const url = URL.createObjectURL(new Blob([wad.buffer], { type: "application/octet-stream" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = wad.fileName;
+  anchor.hidden = true;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function copyResult() {
@@ -583,6 +613,7 @@ elements.fileInput.addEventListener("change", () => setFile(elements.fileInput.f
 elements.resetButton.addEventListener("click", reset);
 elements.decompileButton.addEventListener("click", startDecompile);
 elements.downloadButton.addEventListener("click", downloadResult);
+elements.downloadWadButton.addEventListener("click", downloadWad);
 elements.copyButton.addEventListener("click", copyResult);
 elements.diagnosticsTab.addEventListener("click", () => showTab("diagnostics"));
 elements.sourceTab.addEventListener("click", () => showTab("source"));

@@ -121,6 +121,15 @@
 
           <label class="toggle-row">
             <span>
+              <strong>Extract textures to WAD</strong>
+              <small>Writes a matching .wad and sets worldspawn "wad".</small>
+            </span>
+            <input id="extractTextures" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle-row">
+            <span>
               <strong>Forensic comments</strong>
               <small>Annotates recovered models, leaves, and BSPX brushes.</small>
             </span>
@@ -161,6 +170,7 @@
             </div>
             <div class="toolbar-actions">
               <button class="secondary-button" id="copyButton" type="button" disabled>Copy MAP</button>
+              <button class="secondary-button" id="downloadWadButton" type="button" disabled hidden>Download .wad ↓</button>
               <button class="primary-button compact" id="downloadButton" type="button" disabled>Download .map ↓</button>
             </div>
           </div>
