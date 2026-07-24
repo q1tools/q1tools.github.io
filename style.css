@@ -313,6 +313,10 @@ body.tool-index {
     color: #f0b04c;
 }
 
+.tool-grid .decompile-tool-icon {
+    color: #c98b6a;
+}
+
 body.tool-index footer {
     position: fixed;
 }

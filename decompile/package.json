@@ -1,0 +1,14 @@
+{
+  "name": "q1tools-bsp-decompiler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check src/limits.js && node --check src/bsp-decompiler.js && node --check src/app.js && node --check src/decompile.worker.js",
+    "verify": "npm run check && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

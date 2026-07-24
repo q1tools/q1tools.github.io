@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Recover editable Quake-family .map source from BSP28/29, Quake 64, BSP2, Half-Life, Hexen II, Quake II, and BSPX brush data.">
+  <meta name="theme-color" content="#0b0d0f">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; worker-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>BSP Forge — BSP to MAP Decompiler</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to decompiler</a>
+  <header class="site-header">
+    <a class="brand" href="../" aria-label="Back to Quake 1 Web Tools">
+      <span class="brand-mark" aria-hidden="true">Q1</span>
+      <span>Quake Web Tools</span>
+    </a>
+    <a class="repo-link" href="https://github.com/q1tools/q1tools.github.io" target="_blank" rel="noreferrer">Source ↗</a>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <p class="eyebrow">BSP → MAP / LOCAL &amp; PRIVATE</p>
+      <h1>BSP <span>Forge</span></h1>
+      <p class="lede">Recover editable brushwork, entities, and texture alignment from compiled Quake-family maps. Nothing is uploaded.</p>
+      <div class="format-strip" aria-label="Supported formats">
+        <span>BSP28</span><span>BSP29</span><span>Quake 64</span><span>BSP2</span><span>BSP2-RMQ</span><span>Half-Life</span><span>Hexen II</span><span>Q2 BSP38</span><span>QBSP</span><span>BSPX BRUSHLIST</span>
+      </div>
+    </section>
+
+    <section class="workspace" aria-label="BSP decompiler">
+      <div class="control-column">
+        <div class="panel upload-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step">01 / INPUT</p>
+              <h2>Compiled map</h2>
+            </div>
+            <button class="text-button" id="resetButton" type="button" hidden>Clear</button>
+          </div>
+
+          <label class="drop-zone" id="dropZone" for="fileInput">
+            <input id="fileInput" type="file" accept=".bsp,application/octet-stream">
+            <span class="drop-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48" role="img">
+                <path d="M24 33V9m0 0-8 8m8-8 8 8M9 29v8h30v-8"/>
+              </svg>
+            </span>
+            <strong>Drop a BSP here</strong>
+            <span>or click to browse</span>
+            <small>Runs completely in your browser</small>
+          </label>
+
+          <div class="file-card" id="fileCard" hidden>
+            <div class="file-glyph">BSP</div>
+            <div class="file-copy">
+              <strong id="fileName">—</strong>
+              <span id="fileMeta">—</span>
+            </div>
+            <span class="status-chip" id="fileStatus" aria-live="polite">READY</span>
+          </div>
+        </div>
+
+        <div class="panel options-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step">02 / RECOVERY</p>
+              <h2>Decompiler settings</h2>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="geometrySource">Geometry source</label>
+            <select id="geometrySource">
+              <option value="auto">Best available (recommended)</option>
+              <option value="bspx">BSPX BRUSHLIST only</option>
+              <option value="tree">BSP tree reconstruction</option>
+            </select>
+            <p class="field-help">Uses exact stored brush planes when a BRUSHLIST is present.</p>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="hullNumber">Collision hull</label>
+              <select id="hullNumber">
+                <option value="0">Hull 0 · render</option>
+                <option value="1">Hull 1 · player</option>
+                <option value="2">Hull 2 · large</option>
+                <option value="3">Hull 3 · crouch / mod</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="precision">Decimal precision</label>
+              <select id="precision">
+                <option value="8">8 · maximum fidelity</option>
+                <option value="5">5 · balanced</option>
+                <option value="3">3 · compact</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="toggle-row">
+            <span>
+              <strong>Recover texture alignment</strong>
+              <small>Writes Valve 220 axes from BSP texinfo.</small>
+            </span>
+            <input id="recoverTextures" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle-row">
+            <span>
+              <strong>Split texture boundaries</strong>
+              <small>Divides leaf brushes when compiled faces disagree.</small>
+            </span>
+            <input id="splitTextures" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+
+          <label class="toggle-row">
+            <span>
+              <strong>Forensic comments</strong>
+              <small>Annotates recovered models, leaves, and BSPX brushes.</small>
+            </span>
+            <input id="writeComments" type="checkbox" checked>
+            <span class="toggle" aria-hidden="true"></span>
+          </label>
+
+          <button class="primary-button" id="decompileButton" type="button" disabled>
+            <span>Decompile BSP</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <div class="progress" id="progress" role="status" aria-live="polite" hidden>
+            <div class="progress-track">
+              <span id="progressBar" role="progressbar" aria-label="Decompile progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span>
+            </div>
+            <p id="progressText">Reading BSP header…</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-column">
+        <div class="panel result-panel" id="emptyResult">
+          <div class="empty-visual" aria-hidden="true">
+            <div class="wire-cube">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <p class="step">03 / OUTPUT</p>
+          <h2>Your recovered map appears here</h2>
+          <p>Load a BSP to inspect its format, reconstruct convex brushwork, and export editor-ready Valve 220 map source.</p>
+        </div>
+
+        <div id="result" hidden>
+          <div class="result-toolbar">
+            <div>
+              <p class="step">03 / OUTPUT</p>
+              <h2 id="outputName" tabindex="-1">recovered.map</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button class="secondary-button" id="copyButton" type="button" disabled>Copy MAP</button>
+              <button class="primary-button compact" id="downloadButton" type="button" disabled>Download .map ↓</button>
+            </div>
+          </div>
+
+          <div class="stats" id="stats" aria-label="Decompiler statistics"></div>
+
+          <div class="panel viewport-panel">
+            <div class="viewport-heading">
+              <div>
+                <span class="live-dot"></span>
+                <strong>Recovered geometry</strong>
+              </div>
+              <span id="viewportHint">Scroll or +/− to zoom · drag or arrows to pan</span>
+            </div>
+            <canvas id="mapCanvas" width="960" height="420" tabindex="0" role="img" aria-describedby="viewportHint" aria-label="Interactive top-down recovered brush preview. Use arrow keys to pan, plus and minus to zoom, and zero to fit.">Your browser does not support the geometry preview canvas.</canvas>
+            <button class="canvas-reset" id="canvasReset" type="button">Fit view</button>
+          </div>
+
+          <div class="panel report-panel">
+            <div class="tabs" role="tablist" aria-label="Recovery output">
+              <button class="tab active" id="diagnosticsTab" role="tab" aria-selected="true" aria-controls="diagnosticsPanel">Diagnostics <span id="warningCount">0</span></button>
+              <button class="tab" id="sourceTab" role="tab" aria-selected="false" aria-controls="sourcePanel" tabindex="-1">MAP preview</button>
+            </div>
+            <div class="tab-content" id="diagnosticsPanel" role="tabpanel" aria-labelledby="diagnosticsTab"></div>
+            <pre class="tab-content map-source" id="sourcePanel" role="tabpanel" aria-labelledby="sourceTab" tabindex="0" hidden><code></code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="method">
+      <p class="step">METHOD / TRANSPARENCY</p>
+      <h2>What can—and cannot—be recovered</h2>
+      <div class="method-grid">
+        <article>
+          <span>01</span>
+          <h3>Prefer original planes</h3>
+          <p>BSPX <code>BRUSHLIST</code> stores source brush bounds and non-axial planes. When present, BSP Forge uses them before attempting inference.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Rebuild convex leaves</h3>
+          <p>For classic BSPs, decision-tree planes are walked into bounded convex volumes, redundant planes are removed, and texture boundaries are split.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Preserve what survives</h3>
+          <p>Entities, submodel origins, face textures, and Valve 220 alignment are retained. Original CSG ordering and brushes erased by compilation cannot be known.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="comparison">
+      <div class="comparison-heading">
+        <div>
+          <p class="step">COMPARED WITH BSPUTIL</p>
+          <h2>What BSP Forge adds</h2>
+        </div>
+        <p>Built on the same hard-won understanding of Quake BSPs, with a new recovery path and a browser-native workflow.</p>
+      </div>
+
+      <div class="comparison-grid">
+        <article class="comparison-lead">
+          <span class="comparison-number">01</span>
+          <div>
+            <p class="comparison-label">GEOMETRY</p>
+            <h3>BSPX source-brush recovery</h3>
+            <p>Reads FTE/ericw <code>BRUSHLIST</code> version 1 and reconstructs its stored bounds and non-axial planes. The current ericw decompile path marks BSPX brush use as a TODO.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">02</span>
+          <div>
+            <p class="comparison-label">DECISIONS</p>
+            <h3>Per-model recovery fallback</h3>
+            <p>Automatically prefers BSPX where available, uses exact Quake II brush lumps, and falls back to BSP-tree reconstruction for models without stored source brushes.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">03</span>
+          <div>
+            <p class="comparison-label">INSPECTION</p>
+            <h3>Visual and forensic feedback</h3>
+            <p>Shows the detected container, chosen geometry path, exact-brush count, output statistics, warnings, and an interactive top-down preview before download.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">04</span>
+          <div>
+            <p class="comparison-label">SAFETY</p>
+            <h3>Untrusted-file guardrails</h3>
+            <p>Checks lump ranges and geometry references, limits traversal depth and cycles, caps preview work, and isolates CPU-heavy recovery in a cancellable Web Worker.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">05</span>
+          <div>
+            <p class="comparison-label">CONTROL</p>
+            <h3>Interactive recovery policy</h3>
+            <p>Switch geometry source, hull, texture recovery, boundary splitting, numeric precision, and forensic comments without learning command-line flags.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">06</span>
+          <div>
+            <p class="comparison-label">DELIVERY</p>
+            <h3>Zero-install, local web app</h3>
+            <p>Runs as a static GitHub Pages tool, keeps BSP data inside the browser, and produces editor-ready MAP downloads on desktop or mobile.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">07</span>
+          <div>
+            <p class="comparison-label">EDITOR FIDELITY</p>
+            <h3>TrenchBroom-native output</h3>
+            <p>Writes deterministic game/format headers, uses stable points from recovered face windings, removes clipped sides, and repairs invalid compiled texture axes.</p>
+          </div>
+        </article>
+        <article>
+          <span class="comparison-number">08</span>
+          <div>
+            <p class="comparison-label">ENGINE COMPATIBILITY</p>
+            <h3>QSS-M and FTE edge cases</h3>
+            <p>Recognizes prerelease BSP28 and Quake 64 BSPs, reports misaligned lumps, and repairs the swapped entity/plane directory found in some Blue Shift BSP30 maps.</p>
+          </div>
+        </article>
+      </div>
+
+      <p class="comparison-note"><strong>Not a claim that bsputil is obsolete:</strong> its native implementation is mature, fast, scriptable, and remains the reference for BSP manipulation. BSP Forge focuses on BSPX-aware recovery, inspection, accessibility, and safe browser use.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>BSP Forge · q1tools</span>
+    <span>Algorithm references: ericw-tools · FTEQW/FTEQCC · QSS-M · TrenchBroom · id BSP formats</span>
+  </footer>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
