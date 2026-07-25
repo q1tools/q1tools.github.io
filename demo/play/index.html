@@ -1,0 +1,2096 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FTE Demo Player</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c0c;
+      --text: #edf2ee;
+      --muted: #a9b4b0;
+      --border: #2d2f2f;
+      --accent: #d48f52;
+      --accent-track: #2f241f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 6px;
+      padding: 16px 20px 18px;
+    }
+
+    .topbar {
+      width: var(--player-width, 640px);
+      max-width: 100%;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      min-width: 0;
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .viewport {
+      width: var(--player-width, 640px);
+      height: var(--player-height, 480px);
+      max-width: 100%;
+      aspect-ratio: 4 / 3;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #000;
+      outline: 1px solid var(--border);
+    }
+
+    .viewport:fullscreen,
+    .viewport:-webkit-full-screen {
+      width: 100vw;
+      height: 100vh;
+      max-width: none;
+      aspect-ratio: auto;
+      outline: 0;
+    }
+
+    .viewport:fullscreen canvas.emscripten,
+    .viewport:-webkit-full-screen canvas.emscripten {
+      width: min(100vw, calc(100vh * 4 / 3));
+      height: min(100vh, calc(100vw * 3 / 4));
+    }
+
+    canvas.emscripten {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      aspect-ratio: 4 / 3;
+      border: 0;
+      margin: 0;
+      padding: 0;
+      background: #000;
+    }
+
+    .player-overlay {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 13px 18px 14px;
+      background: linear-gradient(180deg, rgba(13, 11, 10, 0), rgba(19, 16, 14, 0.88) 38%, rgba(19, 16, 14, 0.94));
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      z-index: 2;
+    }
+
+    .viewport:hover .player-overlay,
+    .viewport:focus-within .player-overlay,
+    .viewport.overlay-visible .player-overlay {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .volume-control {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .overlay-button {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: #f2e2d0;
+      padding: 0;
+      cursor: pointer;
+      transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+    }
+
+    .overlay-button:hover:not(:disabled),
+    .overlay-button:focus-visible:not(:disabled) {
+      background: rgba(212, 143, 82, 0.18);
+      color: #fff5e8;
+      outline: 0;
+    }
+
+    .overlay-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .overlay-button svg {
+      width: 25px;
+      height: 25px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .volume-off-icon,
+    .fullscreen-exit-icon {
+      display: none;
+    }
+
+    .volume-toggle.is-muted .volume-on-icon,
+    .fullscreen-button.is-fullscreen .fullscreen-enter-icon {
+      display: none;
+    }
+
+    .volume-toggle.is-muted .volume-off-icon,
+    .fullscreen-button.is-fullscreen .fullscreen-exit-icon {
+      display: block;
+    }
+
+    .volume-slider {
+      width: clamp(110px, 18vw, 190px);
+      height: 20px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .volume-slider:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .controls {
+      width: var(--player-width, 640px);
+      max-width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .loading-controls {
+      width: 100%;
+      min-height: 35px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .playback-controls {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .playback-button-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .shortcut-key {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    .shortcut-key kbd {
+      display: inline-block;
+      min-width: 18px;
+      margin: 0 2px;
+      padding: 1px 5px;
+      border: 1px solid #51443b;
+      border-radius: 4px;
+      background: #171412;
+      color: #f2e2d0;
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    .controls button {
+      appearance: none;
+      min-width: 64px;
+      border: 1px solid #705948;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #6f4f3d, #4f3a2f);
+      color: #f2e2d0;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+    }
+
+    .controls button:hover:not(:disabled),
+    .controls button:focus-visible:not(:disabled) {
+      border-color: #d39a68;
+      transform: translateY(-1px);
+    }
+
+    .controls button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .speed-select {
+      appearance: none;
+      width: var(--speed-select-width, 58px);
+      min-width: 58px;
+      border: 1px solid #705948;
+      border-radius: 6px;
+      background:
+        linear-gradient(45deg, transparent 50%, #f2e2d0 50%) right 12px center / 6px 6px no-repeat,
+        linear-gradient(135deg, #f2e2d0 50%, transparent 50%) right 8px center / 6px 6px no-repeat,
+        linear-gradient(180deg, #6f4f3d, #4f3a2f);
+      color: #f2e2d0;
+      padding: 8px 26px 8px 10px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .speed-select:focus-visible {
+      border-color: #d39a68;
+      outline: 0;
+    }
+
+    .speed-select:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .playback-time {
+      min-width: 58px;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      text-align: right;
+    }
+
+    #progress {
+      width: 100%;
+      height: 8px;
+      accent-color: var(--accent);
+      border: 0;
+      border-radius: 999px;
+      background: var(--accent-track);
+      overflow: hidden;
+    }
+
+    #progress::-webkit-progress-bar {
+      background: var(--accent-track);
+      border-radius: 999px;
+    }
+
+    #progress::-webkit-progress-value {
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    #progress::-moz-progress-bar {
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    .error {
+      width: 640px;
+      max-width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #754640;
+      border-radius: 6px;
+      background: #21100f;
+      color: #ffd5cd;
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <h1 id="demo-title">FTE Demo Player</h1>
+    </div>
+
+    <div class="viewport">
+      <canvas class="emscripten" id="canvas" width="640" height="480" tabindex="-1" aria-hidden="true" oncontextmenu="event.preventDefault()"></canvas>
+      <div id="playerOverlay" class="player-overlay" aria-label="Player overlay controls" hidden>
+        <div class="volume-control">
+          <button id="volumeToggle" class="overlay-button volume-toggle" type="button" aria-label="Mute" title="Mute" disabled>
+            <svg class="volume-on-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+              <path d="M18.5 6a9 9 0 0 1 0 12"></path>
+            </svg>
+            <svg class="volume-off-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4V5Z"></path>
+              <path d="m16 9 5 5"></path>
+              <path d="m21 9-5 5"></path>
+            </svg>
+          </button>
+          <input id="volumeSlider" class="volume-slider" type="range" min="0" max="1" step="0.01" value="0.05" aria-label="Volume" disabled>
+        </div>
+        <button id="fullscreenButton" class="overlay-button fullscreen-button" type="button" aria-label="Enter fullscreen" title="Enter fullscreen" disabled>
+          <svg class="fullscreen-enter-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H3v5"></path>
+            <path d="M16 3h5v5"></path>
+            <path d="M21 16v5h-5"></path>
+            <path d="M8 21H3v-5"></path>
+          </svg>
+          <svg class="fullscreen-exit-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 3v6H3"></path>
+            <path d="M15 3v6h6"></path>
+            <path d="M21 15h-6v6"></path>
+            <path d="M3 15h6v6"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="controls" aria-live="polite">
+      <div id="loadingControls" class="loading-controls">
+        <div id="status">Preparing player...</div>
+        <progress value="0" max="100" id="progress" hidden></progress>
+      </div>
+      <div id="playbackControls" class="playback-controls" aria-label="Playback controls" hidden>
+        <div class="playback-button-row">
+          <button type="button" data-player-control="back" disabled>-2s</button>
+          <button id="playPauseButton" type="button" data-player-control="toggle-playback" disabled>Pause</button>
+          <select id="speedSelect" class="speed-select" aria-label="Demo speed" disabled>
+            <option value="25">0.25x</option>
+            <option value="50">0.5x</option>
+            <option value="75">0.75x</option>
+            <option value="100" selected>1x</option>
+            <option value="150">1.5x</option>
+            <option value="200">2x</option>
+            <option value="400">4x</option>
+          </select>
+          <button type="button" data-player-control="forward" disabled>+2s</button>
+          <span id="playback-time" class="playback-time">--:--</span>
+        </div>
+        <div class="shortcut-key" aria-label="Keyboard shortcuts">
+          <kbd>0</kbd>restart
+          <kbd>1</kbd>-<kbd>9</kbd>jump
+          <kbd>,</kbd><kbd>.</kbd>frame
+          <kbd>Tab</kbd>scores
+        </div>
+      </div>
+    </div>
+    <div id="error" class="error" hidden></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <script src="quake106.js?v=20260506a"></script>
+  <script src="../dzip.js?v=20260321b"></script>
+  <script src="../parser.js?v=20260321b"></script>
+  <script>
+    var params = new URLSearchParams(window.location.search);
+
+    // ftewebgl.js appends the raw query string to the engine's argv whenever
+    // document.referrer is empty, which is the case for any link opened directly
+    // rather than from the /demo page. That extra token reaches +playdemo as a
+    // second argument and the demo never starts, so drop the query string now that
+    // it is parsed. Everything below reads the captured params, and the engine is
+    // not loaded until much later.
+    if (window.location.search) {
+      try {
+        window.history.replaceState(
+          window.history.state,
+          "",
+          window.location.pathname + window.location.hash
+        );
+      } catch (_error) {
+        // A sandboxed context can refuse replaceState; playback from the /demo
+        // page still works because it supplies a referrer.
+      }
+    }
+
+    var statusElement = document.getElementById("status");
+    var progressElement = document.getElementById("progress");
+    var errorElement = document.getElementById("error");
+    var canvas = document.getElementById("canvas");
+    var playerViewport = document.querySelector(".viewport");
+    var playerOverlay = document.getElementById("playerOverlay");
+    var volumeToggle = document.getElementById("volumeToggle");
+    var volumeSlider = document.getElementById("volumeSlider");
+    var fullscreenButton = document.getElementById("fullscreenButton");
+    var loadingControlsElement = document.getElementById("loadingControls");
+    var playbackControlsElement = document.getElementById("playbackControls");
+    var controlButtons = Array.prototype.slice.call(document.querySelectorAll("[data-player-control]"));
+    var playPauseButton = document.getElementById("playPauseButton");
+    var speedSelect = document.getElementById("speedSelect");
+    var playbackTimeElement = document.getElementById("playback-time");
+    var PAK1_REQUIRED_MAP_PATTERN = /^(?:e[34]m[0-9]+|dm[1-6])$/i;
+    var PLAYER_VERTICAL_MARGIN = 36;
+    var INITIAL_VOLUME = 0.05;
+    var currentVolume = INITIAL_VOLUME;
+    var previousAudibleVolume = INITIAL_VOLUME;
+    var playbackPaused = false;
+    var playbackSpeed = 100;
+    var pauseMutedAutomatically = false;
+    var pauseResumeVolume = INITIAL_VOLUME;
+    var overlayHideTimer = 0;
+    var LONG_PRESS_SHOWSCORES_MS = 450;
+    var showscoresDown = false;
+    var keyboardShowscoresDown = false;
+    var pointerShowscoresDown = false;
+    var consoleOpen = false;
+    var longPressTimer = 0;
+    var longPressPointerId = null;
+    var ENGINE_CONTROL_COMMANDS = {
+      back: "demo_jump -2",
+      forward: "demo_jump +2"
+    };
+    var BUILT_IN_PACKAGES = [
+      {
+        file: "ctf.pk3",
+        source: "../../paks/ctf.pk3",
+        maps: [
+          "ctf1.bsp", "ctf2.bsp", "ctf3.bsp", "ctf4.bsp", "ctf5.bsp", "ctf6.bsp", "ctf7.bsp", "ctf8.bsp", "ctfstart.bsp",
+          "ctf2m1.bsp", "ctf2m2.bsp", "ctf2m3.bsp", "ctf2m4.bsp", "ctf2m5.bsp", "ctf2m6.bsp", "ctf2m7.bsp", "ctf2m8.bsp",
+          "ctf3m1.bsp", "ctf3m2.bsp", "ctf3m3.bsp", "ctf3m4.bsp", "ctf3m5.bsp", "ctf3m6.bsp", "ctf3m7.bsp", "ctf3m8.bsp", "ctf3m9.bsp"
+        ],
+        providesPak1Maps: false
+      },
+      {
+        file: "ra.pk3",
+        source: "../../paks/ra.pk3",
+        maps: [
+          "23ar-a.bsp", "2pyramid.bsp", "2towers.bsp", "arendm1a.bsp", "arenarg2.bsp", "arenarg4.bsp", "arenarg5.bsp",
+          "arenarg6.bsp", "arenax.bsp", "arenazap.bsp", "arenrg3a.bsp", "arma4.bsp", "barena1.bsp", "basarena.bsp",
+          "bbarena2.bsp", "bunmoo3.bsp", "bunski.bsp", "chamber1.bsp", "crandome.bsp", "dm2arena.bsp", "dom2_1ra.bsp",
+          "egyptra.bsp", "football.bsp", "gear8.bsp", "gearpr0n.bsp", "gnurena.bsp", "hill20.bsp", "iarena2.bsp",
+          "id3.bsp", "lowgrav.bsp", "marena2.bsp", "marena3.bsp", "marena4.bsp", "mayan1.bsp", "nilsrar3.bsp",
+          "pen2.bsp", "pitarena.bsp", "ptucket.bsp", "ra_funkf.bsp", "rarena3.bsp", "rgarden.bsp", "soyarena.bsp",
+          "terrain2.bsp", "uarena1.bsp", "unholy.bsp", "xarena3.bsp", "yard1.bsp"
+        ],
+        providesPak1Maps: false
+      }
+    ];
+    var demoConfigSource = "qw/fte.cfg?" + Date.now();
+    var DEFAULT_RENDER_CONFIG = {
+      gamma: 1,
+      contrast: 1,
+      contrastBoost: 1,
+      brightness: 0
+    };
+
+    function cleanValue(value) {
+      return String(value || "").trim().replace(/^["']|["']$/g, "").trim();
+    }
+
+    function clampNumber(value, min, max, fallback) {
+      var number = Number(value);
+      if (!Number.isFinite(number)) {
+        return fallback;
+      }
+      return Math.max(min, Math.min(max, number));
+    }
+
+    function normalizeDuration(value) {
+      var text = cleanValue(value);
+      var parts;
+      var number;
+      var total = 0;
+      var index;
+
+      if (!text) {
+        return 0;
+      }
+      if (/^\d+(?::\d+(?:\.\d+)?){1,2}$/.test(text)) {
+        parts = text.split(":");
+        for (index = 0; index < parts.length; index++) {
+          total = (total * 60) + Number(parts[index]);
+        }
+        return Number.isFinite(total) && total > 0 ? total : 0;
+      }
+
+      number = Number(text);
+      return Number.isFinite(number) && number > 0 ? number : 0;
+    }
+
+    function stripFteComment(line) {
+      var quoted = false;
+      for (var i = 0; i < line.length; i++) {
+        var char = line.charAt(i);
+        if (char === "\"" && line.charAt(i - 1) !== "\\") {
+          quoted = !quoted;
+        } else if (!quoted && char === "/" && line.charAt(i + 1) === "/") {
+          return line.slice(0, i);
+        }
+      }
+      return line;
+    }
+
+    function parseFteConfigAssignments(text) {
+      var assignments = {};
+      String(text || "").split(/\r?\n/).forEach(function(rawLine) {
+        var line = stripFteComment(rawLine).trim();
+        var match;
+        var command;
+        var name;
+        var value;
+
+        if (!line) {
+          return;
+        }
+
+        match = line.match(/^(\S+)(?:\s+(.+))?$/);
+        if (!match) {
+          return;
+        }
+
+        command = match[1].toLowerCase();
+        value = match[2] || "";
+        if (command === "set" || command === "seta" || command === "seta_weak") {
+          match = value.match(/^(\S+)(?:\s+(.+))?$/);
+          if (!match) {
+            return;
+          }
+          name = match[1].toLowerCase();
+          value = match[2] || "";
+        } else {
+          name = command;
+        }
+
+        assignments[name] = cleanValue(value);
+      });
+      return assignments;
+    }
+
+    function configNumber(assignments, names, fallback) {
+      for (var i = 0; i < names.length; i++) {
+        var raw = assignments[names[i]];
+        var match = cleanValue(raw).match(/^-?(?:\d+\.?\d*|\.\d+)/);
+        if (match) {
+          return Number(match[0]);
+        }
+      }
+      return fallback;
+    }
+
+    function applyCanvasRenderConfig(config) {
+      var gamma = clampNumber(config.gamma, 0.2, 3, DEFAULT_RENDER_CONFIG.gamma);
+      var contrast = clampNumber(config.contrast, 0.25, 4, DEFAULT_RENDER_CONFIG.contrast);
+      var boost = clampNumber(config.contrastBoost, 0.25, 4, DEFAULT_RENDER_CONFIG.contrastBoost);
+      var brightness = clampNumber(config.brightness, -0.5, 0.5, DEFAULT_RENDER_CONFIG.brightness);
+      var cssBrightness = clampNumber(1 + ((gamma - 1) * 0.22) + brightness, 0.75, 1.16, 1);
+      var cssContrast = clampNumber(contrast * Math.pow(boost, 0.15), 0.85, 1.15, 1);
+
+      if (Math.abs(cssBrightness - 1) < 0.01 && Math.abs(cssContrast - 1) < 0.01) {
+        canvas.style.filter = "";
+        return;
+      }
+
+      canvas.style.filter = "brightness(" + cssBrightness.toFixed(3) + ") contrast(" + cssContrast.toFixed(3) + ")";
+    }
+
+    function loadCanvasRenderConfig() {
+      return fetch(demoConfigSource, {
+        cache: "no-store"
+      }).then(function(response) {
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+        return response.text();
+      }).then(function(text) {
+        var assignments = parseFteConfigAssignments(text);
+        applyCanvasRenderConfig({
+          gamma: configNumber(assignments, ["gamma", "v_gamma"], DEFAULT_RENDER_CONFIG.gamma),
+          contrast: configNumber(assignments, ["contrast", "v_contrast"], DEFAULT_RENDER_CONFIG.contrast),
+          contrastBoost: configNumber(assignments, ["v_contrastboost", "contrastboost"], DEFAULT_RENDER_CONFIG.contrastBoost),
+          brightness: configNumber(assignments, ["brightness", "v_brightness"], DEFAULT_RENDER_CONFIG.brightness)
+        });
+      }).catch(function(error) {
+        console.warn("Unable to apply canvas gamma from fte.cfg:", error);
+        applyCanvasRenderConfig(DEFAULT_RENDER_CONFIG);
+      });
+    }
+
+    function decodePathSegment(value) {
+      try {
+        return decodeURIComponent(value);
+      } catch (_error) {
+        return value;
+      }
+    }
+
+    function fileNameFromValue(value) {
+      var clean = cleanValue(value).split(/[?#]/)[0].replace(/\\/g, "/");
+      var parts = clean.split("/");
+      return decodePathSegment(parts[parts.length - 1] || "");
+    }
+
+    function splitList(value) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      return String(value || "")
+        .split(/[\n,;]/)
+        .map(cleanValue)
+        .filter(Boolean);
+    }
+
+    function parseMaybeJsonArray(value) {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      if (!value) {
+        return [];
+      }
+      try {
+        var parsed = JSON.parse(String(value));
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function sanitizeVirtualFileName(value, fallback) {
+      var name = fileNameFromValue(value) || fallback;
+      return name.replace(/[\\/]/g, "_").replace(/[^a-z0-9._()[\]+ -]/gi, "_");
+    }
+
+    function sourceForRelativeValue(value) {
+      var clean = cleanValue(value).replace(/\\/g, "/");
+      if (/^(https?:|data:|blob:)/i.test(clean) || clean.charAt(0) === "/") {
+        return clean;
+      }
+      return clean;
+    }
+
+    function sourceForMap(mapValue, fallbackFile) {
+      var clean = cleanValue(mapValue).replace(/\\/g, "/");
+      if (/^(https?:|data:|blob:)/i.test(clean) || clean.charAt(0) === "/") {
+        return clean;
+      }
+
+      if (/^(?:\.\.\/|\.\/)?maps\//i.test(clean)) {
+        return clean
+          .replace(/^\.\.\/maps\//i, "../../maps/")
+          .replace(/^\.\//, "../../")
+          .replace(/^maps\//i, "../../maps/");
+      }
+
+      if (/^id1\/maps\//i.test(clean)) {
+        return clean;
+      }
+
+      var fileName = fallbackFile || fileNameFromValue(clean);
+      var folder = (fileName.charAt(0) || "_").toUpperCase();
+      return "../../maps/" + encodeURIComponent(folder) + "/" + encodeURIComponent(fileName);
+    }
+
+    function normalizeMapDescriptor(mapValue) {
+      var raw = mapValue;
+      var source = "";
+      var file = "";
+
+      if (raw && typeof raw === "object") {
+        source = cleanValue(raw.source || raw.src || raw.url || raw.href || raw.path);
+        file = cleanValue(raw.file || raw.name || raw.map || raw.bsp || raw.mapName || raw.map_name);
+        raw = file || source;
+      }
+
+      file = file || fileNameFromValue(raw);
+      file = file.replace(/^maps\//i, "").replace(/^id1\/maps\//i, "");
+      file = fileNameFromValue(file);
+      if (file && !/\.(bsp|lit)$/i.test(file)) {
+        file += ".bsp";
+      }
+      if (!file) {
+        return null;
+      }
+
+      return {
+        file: file,
+        source: sourceForMap(source || raw, file)
+      };
+    }
+
+    function mapFileNeedsPak1(file) {
+      var clean = fileNameFromValue(file).replace(/\.(?:bsp|lit)$/i, "").toLowerCase();
+      return PAK1_REQUIRED_MAP_PATTERN.test(clean);
+    }
+
+    function normalizePackageDescriptor(packageValue) {
+      if (!packageValue || typeof packageValue !== "object") {
+        return null;
+      }
+
+      var source = cleanValue(packageValue.source || packageValue.src || packageValue.url || packageValue.href || packageValue.path);
+      var file = sanitizeVirtualFileName(packageValue.file || packageValue.name || source || "maps.pak", "maps.pak");
+      var maps = [];
+      var seenMaps = {};
+
+      if (!source) {
+        return null;
+      }
+      if (!/\.p(?:ak|k3)$/i.test(file)) {
+        file += ".pak";
+      }
+
+      splitList(packageValue.maps).concat(splitList(packageValue.map)).forEach(function(mapValue) {
+        var fileName = fileNameFromValue(mapValue);
+        if (fileName && !/\.(bsp|lit)$/i.test(fileName)) {
+          fileName += ".bsp";
+        }
+        var key = fileName.toLowerCase();
+        if (key && !seenMaps[key]) {
+          maps.push(fileName);
+          seenMaps[key] = true;
+        }
+      });
+
+      return {
+        file: file,
+        source: sourceForRelativeValue(source),
+        maps: maps,
+        providesPak1Maps: !!packageValue.providesPak1Maps || /^pak1\.pak$/i.test(file)
+      };
+    }
+
+    function packageProvidesMap(packageInfo, mapFile) {
+      var base = fileNameFromValue(mapFile).replace(/\.(?:bsp|lit)$/i, "").toLowerCase();
+      if (!base) {
+        return false;
+      }
+      if (packageInfo.providesPak1Maps && PAK1_REQUIRED_MAP_PATTERN.test(base)) {
+        return true;
+      }
+      return packageInfo.maps.some(function(map) {
+        return fileNameFromValue(map).replace(/\.(?:bsp|lit)$/i, "").toLowerCase() === base;
+      });
+    }
+
+    function packagesProvideMap(packages, mapFile) {
+      return packages.some(function(packageInfo) {
+        return packageProvidesMap(packageInfo, mapFile);
+      });
+    }
+
+    function packagesNeededForMaps(packages, maps) {
+      if (!maps.length) {
+        return packages.slice();
+      }
+
+      return packages.filter(function(packageInfo) {
+        return maps.some(function(map) {
+          return packageProvidesMap(packageInfo, map.file || map);
+        });
+      });
+    }
+
+    function builtInPackagesForMap(mapFile) {
+      return BUILT_IN_PACKAGES.filter(function(packageInfo) {
+        return packageProvidesMap(packageInfo, mapFile);
+      });
+    }
+
+    function normalizeDemoSpec(spec, fallbackName) {
+      var source = cleanValue(spec.source || spec.src || spec.url || spec.href || spec.path);
+      var file = sanitizeVirtualFileName(spec.file || source || fallbackName, "demo.dem");
+      var pak1Source = cleanValue(spec.pak1Source || spec.pak1 || spec.pak1Url || spec.pak1_url);
+      var maps = [];
+      var seenMaps = {};
+      var packages = [];
+      var seenPackages = {};
+
+      if (source && !/\.(dem|mvd|qwd|qwz|dz)$/i.test(file)) {
+        file += ".dem";
+      }
+
+      splitList(spec.maps).concat(splitList(spec.map)).forEach(function(mapValue) {
+        var map = normalizeMapDescriptor(mapValue);
+        if (!map) {
+          return;
+        }
+        var key = map.file.toLowerCase();
+        if (!seenMaps[key]) {
+          maps.push(map);
+          seenMaps[key] = true;
+        }
+      });
+
+      parseMaybeJsonArray(spec.packages).forEach(function(packageValue) {
+        var packageInfo = normalizePackageDescriptor(packageValue);
+        if (!packageInfo) {
+          return;
+        }
+        var key = packageInfo.file.toLowerCase();
+        if (!seenPackages[key]) {
+          packages.push(packageInfo);
+          seenPackages[key] = true;
+        }
+      });
+
+      if (pak1Source && !seenPackages["pak1.pak"]) {
+        packages.push({
+          file: sanitizeVirtualFileName(spec.pak1File || "pak1.pak", "pak1.pak"),
+          source: sourceForRelativeValue(pak1Source),
+          maps: [],
+          providesPak1Maps: true
+        });
+      }
+
+      return {
+        title: cleanValue(spec.title || spec.name || spec.label) || file,
+        file: file,
+        source: sourceForRelativeValue(source || ("id1/" + file)),
+        pak1Source: pak1Source ? sourceForRelativeValue(pak1Source) : "",
+        pak1File: pak1Source ? sanitizeVirtualFileName(spec.pak1File || "pak1.pak", "pak1.pak") : "",
+        packages: packages,
+        maps: maps,
+        duration: normalizeDuration(spec.duration || spec.demoDuration || spec.length || spec.seconds)
+      };
+    }
+
+    function specFromQuery() {
+      var source = params.get("source") || params.get("src") || params.get("url");
+      if (!source) {
+        return null;
+      }
+
+      return normalizeDemoSpec({
+        source: source,
+        file: params.get("file") || "",
+        title: params.get("title") || params.get("name") || "",
+        pak1Source: params.get("pak1Source") || params.get("pak1") || "",
+        pak1File: params.get("pak1File") || "",
+        packages: params.get("packages") || "",
+        maps: params.get("maps") || "",
+        map: params.get("map") || "",
+        duration: params.get("duration") || params.get("demoDuration") || ""
+      }, source);
+    }
+
+    function specFromSession() {
+      var launchKey = params.get("launch");
+      if (!launchKey) {
+        return null;
+      }
+
+      try {
+        var text = window.localStorage.getItem(launchKey);
+        if (!text) {
+          return null;
+        }
+        window.localStorage.removeItem(launchKey);
+        return normalizeDemoSpec(JSON.parse(text), launchKey);
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    var selectedName = params.get("demo") || params.get("source") || params.get("launch") || "";
+    var selectedDemo = specFromSession() || specFromQuery();
+    var demoDuration = selectedDemo ? normalizeDuration(selectedDemo.duration) : 0;
+
+    function requestEngineResize() {
+      if (typeof window.onresize !== "function") {
+        return;
+      }
+
+      requestAnimationFrame(function() {
+        window.onresize();
+      });
+    }
+
+    function viewportSize() {
+      var widths = [window.innerWidth, document.documentElement.clientWidth];
+      var heights = [window.innerHeight, document.documentElement.clientHeight];
+      if (window.frameElement) {
+        var frameRect = window.frameElement.getBoundingClientRect();
+        if (frameRect.width) {
+          widths.push(frameRect.width);
+        }
+        if (frameRect.height) {
+          heights.push(frameRect.height);
+        }
+      }
+
+      return {
+        width: Math.min.apply(Math, widths.filter(function(value) {
+          return Number.isFinite(value) && value > 0;
+        })),
+        height: Math.min.apply(Math, heights.filter(function(value) {
+          return Number.isFinite(value) && value > 0;
+        }))
+      };
+    }
+
+    function setPlayerSize(width) {
+      var roundedWidth = Math.floor(width);
+      var roundedHeight = Math.floor(roundedWidth * 3 / 4);
+
+      document.documentElement.style.setProperty("--player-width", roundedWidth + "px");
+      document.documentElement.style.setProperty("--player-height", roundedHeight + "px");
+    }
+
+    function reservedPlayerHeight() {
+      var shellStyle = getComputedStyle(document.querySelector(".shell"));
+      var verticalPadding = parseFloat(shellStyle.paddingTop) + parseFloat(shellStyle.paddingBottom);
+      var topbarHeight = document.querySelector(".topbar").getBoundingClientRect().height;
+      var controlsHeight = document.querySelector(".controls").getBoundingClientRect().height;
+      var gap = parseFloat(shellStyle.gap) || 0;
+
+      return verticalPadding + topbarHeight + controlsHeight + gap;
+    }
+
+    function fitPlayerToWindow() {
+      var viewport = viewportSize();
+      var maxWidth = Math.max(160, viewport.width - 40);
+      var width = maxWidth;
+
+      for (var pass = 0; pass < 4; pass++) {
+        setPlayerSize(width);
+        var availableHeight = Math.max(120, viewport.height - reservedPlayerHeight() - PLAYER_VERTICAL_MARGIN);
+        var nextWidth = Math.min(maxWidth, availableHeight * 4 / 3);
+
+        if (Math.abs(nextWidth - width) < 1) {
+          width = nextWidth;
+          break;
+        }
+        width = nextWidth;
+      }
+
+      setPlayerSize(width);
+      requestEngineResize();
+    }
+
+    window.addEventListener("resize", fitPlayerToWindow);
+    fitPlayerToWindow();
+
+    function showError(message) {
+      if (playbackControlsElement) {
+        playbackControlsElement.hidden = true;
+      }
+      if (loadingControlsElement) {
+        loadingControlsElement.hidden = true;
+      }
+      if (playerOverlay) {
+        playerOverlay.hidden = true;
+      }
+      statusElement.hidden = true;
+      progressElement.hidden = true;
+      errorElement.textContent = message;
+      errorElement.hidden = false;
+    }
+
+    function setStatus(text) {
+      if (setStatus.interval) {
+        clearInterval(setStatus.interval);
+      }
+
+      var match = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+      if (match) {
+        text = match[1].trim();
+        progressElement.value = parseInt(match[2], 10) * 100;
+        progressElement.max = parseInt(match[4], 10) * 100;
+        progressElement.hidden = false;
+      } else {
+        progressElement.value = 0;
+        progressElement.max = 100;
+        progressElement.hidden = true;
+      }
+
+      statusElement.textContent = text;
+      statusElement.hidden = text.length === 0;
+    }
+
+    function setPlaybackControlsEnabled(enabled) {
+      if (loadingControlsElement) {
+        loadingControlsElement.hidden = enabled;
+      }
+      if (playbackControlsElement) {
+        playbackControlsElement.hidden = !enabled;
+      }
+      if (playerOverlay) {
+        playerOverlay.hidden = !enabled;
+      }
+      controlButtons.forEach(function(button) {
+        button.disabled = !enabled;
+      });
+      [volumeToggle, volumeSlider, fullscreenButton, speedSelect].forEach(function(control) {
+        if (control) {
+          control.disabled = !enabled;
+        }
+      });
+      updatePlayPauseButton();
+      updateSpeedSelectWidth();
+      updateFullscreenButton();
+      updateVolumeControls();
+    }
+
+    function sourceLooksImmediate(source) {
+      return /^(?:blob:|data:)/i.test(cleanValue(source));
+    }
+
+    function sourceExists(source) {
+      var clean = cleanValue(source);
+      if (!clean) {
+        return Promise.resolve(false);
+      }
+      if (sourceLooksImmediate(clean)) {
+        return Promise.resolve(true);
+      }
+
+      return fetch(clean, {
+        method: "HEAD",
+        cache: "force-cache"
+      }).then(function(response) {
+        return response.ok;
+      }).catch(function() {
+        return false;
+      });
+    }
+
+    function fetchArrayBuffer(source) {
+      return fetch(source, {
+        cache: "force-cache"
+      }).then(function(response) {
+        if (!response.ok && response.status !== 0) {
+          throw new Error("HTTP " + response.status);
+        }
+        return response.arrayBuffer();
+      });
+    }
+
+    function cloneArrayBuffer(bufferLike) {
+      if (bufferLike instanceof ArrayBuffer) {
+        return bufferLike.slice(0);
+      }
+      if (ArrayBuffer.isView(bufferLike)) {
+        return bufferLike.buffer.slice(bufferLike.byteOffset, bufferLike.byteOffset + bufferLike.byteLength);
+      }
+      throw new TypeError("Expected binary demo data.");
+    }
+
+    function addParsedDemoMaps(demo, parsed) {
+      var seenMaps = {};
+      if (!parsed || !Array.isArray(parsed.maps)) {
+        return;
+      }
+
+      demo.maps.forEach(function(map) {
+        var key = fileNameFromValue(map.file || map).toLowerCase();
+        if (key) {
+          seenMaps[key] = true;
+        }
+      });
+
+      parsed.maps.forEach(function(map) {
+        var mapName = cleanValue(map.mapName || map.file || map.name || "");
+        var descriptor;
+        var key;
+        if (!mapName) {
+          return;
+        }
+        descriptor = normalizeMapDescriptor(mapName);
+        if (!descriptor) {
+          return;
+        }
+        key = descriptor.file.toLowerCase();
+        if (!seenMaps[key]) {
+          demo.maps.push(descriptor);
+          seenMaps[key] = true;
+        }
+      });
+    }
+
+    function demoDurationFromBuffer(buffer, demo) {
+      if (!window.QuakeDemoParser || typeof window.QuakeDemoParser.parseDemoBuffer !== "function") {
+        return 0;
+      }
+
+      try {
+        var parsed = window.QuakeDemoParser.parseDemoBuffer(buffer, {
+          name: demo.file
+        });
+        var duration = 0;
+        addParsedDemoMaps(demo, parsed);
+        if (parsed && parsed.timeline) {
+          duration = normalizeDuration(Number(parsed.timeline.endTime) - Number(parsed.timeline.startTime));
+        }
+        if (!duration) {
+          duration = normalizeDuration(parsed && parsed.duration);
+        }
+        return duration;
+      } catch (error) {
+        console.warn("Unable to read demo duration:", error);
+        return 0;
+      }
+    }
+
+    function prepareDzipDemoSource(buffer, demo) {
+      if (!window.QuakeDemoDzip || typeof window.QuakeDemoDzip.extractDemoEntries !== "function") {
+        throw new Error("DZip support is unavailable.");
+      }
+
+      return window.QuakeDemoDzip.extractDemoEntries(buffer).then(function(entries) {
+        var entry = entries[0];
+        var fileName;
+        var demoBuffer;
+
+        if (!entry) {
+          throw new Error("The .dz archive does not contain any .dem entries.");
+        }
+
+        fileName = cleanValue(entry.name) || demo.file.replace(/\.dz$/i, ".dem");
+        demo.file = sanitizeVirtualFileName(fileName, "demo.dem");
+        demoBuffer = cloneArrayBuffer(entry.bytes);
+        var duration = demoDurationFromBuffer(demoBuffer, demo);
+        if (demoDuration <= 0 && duration > 0) {
+          demoDuration = duration;
+          demo.duration = duration;
+        }
+        return demoBuffer;
+      });
+    }
+
+    function prepareDemoSource(demo) {
+      if (!/\.(?:dem|dz)$/i.test(demo.file) || (demoDuration > 0 && demo.maps.length && !/\.dz$/i.test(demo.file))) {
+        return Promise.resolve(demo.source);
+      }
+
+      return fetchArrayBuffer(demo.source).then(function(buffer) {
+        if (/\.dz$/i.test(demo.file)) {
+          return prepareDzipDemoSource(buffer, demo);
+        }
+
+        var duration = demoDurationFromBuffer(buffer, demo);
+        if (duration > 0) {
+          demoDuration = duration;
+          demo.duration = duration;
+        }
+        return buffer;
+      }).catch(function(error) {
+        console.warn("Unable to prefetch demo for timeline shortcuts:", error);
+        if (/\.dz$/i.test(demo.file)) {
+          throw error;
+        }
+        return demo.source;
+      });
+    }
+
+    function addPackageFile(files, mountedPackages, packageInfo) {
+      var virtualPath = "id1/" + packageInfo.file;
+      if (files[virtualPath]) {
+        return;
+      }
+
+      files[virtualPath] = packageInfo.source;
+      mountedPackages.push(packageInfo);
+    }
+
+    function addMapFile(files, map) {
+      files["id1/maps/" + map.file] = map.source;
+      if (map.file.toLowerCase() !== map.file) {
+        files["id1/maps/" + map.file.toLowerCase()] = map.source;
+      }
+    }
+
+    function baseFiles() {
+      var files = {
+        "default.fmf": "default.fmf",
+        "id1/fte.cfg": demoConfigSource,
+        "qw/fte.cfg": demoConfigSource,
+        "ctf/fte.cfg": demoConfigSource,
+        "id1/fragfile.dat": "id1/fragfile.dat"
+      };
+
+      if (window.Quake106Shareware && typeof window.Quake106Shareware.extractPak0 === "function") {
+        files["id1/pak0.pak"] = window.Quake106Shareware.extractPak0({
+          setStatus: setStatus
+        }).catch(function(error) {
+          var message = error && error.message ? error.message : String(error);
+          showError("Unable to prepare pak0.pak from quake106.zip: " + message);
+          throw error;
+        });
+      }
+
+      return files;
+    }
+
+    function prepareFilesForDemo(demo) {
+      var assetFiles = {};
+      var mountedPackages = [];
+      var preparedDemoSource;
+
+      return prepareDemoSource(demo).then(function(demoSource) {
+        var neededPackages = packagesNeededForMaps(demo.packages, demo.maps);
+        preparedDemoSource = demoSource;
+
+        neededPackages.forEach(function(packageInfo) {
+          addPackageFile(assetFiles, mountedPackages, packageInfo);
+        });
+
+        return demo.maps.reduce(function(chain, map) {
+          return chain.then(function() {
+            if (packagesProvideMap(mountedPackages, map.file)) {
+              return;
+            }
+
+            if (mapFileNeedsPak1(map.file)) {
+              throw new Error("This demo uses " + fileNameFromValue(map.file) + ", which needs pak1.pak or another package containing that map. Drop the .pak first, then drop the demo again.");
+            }
+
+            var fallbackPackages = builtInPackagesForMap(map.file);
+            if (fallbackPackages.length) {
+              fallbackPackages.forEach(function(packageInfo) {
+                addPackageFile(assetFiles, mountedPackages, packageInfo);
+              });
+              return;
+            }
+
+            return sourceExists(map.source).then(function(exists) {
+              if (exists) {
+                addMapFile(assetFiles, map);
+                return;
+              }
+
+              addMapFile(assetFiles, map);
+            });
+          });
+        }, Promise.resolve());
+      }).then(function() {
+        assetFiles["id1/" + demo.file] = preparedDemoSource;
+        var files = baseFiles();
+        Object.keys(assetFiles).forEach(function(path) {
+          files[path] = assetFiles[path];
+        });
+        return files;
+      });
+    }
+
+    function focusCanvas() {
+      try {
+        canvas.focus({ preventScroll: true });
+      } catch (_error) {
+        canvas.focus();
+      }
+    }
+
+    function sendEngineCommand(command, options) {
+      if (!command) {
+        return;
+      }
+
+      if (options && options.focus === true) {
+        focusCanvas();
+      }
+      if (typeof FTEC !== "undefined" && FTEC && typeof FTEC.cbufadd === "function") {
+        FTEC.cbufadd(command + "\n");
+      }
+    }
+
+    function clampVolume(value) {
+      var number = Number(value);
+      if (!Number.isFinite(number)) {
+        return INITIAL_VOLUME;
+      }
+      return Math.max(0, Math.min(1, number));
+    }
+
+    function updateVolumeControls() {
+      if (volumeSlider) {
+        volumeSlider.value = String(currentVolume);
+      }
+      if (volumeToggle) {
+        var muted = currentVolume <= 0;
+        volumeToggle.classList.toggle("is-muted", muted);
+        volumeToggle.setAttribute("aria-label", muted ? "Unmute" : "Mute");
+        volumeToggle.title = muted ? "Unmute" : "Mute";
+      }
+    }
+
+    function setVolume(value, sendCommand, options) {
+      currentVolume = clampVolume(value);
+      if (currentVolume > 0) {
+        previousAudibleVolume = currentVolume;
+      }
+      if (playbackPaused && (!options || !options.pauseMute)) {
+        pauseMutedAutomatically = false;
+      }
+      updateVolumeControls();
+      if (sendCommand) {
+        sendEngineCommand("volume " + currentVolume.toFixed(2), {
+          focus: false
+        });
+      }
+    }
+
+    function updatePlayPauseButton() {
+      if (!playPauseButton) {
+        return;
+      }
+      playPauseButton.textContent = playbackPaused ? "Play" : "Pause";
+      playPauseButton.setAttribute("aria-label", playbackPaused ? "Play demo" : "Pause demo");
+      playPauseButton.title = playbackPaused ? "Play" : "Pause";
+    }
+
+    function setPlaybackPaused(paused, sendCommand) {
+      playbackPaused = !!paused;
+      updatePlayPauseButton();
+      if (sendCommand) {
+        sendEngineCommand("demo_setspeed " + (playbackPaused ? 0 : playbackSpeed));
+      }
+      if (playbackPaused) {
+        pauseMutedAutomatically = currentVolume > 0;
+        pauseResumeVolume = currentVolume > 0 ? currentVolume : (previousAudibleVolume || INITIAL_VOLUME);
+        if (pauseMutedAutomatically) {
+          setVolume(0, sendCommand, {
+            pauseMute: true
+          });
+        }
+      } else {
+        if (pauseMutedAutomatically && currentVolume <= 0) {
+          setVolume(pauseResumeVolume || previousAudibleVolume || INITIAL_VOLUME, sendCommand, {
+            pauseRestore: true
+          });
+        }
+        pauseMutedAutomatically = false;
+      }
+    }
+
+    function updateSpeedSelectWidth() {
+      if (!speedSelect) {
+        return;
+      }
+
+      var option = speedSelect.options[speedSelect.selectedIndex];
+      var label = option ? option.text : speedSelect.value;
+      var canvas = updateSpeedSelectWidth.canvas || (updateSpeedSelectWidth.canvas = document.createElement("canvas"));
+      var context = canvas.getContext("2d");
+      var style = getComputedStyle(speedSelect);
+      var textWidth = 0;
+      if (context) {
+        context.font = style.font;
+        textWidth = context.measureText(label).width;
+      } else {
+        textWidth = label.length * 8;
+      }
+
+      speedSelect.style.setProperty("--speed-select-width", Math.ceil(Math.max(58, textWidth + 42)) + "px");
+    }
+
+    function setPlaybackSpeed(value, sendCommand) {
+      var speed = Number(value);
+      if (!Number.isFinite(speed) || speed <= 0) {
+        speed = 100;
+      }
+      playbackSpeed = speed;
+      if (speedSelect && speedSelect.value !== String(speed)) {
+        speedSelect.value = String(speed);
+      }
+      updateSpeedSelectWidth();
+      if (sendCommand && !playbackPaused) {
+        sendEngineCommand("demo_setspeed " + playbackSpeed);
+      }
+    }
+
+    function handlePlaybackButton(button) {
+      var action = button && button.getAttribute("data-player-control");
+      if (action === "toggle-playback") {
+        setPlaybackPaused(!playbackPaused, true);
+        return;
+      }
+      sendEngineCommand(ENGINE_CONTROL_COMMANDS[action]);
+    }
+
+    function getFullscreenElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function fullscreenSupported() {
+      return !!(playerViewport && (playerViewport.requestFullscreen || playerViewport.webkitRequestFullscreen));
+    }
+
+    function isPlayerFullscreen() {
+      return getFullscreenElement() === playerViewport;
+    }
+
+    function updateFullscreenButton() {
+      if (!fullscreenButton) {
+        return;
+      }
+      var fullscreen = isPlayerFullscreen();
+      fullscreenButton.classList.toggle("is-fullscreen", fullscreen);
+      fullscreenButton.setAttribute("aria-label", fullscreen ? "Exit fullscreen" : "Enter fullscreen");
+      fullscreenButton.title = fullscreen ? "Exit fullscreen" : "Enter fullscreen";
+      fullscreenButton.disabled = fullscreenButton.disabled || !fullscreenSupported();
+    }
+
+    function toggleFullscreen() {
+      if (!fullscreenSupported()) {
+        return;
+      }
+
+      var action;
+      if (isPlayerFullscreen()) {
+        action = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen();
+      } else {
+        action = playerViewport.requestFullscreen ? playerViewport.requestFullscreen() : playerViewport.webkitRequestFullscreen();
+      }
+
+      if (action && typeof action.catch === "function") {
+        action.catch(function(error) {
+          console.warn(error);
+        });
+      }
+    }
+
+    function showOverlayTemporarily() {
+      if (!playerViewport || !playerOverlay || playerOverlay.hidden) {
+        return;
+      }
+      playerViewport.classList.add("overlay-visible");
+      if (overlayHideTimer) {
+        clearTimeout(overlayHideTimer);
+      }
+      overlayHideTimer = window.setTimeout(function() {
+        playerViewport.classList.remove("overlay-visible");
+      }, 2200);
+    }
+
+    function handleFullscreenChange() {
+      updateFullscreenButton();
+      if (isPlayerFullscreen()) {
+        requestEngineResize();
+      } else {
+        fitPlayerToWindow();
+      }
+      showOverlayTemporarily();
+    }
+
+    function isKeyboardActivation(event) {
+      return event.key === "Enter" || event.key === " ";
+    }
+
+    function handleSliderKeyboard(event) {
+      if (!volumeSlider || event.target !== volumeSlider || event.type !== "keydown" || volumeSlider.disabled) {
+        return false;
+      }
+
+      var step = Number(volumeSlider.step) || 0.01;
+      var value = currentVolume;
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        value -= step;
+      } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        value += step;
+      } else if (event.key === "Home") {
+        value = 0;
+      } else if (event.key === "End") {
+        value = 1;
+      } else {
+        return false;
+      }
+
+      setVolume(value, true);
+      showOverlayTemporarily();
+      return true;
+    }
+
+    function handleSpeedKeyboard(event) {
+      if (!speedSelect || event.target !== speedSelect || event.type !== "keydown" || speedSelect.disabled) {
+        return false;
+      }
+
+      var index = speedSelect.selectedIndex;
+      if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+        index -= 1;
+      } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+        index += 1;
+      } else if (event.key === "Home") {
+        index = 0;
+      } else if (event.key === "End") {
+        index = speedSelect.options.length - 1;
+      } else {
+        return false;
+      }
+
+      index = Math.max(0, Math.min(speedSelect.options.length - 1, index));
+      if (index !== speedSelect.selectedIndex) {
+        speedSelect.selectedIndex = index;
+        setPlaybackSpeed(speedSelect.value, true);
+      }
+      return true;
+    }
+
+    function isTextInputTarget(target) {
+      if (!target) {
+        return false;
+      }
+      var tagName = String(target.tagName || "").toLowerCase();
+      var type = String(target.type || "").toLowerCase();
+      return target.isContentEditable ||
+        tagName === "textarea" ||
+        (tagName === "input" && /^(?:text|search|url|tel|email|password|number)$/i.test(type));
+    }
+
+    function updateShowscoresState() {
+      var shouldShow = keyboardShowscoresDown || pointerShowscoresDown;
+      if (shouldShow === showscoresDown) {
+        return;
+      }
+      showscoresDown = shouldShow;
+      sendEngineCommand(showscoresDown ? "+showscores" : "-showscores");
+    }
+
+    function holdShowscores(source) {
+      if (source === "pointer") {
+        pointerShowscoresDown = true;
+      } else {
+        keyboardShowscoresDown = true;
+      }
+      updateShowscoresState();
+    }
+
+    function releaseShowscores(source) {
+      if (source === "pointer") {
+        pointerShowscoresDown = false;
+      } else if (source === "keyboard") {
+        keyboardShowscoresDown = false;
+      } else {
+        keyboardShowscoresDown = false;
+        pointerShowscoresDown = false;
+      }
+      updateShowscoresState();
+    }
+
+    function handleShowscoresKeyboard(event) {
+      if (event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey || isTextInputTarget(event.target)) {
+        return false;
+      }
+
+      if (event.type === "keydown") {
+        holdShowscores("keyboard");
+        showOverlayTemporarily();
+        return true;
+      }
+
+      if (event.type === "keyup") {
+        releaseShowscores("keyboard");
+        return true;
+      }
+
+      return event.type === "keypress";
+    }
+
+    function nudgeDemoFrame(direction) {
+      if (!playbackPaused) {
+        setPlaybackPaused(true, true);
+      }
+      sendEngineCommand("demo_nudge " + direction);
+      showOverlayTemporarily();
+    }
+
+    function currentEngineDemoTime() {
+      try {
+        if (typeof Module !== "undefined" && Module && typeof Module.getDemoTime === "function") {
+          var value = Number(Module.getDemoTime());
+          if (Number.isFinite(value) && value >= 0) {
+            return value;
+          }
+        }
+      } catch (_error) {
+        // Engine not ready yet.
+      }
+      return null;
+    }
+
+    function jumpDemoToTime(seconds) {
+      var target = Math.max(0, Math.round(Number(seconds) || 0));
+      var current = currentEngineDemoTime();
+      // Absolute `demo_jump <abs>` is unreliable for NetQuake protocol 15 demos in
+      // ftewebgl; the relative form works consistently for both NQ and QW. Convert
+      // the absolute target into a +/- delta from the engine's current demo time.
+      if (current !== null) {
+        var delta = target - Math.round(current);
+        if (delta === 0) {
+          showOverlayTemporarily();
+          return;
+        }
+        sendEngineCommand("demo_jump " + (delta > 0 ? "+" : "-") + Math.abs(delta));
+      } else {
+        sendEngineCommand("demo_jump " + target);
+      }
+      showOverlayTemporarily();
+    }
+
+    function handlePercentSeekKeyboard(event) {
+      if (event.type !== "keydown" || event.altKey || event.ctrlKey || event.metaKey || event.repeat || isTextInputTarget(event.target)) {
+        return false;
+      }
+      if (event.key === "," || event.key === "<" || event.key === "." || event.key === ">") {
+        nudgeDemoFrame((event.key === "," || event.key === "<") ? "-1" : "+1");
+        return true;
+      }
+      if (event.key === "0") {
+        jumpDemoToTime(0);
+        return true;
+      }
+      if (!/^[1-9]$/.test(event.key) || demoDuration <= 0) {
+        return false;
+      }
+
+      var percentage = Number(event.key) / 10;
+      var targetSeconds = Math.max(0, Math.round(demoDuration * percentage));
+      jumpDemoToTime(targetSeconds);
+      return true;
+    }
+
+    function handleButtonKeyboard(event) {
+      if (event.type !== "keydown" || !isKeyboardActivation(event)) {
+        return false;
+      }
+
+      var target = event.target;
+      if (!target || typeof target.closest !== "function") {
+        return false;
+      }
+
+      var playbackButton = target.closest("[data-player-control]");
+      if (playbackButton && !playbackButton.disabled) {
+        handlePlaybackButton(playbackButton);
+        return true;
+      }
+
+      if (volumeToggle && target.closest("#volumeToggle") === volumeToggle && !volumeToggle.disabled) {
+        setVolume(currentVolume > 0 ? 0 : (previousAudibleVolume || INITIAL_VOLUME), true);
+        showOverlayTemporarily();
+        return true;
+      }
+
+      if (fullscreenButton && target.closest("#fullscreenButton") === fullscreenButton && !fullscreenButton.disabled) {
+        toggleFullscreen();
+        showOverlayTemporarily();
+        return true;
+      }
+
+      return false;
+    }
+
+    function isConsoleToggleKey(event) {
+      return event.key === "`" || event.key === "~" || event.code === "Backquote";
+    }
+
+    function notifyConsoleState() {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: "q1tools-demo-player-event",
+            event: "console-state",
+            open: !!consoleOpen
+          }, "*");
+        }
+      } catch (_error) {
+        // parent may be cross-origin in some embeds; ignore.
+      }
+    }
+
+    function toggleConsole() {
+      consoleOpen = !consoleOpen;
+      if (consoleOpen) {
+        releaseAllShowscores();
+        focusCanvas();
+      }
+      sendEngineCommand("toggleconsole");
+      notifyConsoleState();
+    }
+
+    function isPauseToggleKey(event) {
+      return event.key === " " || event.key === "Spacebar" || event.code === "Space";
+    }
+
+    function blockEngineKeyboardEvent(event) {
+      if (isConsoleToggleKey(event) && !event.altKey && !event.ctrlKey && !event.metaKey && !isTextInputTarget(event.target)) {
+        if (event.type === "keydown" && !event.repeat) {
+          toggleConsole();
+          showOverlayTemporarily();
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      if (consoleOpen) {
+        // Console is open; let keystrokes flow through to the engine so the user can type.
+        // preventDefault on keydown suppresses the synthetic keypress event (FTE listens to
+        // both, which produced double letters) and blocks browser defaults like spacebar
+        // scrolling. Swallow keypress outright so it never reaches FTE.
+        if (event.type === "keydown") {
+          event.preventDefault();
+        } else if (event.type === "keypress") {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+        return;
+      }
+
+      if (isPauseToggleKey(event) && !event.altKey && !event.ctrlKey && !event.metaKey && !isTextInputTarget(event.target)) {
+        if (event.type === "keydown" && !event.repeat) {
+          setPlaybackPaused(!playbackPaused, true);
+          showOverlayTemporarily();
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      var handledControl = handleShowscoresKeyboard(event) || handlePercentSeekKeyboard(event) || handleSliderKeyboard(event) || handleSpeedKeyboard(event) || handleButtonKeyboard(event);
+      if (handledControl) {
+        event.preventDefault();
+      }
+      event.stopImmediatePropagation();
+    }
+
+    function formatClock(seconds) {
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        return "--:--";
+      }
+
+      var rounded = Math.floor(seconds);
+      var minutes = Math.floor(rounded / 60);
+      var remainder = rounded % 60;
+      return minutes + ":" + String(remainder).padStart(2, "0");
+    }
+
+    function updatePlaybackTime() {
+      if (!playbackTimeElement) {
+        return;
+      }
+
+      try {
+        if (typeof Module !== "undefined" && Module && typeof Module.getDemoTime === "function") {
+          playbackTimeElement.textContent = formatClock(Number(Module.getDemoTime()));
+        }
+      } catch (_error) {
+        // The engine can briefly expose Module before demo state is ready.
+      }
+
+      window.setTimeout(updatePlaybackTime, 250);
+    }
+
+    function stopControlEvent(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    function stopOverlayPointerEvent(event) {
+      event.stopPropagation();
+    }
+
+    function stopOverlayButtonEvent(event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    function stopWheelEvent(event) {
+      event.stopImmediatePropagation();
+    }
+
+    function clearLongPressTimer() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = 0;
+      }
+    }
+
+    function beginCanvasLongPress(event) {
+      if (event.type === "pointerdown" && event.button !== 0) {
+        return;
+      }
+      clearLongPressTimer();
+      longPressPointerId = event.pointerId == null ? null : event.pointerId;
+      longPressTimer = window.setTimeout(function() {
+        longPressTimer = 0;
+        holdShowscores("pointer");
+        showOverlayTemporarily();
+      }, LONG_PRESS_SHOWSCORES_MS);
+    }
+
+    function endCanvasLongPress(event) {
+      if (longPressPointerId !== null && event.pointerId !== longPressPointerId) {
+        return;
+      }
+      clearLongPressTimer();
+      longPressPointerId = null;
+      releaseShowscores("pointer");
+    }
+
+    function cancelCanvasLongPress() {
+      clearLongPressTimer();
+      longPressPointerId = null;
+      releaseShowscores("pointer");
+    }
+
+    function releaseAllShowscores() {
+      clearLongPressTimer();
+      longPressPointerId = null;
+      releaseShowscores();
+    }
+
+    function handleCanvasSurfaceEvent(event) {
+      event.preventDefault();
+      if (event.type === "pointerdown") {
+        beginCanvasLongPress(event);
+      } else if (event.type === "pointerup") {
+        endCanvasLongPress(event);
+      } else if (event.type === "pointercancel" || event.type === "pointerleave") {
+        cancelCanvasLongPress();
+      } else if (event.type === "dblclick") {
+        cancelCanvasLongPress();
+        toggleFullscreen();
+        showOverlayTemporarily();
+      } else if (event.type === "contextmenu") {
+        cancelCanvasLongPress();
+      }
+      event.stopImmediatePropagation();
+    }
+
+    function stopCanvasClickEvent(event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+
+    ["wheel", "mousewheel", "DOMMouseScroll"].forEach(function(type) {
+      canvas.addEventListener(type, stopWheelEvent, {
+        capture: true,
+        passive: false
+      });
+    });
+
+    ["pointerdown", "pointerup", "pointercancel", "pointerleave", "dblclick", "contextmenu"].forEach(function(type) {
+      canvas.addEventListener(type, handleCanvasSurfaceEvent, {
+        capture: true,
+        passive: false
+      });
+    });
+
+    ["mousedown", "mouseup", "click", "auxclick"].forEach(function(type) {
+      canvas.addEventListener(type, stopCanvasClickEvent, {
+        capture: true,
+        passive: false
+      });
+    });
+
+    controlButtons.forEach(function(button) {
+      ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
+        button.addEventListener(type, stopControlEvent);
+      });
+
+      button.addEventListener("click", function(event) {
+        stopControlEvent(event);
+        handlePlaybackButton(button);
+      });
+    });
+
+    if (speedSelect) {
+      ["pointerdown", "pointerup", "mousedown", "mouseup", "click"].forEach(function(type) {
+        speedSelect.addEventListener(type, stopOverlayPointerEvent);
+      });
+      speedSelect.addEventListener("change", function(event) {
+        event.stopPropagation();
+        setPlaybackSpeed(speedSelect.value, true);
+      });
+    }
+
+    if (playerViewport) {
+      ["pointermove", "touchstart"].forEach(function(type) {
+        playerViewport.addEventListener(type, showOverlayTemporarily, {
+          passive: true
+        });
+      });
+    }
+
+    if (playerOverlay) {
+      ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick", "contextmenu"].forEach(function(type) {
+        playerOverlay.addEventListener(type, stopOverlayPointerEvent);
+      });
+    }
+
+    if (volumeToggle) {
+      ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
+        volumeToggle.addEventListener(type, stopOverlayPointerEvent);
+      });
+      volumeToggle.addEventListener("click", function(event) {
+        stopOverlayButtonEvent(event);
+        if (currentVolume > 0) {
+          setVolume(0, true);
+        } else {
+          setVolume(previousAudibleVolume || INITIAL_VOLUME, true);
+        }
+        showOverlayTemporarily();
+      });
+    }
+
+    if (volumeSlider) {
+      ["pointerdown", "pointerup", "mousedown", "mouseup", "click"].forEach(function(type) {
+        volumeSlider.addEventListener(type, stopOverlayPointerEvent);
+      });
+      volumeSlider.addEventListener("input", function(event) {
+        event.stopPropagation();
+        setVolume(volumeSlider.value, true);
+        showOverlayTemporarily();
+      });
+      volumeSlider.addEventListener("change", function(event) {
+        event.stopPropagation();
+        setVolume(volumeSlider.value, true);
+        showOverlayTemporarily();
+      });
+    }
+
+    if (fullscreenButton) {
+      ["pointerdown", "mousedown", "mouseup"].forEach(function(type) {
+        fullscreenButton.addEventListener(type, stopOverlayPointerEvent);
+      });
+      fullscreenButton.addEventListener("click", function(event) {
+        stopOverlayButtonEvent(event);
+        toggleFullscreen();
+        showOverlayTemporarily();
+      });
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    window.addEventListener("blur", releaseAllShowscores);
+    window.addEventListener("message", function(event) {
+      var data = event.data || {};
+      if (event.source !== window.parent || !data || data.type !== "q1tools-demo-player-command") {
+        return;
+      }
+      if (data.command === "-showscores") {
+        releaseShowscores("keyboard");
+      } else if (data.command === "+showscores") {
+        holdShowscores("keyboard");
+      } else if (data.command === "toggleconsole") {
+        toggleConsole();
+      } else if (data.shortcut === "demo_nudge") {
+        nudgeDemoFrame(data.direction === "-1" ? "-1" : "+1");
+      } else if (data.shortcut === "demo_jump") {
+        jumpDemoToTime(data.seconds);
+      } else if (data.shortcut === "demo_toggle_pause") {
+        setPlaybackPaused(!playbackPaused, true);
+      } else {
+        sendEngineCommand(String(data.command || ""));
+      }
+      if (data.showOverlay) {
+        showOverlayTemporarily();
+      }
+    });
+    ["keydown", "keyup", "keypress"].forEach(function(type) {
+      window.addEventListener(type, blockEngineKeyboardEvent, {
+        capture: true
+      });
+    });
+    setVolume(INITIAL_VOLUME, false);
+    updateSpeedSelectWidth();
+
+    if (!selectedDemo) {
+      showError(selectedName ? "Unknown demo: " + selectedName : "No demo selected. Drop a .dem in the /demo tool to play it.");
+    } else {
+      document.title = selectedDemo.title + " - FTE Demo Player";
+      document.getElementById("demo-title").textContent = selectedDemo.title;
+
+      setStatus("Checking map assets...");
+      Promise.all([loadCanvasRenderConfig(), prepareFilesForDemo(selectedDemo)]).then(function(results) {
+        var files = results[1];
+        var Module = {
+          arguments: [
+            "-nohome",
+            "-width", "640",
+            "-height", "480",
+            "+exec", "fte.cfg",
+            "+playdemo", selectedDemo.file
+          ],
+          files: files,
+          canvas: canvas,
+          print: function(message) {
+            console.log(message);
+          },
+          printErr: function(message) {
+            console.warn(message);
+          },
+          setStatus: setStatus,
+          totalDependencies: 0,
+          monitorRunDependencies: function(left) {
+            this.totalDependencies = Math.max(this.totalDependencies, left);
+            setStatus(left ? "Preparing... (" + (this.totalDependencies - left) + "/" + this.totalDependencies + ")" : "All downloads complete.");
+          },
+          postRun: [
+            function() {
+              if (Module.sched === undefined) {
+                showError("Unable to initialise the FTE runtime.");
+              } else {
+                setPlaybackControlsEnabled(true);
+                fitPlayerToWindow();
+                updatePlaybackTime();
+                setStatus("");
+              }
+            }
+          ]
+        };
+
+        window.Module = Module;
+        setStatus("Downloading...");
+        var script = document.createElement("script");
+        script.src = "ftewebgl.js";
+        script.type = "text/javascript";
+        script.charset = "utf-8";
+        script.addEventListener("error", function() {
+          showError("Unable to download ftewebgl.js.");
+        });
+        document.head.appendChild(script);
+      }).catch(function(error) {
+        showError(error && error.message ? error.message : String(error));
+      });
+    }
+  </script>
+</body>
+</html>

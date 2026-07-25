@@ -29,7 +29,7 @@
     const folderAnalysisContent = document.getElementById('folderAnalysisContent');
     const captimePanel = document.getElementById('captimePanel');
     const captimeContent = document.getElementById('captimeContent');
-    const DEMO_PLAYER_URL = 'qtubetest/play.html';
+    const DEMO_PLAYER_URL = 'play/';
     const DEMO_PLAYER_STORAGE_PREFIX = 'q1tools-demo-player:';
     const DEMO_PLAYER_MIN_HEIGHT = 360;
     const DEMO_PLAYER_MAX_HEIGHT = 1280;
