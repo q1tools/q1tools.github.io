@@ -430,6 +430,26 @@
   <script src="../parser.js?v=20260321b"></script>
   <script>
     var params = new URLSearchParams(window.location.search);
+
+    // ftewebgl.js appends the raw query string to the engine's argv whenever
+    // document.referrer is empty, which is the case for any link opened directly
+    // rather than from the /demo page. That extra token reaches +playdemo as a
+    // second argument and the demo never starts, so drop the query string now that
+    // it is parsed. Everything below reads the captured params, and the engine is
+    // not loaded until much later.
+    if (window.location.search) {
+      try {
+        window.history.replaceState(
+          window.history.state,
+          "",
+          window.location.pathname + window.location.hash
+        );
+      } catch (_error) {
+        // A sandboxed context can refuse replaceState; playback from the /demo
+        // page still works because it supplies a referrer.
+      }
+    }
+
     var statusElement = document.getElementById("status");
     var progressElement = document.getElementById("progress");
     var errorElement = document.getElementById("error");
