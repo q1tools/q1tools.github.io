@@ -183,6 +183,31 @@
           </section>
 
           <section class="authoring-note">
+            <h3>Combining Parts For MDL</h3>
+            <p>If separate Blender parts such as a sword and hand must become one MDL, join them into one mesh and bake their source textures into one palettized atlas. A quick projected unwrap followed by global-space UV alignment and packed pixel margins is useful for an initial AO or base-color pass; add deliberate seams and repack for the final bake. If a rigid part loses its animation while combining objects, temporarily vertex-parent it to three non-collinear animated vertices, then apply or bake the resulting transform before exporting the MDL.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Texture Painting Is A Skill</h3>
+            <p>Texture-painting software does not replace art direction. Smart materials, masks, generators, filters, and lighting presets make organization and iteration easier, but each effect still needs deliberate setup, tuning, and visual balance. For Quake-scale low-poly work, begin with a simple hand-painted or baked workflow and learn the fundamentals before investing in a specialized suite; Blender with tools such as <code>TexTools</code> or <code>Ucupaint</code>, <code>Quixel Mixer</code>, <code>ArmorPaint</code>, and <code>Texelizer</code> are examples of alternative workflows. Substance Painter is optional, and its high-resolution PBR features can be overkill when the final MDL is only an indexed diffuse atlas.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MD3 Objects And Skin Files</h3>
+            <p>MD3 can preserve multiple exported Blender objects and their separate external textures. Select all parts for export, then create one <code>&lt;model&gt;.md3_0.skin</code> text file with one line per object, such as <code>sword_mesh, progs/sword_texture.tga</code> and <code>hand_mesh, progs/hand_texture.tga</code>. Object/material names and texture paths must match exactly; lowercase names are safest on Linux.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MD3 Replacement Package</h3>
+            <p>A practical <code>progs/</code> package is <code>&lt;model&gt;.mdl</code> (matching fallback or null placeholder), <code>&lt;model&gt;.md3</code>, <code>&lt;model&gt;.md3_0.skin</code>, and the referenced <code>.tga</code> or <code>.png</code> images. The MDL and MD3 share the base name because the enhanced model replaces the legacy path; the placeholder does not need to visually match the MD3.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>MDL Cutout Versus MD3 Alpha</h3>
+            <p>MDL transparency is a binary palette cutout: enable the MDL alpha flag during export or in QME (<code>0x00004000</code>), and reserve palette index 255 as the mask. Without that flag, index 255 is rendered as a fullbright palette color. MD3 can use external TGA/PNG alpha for softer blending, but non-viewmodel alpha remains engine- and geometry-order-sensitive, so test intersecting cards, foliage, glass, and alternate skins in-game.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>Frame Numbers And Names</h3>
             <p>MDL poses and QuakeC frame indices are zero-based, while many Blender MDL workflows place pose 0 on timeline frame 1. Frame ranges are inclusive—77 through 97 contains 21 poses and normally exports as MDL indices 0-20. Many exporters sample Blender's configured playback/export range, and some also expect the playhead at its first frame, so extend the end when appending poses and rewind before export. Keep an explicit range map and verify the exported count after every insert or deletion. QuakeC <code>$frame</code> names are readable compile-time aliases for the same numeric indices used by <code>self.frame</code> and <code>self.weaponframe</code>, not model precaching.</p>
           </section>
