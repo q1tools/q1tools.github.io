@@ -193,6 +193,11 @@
           </section>
 
           <section class="authoring-note">
+            <h3>Animation Is Baked On Export</h3>
+            <p>Blender MDL exporters normally bake the evaluated source animation—including armatures, modifiers, and custom corrective shape keys—into vertex poses during export. You only need to edit every frame with shape keys when modifying an already vertex-animated import such as an ID1 enemy. MD3 follows the same vertex-animation approach with finer positional precision and can export multiple objects; for portable MDL authoring, assume one combined mesh and one UV map per export.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>MD3 Objects And Skin Files</h3>
             <p>MD3 can preserve multiple exported Blender objects and their separate external textures. Select all parts for export, then create one <code>&lt;model&gt;.md3_0.skin</code> text file with one line per object, such as <code>sword_mesh, progs/sword_texture.tga</code> and <code>hand_mesh, progs/hand_texture.tga</code>. Object/material names and texture paths must match exactly; lowercase names are safest on Linux.</p>
           </section>
@@ -214,7 +219,7 @@
 
           <section class="authoring-note">
             <h3>Baked Shape-Key Editing</h3>
-            <p>MDL animation has no bones. A relative Basis edit adds the same object-space vertex offset to every pose, so lengthening a sword or head there will not follow its changing local rotation and can warp later poses. Keep Relative mode and active-key editing enabled; for a local correction, the Blender timeline frame and selected pose key must match, with that key at 1 and the other pose keys at 0. Otherwise an edit can appear to do nothing or alter the wrong pose. Deleting pose keys may leave keyed influence curves behind, so inspect the Action/F-curves and rebuild the 0→1→0 weights when retiming. See the <a href="https://www.youtube.com/watch?v=rm6iKVf0Upg" target="_blank" rel="noopener noreferrer">Blender shape-key walkthrough</a>.</p>
+            <p>MDL animation has no bones. A relative Basis edit adds the same object-space vertex offset to every pose, so lengthening a sword or head there will not follow its changing local rotation and can warp later poses. Keep Relative mode and active-key editing enabled; for a local correction, the Blender timeline frame and selected pose key must match, with that key at 1 and the other pose keys at 0. Otherwise an edit can appear to do nothing or alter the wrong pose. Deleting pose keys may leave keyed influence curves behind, so inspect the Action/F-curves and rebuild the 0→1→0 weights when retiming. A corrective shape key on an armature-driven source is useful for localized problems such as shoulder pinching or a bulky monster needing a flatter death pose; it changes the deformation without changing the armature weights or topology. See the <a href="https://www.youtube.com/watch?v=rm6iKVf0Upg" target="_blank" rel="noopener noreferrer">Blender shape-key walkthrough</a>.</p>
           </section>
 
           <section class="authoring-note">
