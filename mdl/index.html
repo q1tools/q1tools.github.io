@@ -154,7 +154,7 @@
 
           <section class="authoring-note">
             <h3>Skin Size And Sampling</h3>
-            <p>Classic MDL tooling is fragile above 480 pixels of skin height, while very wide skins tend to be safer. MDL and MD3 UVs should land on texel centers, and nearest/closest filtering avoids edge bleed while checking pixel art.</p>
+            <p>Classic MDL tooling is fragile above 480 pixels of skin height, while very wide skins tend to be safer. MDL UVs should land on texel centers; for MD3, follow the exporter’s center- or corner-snap convention. Nearest/closest filtering avoids edge bleed while checking pixel art.</p>
           </section>
 
           <section class="authoring-note">
@@ -183,6 +183,11 @@
           </section>
 
           <section class="authoring-note">
+            <h3>Low-Poly Detail Budget</h3>
+            <p>Start weapon modeling from an orthographic reference, but prioritize the in-game first-person silhouette and readability over literal scale. Exaggerate tiny sights and controls that would disappear into MDL quantization, turn minor bolts, triggers, and indents into texture detail when practical, and simplify hidden or hand-covered geometry. A fully modeled viewmodel can be reused as a world pickup, but a separate simpler pickup model is often a better detail budget.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>Combining Parts For MDL</h3>
             <p>If separate Blender parts such as a sword and hand must become one MDL, join them into one mesh and bake their source textures into one palettized atlas. A quick projected unwrap followed by global-space UV alignment and packed pixel margins is useful for an initial AO or base-color pass; add deliberate seams and repack for the final bake. If a rigid part loses its animation while combining objects, temporarily vertex-parent it to three non-collinear animated vertices, then apply or bake the resulting transform before exporting the MDL.</p>
           </section>
@@ -190,6 +195,16 @@
           <section class="authoring-note">
             <h3>Texture Painting Is A Skill</h3>
             <p>Texture-painting software does not replace art direction. Smart materials, masks, generators, filters, and lighting presets make organization and iteration easier, but each effect still needs deliberate setup, tuning, and visual balance. For Quake-scale low-poly work, begin with a simple hand-painted or baked workflow and learn the fundamentals before investing in a specialized suite; Blender with tools such as <code>TexTools</code> or <code>Ucupaint</code>, <code>Quixel Mixer</code>, <code>ArmorPaint</code>, and <code>Texelizer</code> are examples of alternative workflows. Substance Painter is optional, and its high-resolution PBR features can be overkill when the final MDL is only an indexed diffuse atlas.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Baking Moving Parts</h3>
+            <p>For Substance-style AO or curvature baking, export moving parts and non-welded detail pieces as separate, consistently named objects. Match high- and low-poly objects by name and restrict cross-object curvature or self-occlusion as needed; otherwise a pump, hand, or other animated part can bake a permanent shadow onto the static mesh that remains visible after it moves. If a moving part must still receive AO from the static weapon, temporarily move it away for the bake and paint back only the contact shadow you actually want. Sharp low-poly edges can create noisy single-pixel highlights, so use controlled bevels or a high-poly bake only where the silhouette and cage support them. Keep high-poly bevels and projections inside a close baking cage; details that protrude beyond the low-poly equivalent or cage can produce gaps, halos, or curvature artifacts. High-poly geometry needs UVs only when transferring texture data; geometry-only normal, AO, and curvature bakes do not require a finished high-poly UV layout.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Triangulation And Pixel-Aligned UVs</h3>
+            <p>Apply a triangulate modifier before baking or exporting so Blender and external tools use the same diagonal for every quad. For MDL and MD3 workflows using center sampling, round UVs to pixel centers and keep the pixel margin consistent; some MD3 exporters support corner snapping, so follow that exporter's setting instead. Keep the final atlas dimensions fixed after snapping—changing texture resolution can turn center-aligned UVs into half-pixel seams. Baking at a larger working resolution and downsampling to the final indexed skin can make masks and hand-painted edges easier to clean.</p>
           </section>
 
           <section class="authoring-note">
@@ -209,7 +224,7 @@
 
           <section class="authoring-note">
             <h3>MDL Cutout Versus MD3 Alpha</h3>
-            <p>MDL transparency is a binary palette cutout: enable the MDL alpha flag during export or in QME (<code>0x00004000</code>), and reserve palette index 255 as the mask. Without that flag, index 255 is rendered as a fullbright palette color. MD3 can use external TGA/PNG alpha for softer blending, but non-viewmodel alpha remains engine- and geometry-order-sensitive, so test intersecting cards, foliage, glass, and alternate skins in-game.</p>
+            <p>MDL transparency is a binary palette cutout: enable the MDL alpha flag during export or in QME (<code>0x00004000</code>), and reserve palette index 255 as the mask. Without that flag, index 255 is rendered as a fullbright palette color. MD3 can use external TGA/PNG alpha for softer blending, but non-viewmodel alpha remains engine- and geometry-order-sensitive, especially with overlapping double-sided planes, alternate skins, or placeholder MDL flags. Test foliage, glass, and cards in-engine from several angles.</p>
           </section>
 
           <section class="authoring-note">
@@ -249,7 +264,7 @@
 
           <section class="authoring-note">
             <h3>Preview Engine Interpolation</h3>
-            <p>Quake engines interpolate each corresponding vertex in a straight line between stored poses; Blender's stepped shape-key preview and its Bézier or easing controls do not reproduce that runtime path. Large rotations, translations, or rescaling can compress, invert, or apparently remove volume between frames. Add intermediate poses and use smaller angular steps. For alternating Nailgun flashes, two meshes that expand and collapse in place avoid dragging one flash across both barrels. Collapse/move/expand tricks can also create teleports or card swaps, but keep topology fixed and remember that distant poses worsen MDL quantization.</p>
+            <p>Quake engines interpolate each corresponding vertex in a straight line between stored poses; Blender's stepped shape-key preview and its Bézier or easing controls do not reproduce that runtime path. Large rotations, translations, or rescaling can compress, invert, or apparently remove volume between frames. Add intermediate poses and use smaller angular steps. A muzzle flash scaled from zero can interpolate through unwanted partial sizes, so use the engine's muzzle-flash/no-lerp exception where supported, or place the flash away from the weapon and test both lerped and non-lerped playback. For alternating Nailgun flashes, two meshes that expand and collapse in place avoid dragging one flash across both barrels. Collapse/move/expand tricks can also create teleports or card swaps, but keep topology fixed and remember that distant poses worsen MDL quantization.</p>
           </section>
 
           <section class="authoring-note">
@@ -264,7 +279,7 @@
 
           <section class="authoring-note">
             <h3>Viewmodel Framing</h3>
-            <p>A useful Blender starting camera is at world origin, rotated X 90°, Y 0°, Z 270°, looking toward the positive X export axis. Blender camera FOV is not numerically interchangeable with Quake's FOV: aspect ratio, sensor fit, engine FOV adaptation, status-bar mode, weapon scale, and bobbing all affect the result. Match an in-game screenshot, then test low and high FOV in-engine—especially hidden muzzle flashes, backfaces, forearms, and off-screen moving parts.</p>
+            <p>A useful Blender starting camera is at world origin, rotated X 90°, Y 0°, Z 270°, looking toward the positive X export axis. Blender camera FOV is not numerically interchangeable with Quake's FOV: aspect ratio, sensor fit, engine FOV adaptation, status-bar mode, weapon scale, and bobbing all affect the result. A dedicated armature scale bone can foreshorten a long weapon along the export X axis before rotation without shrinking it along its later local axes; keep a separate world-pickup version if that distortion should only affect the viewmodel. Match an in-game screenshot, then test low and high FOV in-engine—especially hidden muzzle flashes, backfaces, forearms, and off-screen moving parts.</p>
           </section>
 
           <section class="authoring-note">
@@ -279,7 +294,7 @@
 
           <section class="authoring-note">
             <h3>MD3 Transparency Caveats</h3>
-            <p>Weapon-viewmodel MD3 alpha is usually the safe case. Non-viewmodel MD3 alpha can be engine-version sensitive, especially with overlapping double-sided planes, alternate skins, or placeholder MDL flags. Test foliage, glass, and cards in-engine from several angles.</p>
+            <p>Weapon-viewmodel MD3 alpha is usually the safer case. Do not assume a successful weapon test proves enemy, item, or prop alpha works; test non-viewmodel assets from multiple angles, with alternate skins, and with overlapping planes.</p>
           </section>
 
           <section class="authoring-note">
