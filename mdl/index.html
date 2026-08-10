@@ -178,6 +178,16 @@
           </section>
 
           <section class="authoring-note">
+            <h3>No Vertex Colors, But Real Vertex Normals</h3>
+            <p>Neither format stores per-vertex color. A vanilla MDL vertex is three packed position bytes plus one <code>lightnormalindex</code>; an MD3 vertex is three 16-bit positions plus a two-byte encoded normal. There is no color, alpha, or spare attribute channel, so baked ambient occlusion, tint, or dirt has to land in skin texels rather than on vertices. Both formats do carry an authored normal per vertex, at very different resolutions: MDL quantizes to the 162-direction alias normal table, while MD3's latitude/longitude byte pair is much finer. The foliage trick of pointing leaf normals up or outward so a flat card shades like a soft mass therefore works in MDL and is smoother in MD3. Remember that this tool recomputes <code>lightnormalindex</code> from geometry on save, so re-saving a model with hand-authored normals discards them.</p>
+          </section>
+
+          <section class="authoring-note">
+            <h3>Faking Per-Vertex Color</h3>
+            <p>The closest MDL equivalent is a palette-swatch skin. Point all three vertices of a triangle at the same swatch texel and the face renders as one flat color, which is how block-style props get their color without painted art. Two different texels do not blend between those two colors: the engine interpolates UV, not color, so the span samples whatever texels happen to lie on the straight line across the atlas. Corner-to-corner UVs on a palette image sweep through every palette row and produce rainbow banding rather than a gradient. Arrange a deliberate ramp in the atlas if a smooth transition is wanted, or bake the shading into real texels. For foliage specifically, MD3 sidesteps all of this with a full-color external TGA/PNG, softer alpha, and enough budget for individual leaves.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>Blender Export Habits</h3>
             <p>Use Blender Unit System None when treating 1 Blender unit as 1 Quake map unit. Material slots can become MDL skin slots, but each skin must match the same mesh and UV layout. MDL export is happiest with one combined mesh.</p>
           </section>
