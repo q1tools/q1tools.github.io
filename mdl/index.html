@@ -218,6 +218,11 @@
           </section>
 
           <section class="authoring-note">
+            <h3>Chunky Pixel Art And Center Snapping</h3>
+            <p>MDL stores texture coordinates as integer texel indices and the engine samples at <code>(s + 0.5) / skinwidth</code>, so a UV can only land on a texel <em>center</em>. A texel corner is not representable in the format, and an exporter rounds to the nearest one silently. For deliberately blocky art this is destructive: an island meant to cover an eight-texel block corner to corner instead spans center to center, falling half a texel short at each edge, and islands round independently so the layout can shift and shear apart rather than move as a unit. MD3 exporters that offer corner snapping avoid the problem outright. In MDL, fake it by authoring the skin several times larger than the logical pixel grid so each chunky pixel is four or eight real texels; the fixed half-texel error then becomes a small fraction of each block instead of a visible share of it. The upscale also keeps the art reading as sharp pixels under bilinear filtering, which is what makes Minecraft-style blocky texturing practical here.</p>
+          </section>
+
+          <section class="authoring-note">
             <h3>Animation Is Baked On Export</h3>
             <p>Blender MDL exporters normally bake the evaluated source animation—including armatures, modifiers, and custom corrective shape keys—into vertex poses during export. You only need to edit every frame with shape keys when modifying an already vertex-animated import such as an ID1 enemy. MD3 follows the same vertex-animation approach with finer positional precision and can export multiple objects; for portable MDL authoring, assume one combined mesh and one UV map per export.</p>
           </section>
