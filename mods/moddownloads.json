@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-06-21",
+  "updated": "2026-08-18",
   "mods": [
     {
       "id": "agjam",
@@ -156,6 +156,19 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/peril3.0-c/peril3.0c.zip",
         "sha256": "4e7a4ebe590974771d066c54bc7196e4205e3a783de7254f5b165de992a402c1",
         "size": "1.7 GB"
+      }
+    },
+    {
+      "id": "q30_deathmatch",
+      "title": "Q30 Deathmatch Jam",
+      "tag": "q30_deathmatch-1.01",
+      "install_dir": "q30_deathmatch",
+      "size": "168 MB",
+      "asset": {
+        "filename": "q30_deathmatch.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/q30_deathmatch-1.01/q30_deathmatch.zip",
+        "sha256": "cc28b0253fed69bd1452c460a0e46c9bc36a5d1a9a26f98b1ac1017d4dd21f7c",
+        "size": "168 MB"
       }
     },
     {
