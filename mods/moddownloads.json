@@ -3,19 +3,6 @@
   "updated": "2026-08-18",
   "mods": [
     {
-      "id": "agjam",
-      "title": "Antigravity Jam",
-      "tag": "agjam-1.2",
-      "install_dir": "agjam",
-      "size": "126 MB",
-      "asset": {
-        "filename": "antigravityjam1.2.zip",
-        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/agjam-1.2/antigravityjam1.2.zip",
-        "sha256": "685c20c5e9d82615afbe3f1828d521823fb1e2f5df3a5de09f069ec99a1aea90",
-        "size": "126 MB"
-      }
-    },
-    {
       "id": "ad",
       "title": "Arcane Dimensions 1.80 + Patch 1",
       "tag": "ad-v1.80p1",
@@ -26,6 +13,19 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/ad-v1.80p1/ad_v1_80p1final.zip",
         "sha256": "7ad993da6c760c446ca31fad71e9f5b6c9eee99b6354f161aa746b572fe70a7d",
         "size": "306 MB"
+      }
+    },
+    {
+      "id": "agjam",
+      "title": "Antigravity Jam",
+      "tag": "agjam-1.2",
+      "install_dir": "agjam",
+      "size": "126 MB",
+      "asset": {
+        "filename": "antigravityjam1.2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/agjam-1.2/antigravityjam1.2.zip",
+        "sha256": "685c20c5e9d82615afbe3f1828d521823fb1e2f5df3a5de09f069ec99a1aea90",
+        "size": "126 MB"
       }
     },
     {
@@ -107,6 +107,19 @@
       }
     },
     {
+      "id": "honey",
+      "title": "Honey",
+      "tag": "honey-1",
+      "install_dir": "honey",
+      "size": "20.5 MB",
+      "asset": {
+        "filename": "honey.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/honey-1/honey.zip",
+        "sha256": "323d08307455a302ace09f33d47e558c73e35c5e0409e81531ad0b27d561b0d9",
+        "size": "20.5 MB"
+      }
+    },
+    {
       "id": "hwjam2",
       "title": "Halloween Jam 2",
       "tag": "hwjam2-1",
@@ -146,19 +159,6 @@
       }
     },
     {
-      "id": "meatjam",
-      "title": "Meat Jam",
-      "tag": "meatjam-1.4",
-      "install_dir": "meatjam",
-      "size": "580 MB",
-      "asset": {
-        "filename": "meatjam_v1_4.zip",
-        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/meatjam-1.4/meatjam_v1_4.zip",
-        "sha256": "469c03ff2ccbb3d139a1e8e820177023d6fecebc9dfcd60df55d351777ce51d4",
-        "size": "580 MB"
-      }
-    },
-    {
       "id": "mc_q30th_jam",
       "title": "Quake 30th Anniversary Jam",
       "tag": "mc_q30th_jam-67",
@@ -172,6 +172,32 @@
       }
     },
     {
+      "id": "mc_xmasjam_2025",
+      "title": "Xmas Scraps Jam 2025",
+      "tag": "mc_xmasjam_2025-1",
+      "install_dir": "mc_xmasjam_2025",
+      "size": "145 MB",
+      "asset": {
+        "filename": "mc_xmasjam_2025.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mc_xmasjam_2025-1/mc_xmasjam_2025.zip",
+        "sha256": "01869daddb52357b86aba0e145d5c905eb06f6168e5f33af0ee65b959c824449",
+        "size": "145 MB"
+      }
+    },
+    {
+      "id": "meatjam",
+      "title": "Meat Jam",
+      "tag": "meatjam-1.4",
+      "install_dir": "meatjam",
+      "size": "580 MB",
+      "asset": {
+        "filename": "meatjam_v1_4.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/meatjam-1.4/meatjam_v1_4.zip",
+        "sha256": "469c03ff2ccbb3d139a1e8e820177023d6fecebc9dfcd60df55d351777ce51d4",
+        "size": "580 MB"
+      }
+    },
+    {
       "id": "peril3.0",
       "title": "Peril",
       "tag": "peril3.0-c",
@@ -182,6 +208,19 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/peril3.0-c/peril3.0c.zip",
         "sha256": "4e7a4ebe590974771d066c54bc7196e4205e3a783de7254f5b165de992a402c1",
         "size": "1.7 GB"
+      }
+    },
+    {
+      "id": "pun",
+      "title": "The Punishment Due",
+      "tag": "pun-1",
+      "install_dir": "pun",
+      "size": "34.3 MB",
+      "asset": {
+        "filename": "pun.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/pun-1/pun.zip",
+        "sha256": "d9da205924368c5c0ce2876f2f0d5a6406f3e8767e2e284e0bc86f83055299c6",
+        "size": "34.3 MB"
       }
     },
     {
@@ -284,6 +323,19 @@
       }
     },
     {
+      "id": "rrp",
+      "title": "Rubicon Rumble Pack",
+      "tag": "rrp-1",
+      "install_dir": "rrp",
+      "size": "81.5 MB",
+      "asset": {
+        "filename": "rrp.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/rrp-1/rrp.zip",
+        "sha256": "72b3c9b987f1a43b52789373cf1511ac06133dbbd014145707fcd57b5ec569a9",
+        "size": "81.5 MB"
+      }
+    },
+    {
       "id": "rubicon2",
       "title": "Rubicon 2",
       "tag": "rubicon2-l",
@@ -349,6 +401,19 @@
       }
     },
     {
+      "id": "tremor",
+      "title": "Tremor",
+      "tag": "tremor-1.04",
+      "install_dir": "tremor",
+      "size": "105 MB",
+      "asset": {
+        "filename": "tremor.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/tremor-1.04/tremor.zip",
+        "sha256": "3f994a3915b4a664d08ec176106dfc19a6e403517c40a1240a80418549494c00",
+        "size": "105 MB"
+      }
+    },
+    {
       "id": "xmasjam2020",
       "title": "Xmas Jam 2020",
       "tag": "xmasjam2020-1",
@@ -359,19 +424,6 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/xmasjam2020-1/xmasjam2020.zip",
         "sha256": "6755b682db4d2fcd3e92dee61b7975468a2807abc2a93f29051835e7e33aec69",
         "size": "386 MB"
-      }
-    },
-    {
-      "id": "mc_xmasjam_2025",
-      "title": "Xmas Scraps Jam 2025",
-      "tag": "mc_xmasjam_2025-1",
-      "install_dir": "mc_xmasjam_2025",
-      "size": "145 MB",
-      "asset": {
-        "filename": "mc_xmasjam_2025.zip",
-        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mc_xmasjam_2025-1/mc_xmasjam_2025.zip",
-        "sha256": "01869daddb52357b86aba0e145d5c905eb06f6168e5f33af0ee65b959c824449",
-        "size": "145 MB"
       }
     }
   ]
