@@ -68,6 +68,19 @@
       }
     },
     {
+      "id": "dmd",
+      "title": "Deathmatch Dimension",
+      "tag": "dmd-1.02",
+      "install_dir": "dmd",
+      "size": "28.7 MB",
+      "asset": {
+        "filename": "dmd.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/dmd-1.02/dmd.zip",
+        "sha256": "1a4af10a3df46f9c991cd3bbd5a71dd8995788a800bf2b9c2a2bd3615e8ec0a2",
+        "size": "28.7 MB"
+      }
+    },
+    {
       "id": "dwell",
       "title": "Dwell",
       "tag": "dwell-2p2",
