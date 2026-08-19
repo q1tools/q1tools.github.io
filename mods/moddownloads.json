@@ -29,6 +29,19 @@
       }
     },
     {
+      "id": "alkaline",
+      "title": "Alkaline",
+      "tag": "alkaline-1.2",
+      "install_dir": "alkaline",
+      "size": "384 MB",
+      "asset": {
+        "filename": "alk1.2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/alkaline-1.2/alk1.2.zip",
+        "sha256": "5c91b8d30d76a3eab7ecbf955d44a387bcae41ca97be09c70c23819de1636780",
+        "size": "384 MB"
+      }
+    },
+    {
       "id": "blockquake",
       "title": "Block Quake",
       "tag": "blockquake-l",
