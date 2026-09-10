@@ -34,6 +34,10 @@
   const TRANSPARENT_PALETTE_INDEX = 255;
   const MF_HOLEY = 1 << 14;
   const FRAME_INTERVAL_EPSILON = 0.0005;
+  const ORBIT_VIEW_FOV_DEGREES = 50;
+  const VIEWER_DARK_CLEAR_COLOR = [0.09, 0.1, 0.12];
+  const MAX_SCREENSHOT_DIMENSION = 8192;
+  const MAX_SCREENSHOT_PIXELS = 32 * 1024 * 1024;
   const ALIAS_VERTEX_NORMALS = new Float32Array([
     -0.525731, 0.000000, 0.850651,
     -0.442863, 0.238856, 0.864188,
@@ -439,6 +443,18 @@
     bgDark: document.getElementById("bg-dark"),
     bgWhite: document.getElementById("bg-white"),
     bgGrid: document.getElementById("bg-grid"),
+    screenshotButton: document.getElementById("screenshot-button"),
+    screenshotPanel: document.getElementById("screenshot-panel"),
+    screenshotWidth: document.getElementById("screenshot-width"),
+    screenshotHeight: document.getElementById("screenshot-height"),
+    screenshotBackground: document.getElementById("screenshot-background"),
+    screenshotSupersample: document.getElementById("screenshot-supersample"),
+    screenshotSceneryToggle: document.getElementById("screenshot-scenery-toggle"),
+    screenshotTrimToggle: document.getElementById("screenshot-trim-toggle"),
+    screenshotMatchViewButton: document.getElementById("screenshot-match-view-button"),
+    screenshotSaveButton: document.getElementById("screenshot-save-button"),
+    screenshotCopyButton: document.getElementById("screenshot-copy-button"),
+    screenshotStatus: document.getElementById("screenshot-status"),
     svgImportPanel: document.getElementById("svg-import-panel"),
     svgImportInput: document.getElementById("svg-import-input"),
     svgTextContent: document.getElementById("svg-text-content"),
@@ -488,6 +504,17 @@
     frameTreeOpen: new Set(),
     viewportMode: "orbit",
     bgMode: "dark",
+    capturingScreenshot: false,
+    screenshotBusy: false,
+    screenshot: {
+      width: 1024,
+      height: 768,
+      background: "transparent",
+      supersample: 2,
+      includeScenery: false,
+      trim: false,
+      sizedFromView: false,
+    },
     showGroundPlane: true,
     showWorldAxes: true,
     renderMode: "textured",
@@ -659,6 +686,51 @@
       state.showWorldAxes = !state.showWorldAxes;
       dom.axisToggle.classList.toggle("is-active", state.showWorldAxes);
       dom.axisToggle.setAttribute("aria-pressed", state.showWorldAxes ? "true" : "false");
+    });
+
+    dom.screenshotButton.addEventListener("click", () => {
+      void saveScreenshot();
+    });
+
+    dom.screenshotSaveButton.addEventListener("click", () => {
+      void saveScreenshot();
+    });
+
+    dom.screenshotCopyButton.addEventListener("click", copyScreenshot);
+
+    dom.screenshotMatchViewButton.addEventListener("click", () => {
+      if (applyViewSizeToScreenshot()) {
+        syncScreenshotControls();
+        setScreenshotStatus(`Capture size set to ${state.screenshot.width} x ${state.screenshot.height}.`);
+      }
+    });
+
+    dom.screenshotWidth.addEventListener("change", () => {
+      state.screenshot.width = clamp(parseInt(dom.screenshotWidth.value, 10) || 1, 16, MAX_SCREENSHOT_DIMENSION);
+      state.screenshot.sizedFromView = true;
+      syncScreenshotControls();
+    });
+
+    dom.screenshotHeight.addEventListener("change", () => {
+      state.screenshot.height = clamp(parseInt(dom.screenshotHeight.value, 10) || 1, 16, MAX_SCREENSHOT_DIMENSION);
+      state.screenshot.sizedFromView = true;
+      syncScreenshotControls();
+    });
+
+    dom.screenshotBackground.addEventListener("change", () => {
+      state.screenshot.background = dom.screenshotBackground.value;
+    });
+
+    dom.screenshotSupersample.addEventListener("change", () => {
+      state.screenshot.supersample = clamp(parseInt(dom.screenshotSupersample.value, 10) || 1, 1, 4);
+    });
+
+    dom.screenshotSceneryToggle.addEventListener("change", () => {
+      state.screenshot.includeScenery = dom.screenshotSceneryToggle.checked;
+    });
+
+    dom.screenshotTrimToggle.addEventListener("change", () => {
+      state.screenshot.trim = dom.screenshotTrimToggle.checked;
     });
 
     dom.bgDark.addEventListener("click", () => setBgMode("dark"));
@@ -2680,6 +2752,7 @@
       dom.objectToolsPanel,
       dom.lightingPanel,
       dom.displayPanel,
+      dom.screenshotPanel,
       dom.validationPanel,
       dom.printPanel,
       dom.savePanel,
@@ -2689,6 +2762,11 @@
       panel.classList.toggle("is-hidden", !hasModel);
       panel.setAttribute("aria-hidden", hasModel ? "false" : "true");
     });
+
+    if (hasModel && !state.screenshot.sizedFromView) {
+      applyViewSizeToScreenshot();
+    }
+    syncScreenshotControls();
 
     dom.uvNudgeStatus.textContent = hasModel
       ? "Offsets integer MDL texture coordinates. Vertices shared by front and back faces affect both sides."
@@ -11227,7 +11305,9 @@
       antialias: true,
       alpha: true,
       premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
+      // Kept so the browser's own "Save image as" on the canvas writes the
+      // rendered frame instead of an empty buffer.
+      preserveDrawingBuffer: true,
     });
     if (!gl) {
       updateOverlay("WebGL is not available in this browser.");
@@ -11544,13 +11624,7 @@
     const { gl } = glState;
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.enable(gl.DEPTH_TEST);
-    if (state.bgMode === "white") {
-      gl.clearColor(1, 1, 1, 1);
-    } else if (state.bgMode === "grid") {
-      gl.clearColor(0, 0, 0, 0);
-    } else {
-      gl.clearColor(0.09, 0.1, 0.12, 1);
-    }
+    applyClearColor(gl, state.bgMode);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const hasModel = !!state.model;
@@ -11578,11 +11652,399 @@
     }
   }
 
+  function resolveScreenshotBackground() {
+    return state.screenshot.background === "current"
+      ? state.bgMode
+      : state.screenshot.background;
+  }
+
+  function isTransparentBackground(mode) {
+    return mode === "transparent" || mode === "grid";
+  }
+
+  function getMaxScreenshotDimension(gl) {
+    const viewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+    const maxViewport = viewportDims && viewportDims.length >= 2
+      ? Math.min(viewportDims[0], viewportDims[1])
+      : MAX_SCREENSHOT_DIMENSION;
+    const maxRenderbuffer = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || MAX_SCREENSHOT_DIMENSION;
+    return clamp(Math.min(maxViewport, maxRenderbuffer, MAX_SCREENSHOT_DIMENSION), 16, MAX_SCREENSHOT_DIMENSION);
+  }
+
+  function drawScreenshotScene(glState, width, height, background) {
+    const { gl } = glState;
+    gl.viewport(0, 0, width, height);
+    gl.enable(gl.DEPTH_TEST);
+    applyClearColor(gl, background);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    const viewport = {
+      x: 0,
+      y: 0,
+      width,
+      height,
+      yaw: state.camera.yaw,
+      pitch: state.camera.pitch,
+      distanceScale: 1,
+      fovDegrees: ORBIT_VIEW_FOV_DEGREES,
+    };
+
+    if (state.screenshot.includeScenery && (state.showGroundPlane || state.showWorldAxes)) {
+      drawGroundPlane(glState, [viewport]);
+    }
+
+    if (!state.model) {
+      return;
+    }
+
+    const sample = getCurrentPoseSample();
+    uploadInterpolatedGeometry(sample);
+    updateTextureIfNeeded();
+    renderViewport(glState, viewport, buildOverlayGeometry(glState));
+  }
+
+  // readPixels hands back bottom-up rows, and enableSceneBlend leaves blended
+  // pixels premultiplied. PNG wants top-down straight alpha, so undo both.
+  function readbackToImageData(pixels, width, height) {
+    const image = new ImageData(width, height);
+    const out = image.data;
+    const rowBytes = width * 4;
+    for (let y = 0; y < height; y += 1) {
+      const source = (height - 1 - y) * rowBytes;
+      const target = y * rowBytes;
+      for (let offset = 0; offset < rowBytes; offset += 4) {
+        const alpha = pixels[source + offset + 3];
+        if (alpha === 0) {
+          continue;
+        }
+        if (alpha === 255) {
+          out[target + offset] = pixels[source + offset];
+          out[target + offset + 1] = pixels[source + offset + 1];
+          out[target + offset + 2] = pixels[source + offset + 2];
+          out[target + offset + 3] = 255;
+          continue;
+        }
+        const recover = 255 / alpha;
+        out[target + offset] = Math.min(255, Math.round(pixels[source + offset] * recover));
+        out[target + offset + 1] = Math.min(255, Math.round(pixels[source + offset + 1] * recover));
+        out[target + offset + 2] = Math.min(255, Math.round(pixels[source + offset + 2] * recover));
+        out[target + offset + 3] = alpha;
+      }
+    }
+    return image;
+  }
+
+  // Alpha-weighted box filter. Averaging straight-alpha colour directly would
+  // pull transparent black into every antialiased edge.
+  function downsampleImageData(image, factor) {
+    if (factor <= 1) {
+      return image;
+    }
+
+    const width = Math.max(1, Math.floor(image.width / factor));
+    const height = Math.max(1, Math.floor(image.height / factor));
+    const out = new ImageData(width, height);
+    const src = image.data;
+    const dst = out.data;
+    const samples = factor * factor;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let alpha = 0;
+        for (let sampleY = 0; sampleY < factor; sampleY += 1) {
+          let index = ((y * factor + sampleY) * image.width + x * factor) * 4;
+          for (let sampleX = 0; sampleX < factor; sampleX += 1) {
+            const sampleAlpha = src[index + 3];
+            red += src[index] * sampleAlpha;
+            green += src[index + 1] * sampleAlpha;
+            blue += src[index + 2] * sampleAlpha;
+            alpha += sampleAlpha;
+            index += 4;
+          }
+        }
+
+        if (alpha <= 0) {
+          continue;
+        }
+
+        const target = (y * width + x) * 4;
+        dst[target] = Math.min(255, Math.round(red / alpha));
+        dst[target + 1] = Math.min(255, Math.round(green / alpha));
+        dst[target + 2] = Math.min(255, Math.round(blue / alpha));
+        dst[target + 3] = Math.min(255, Math.round(alpha / samples));
+      }
+    }
+
+    return out;
+  }
+
+  function trimImageData(image, background) {
+    const { width, height, data } = image;
+    const backdrop = isTransparentBackground(background)
+      ? null
+      : background === "white"
+        ? [255, 255, 255]
+        : VIEWER_DARK_CLEAR_COLOR.map((channel) => Math.round(channel * 255));
+
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = (y * width + x) * 4;
+        if (data[index + 3] <= 4) {
+          continue;
+        }
+        if (backdrop
+          && Math.abs(data[index] - backdrop[0]) <= 4
+          && Math.abs(data[index + 1] - backdrop[1]) <= 4
+          && Math.abs(data[index + 2] - backdrop[2]) <= 4) {
+          continue;
+        }
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+
+    if (maxX < minX || maxY < minY) {
+      return image;
+    }
+
+    const cropWidth = maxX - minX + 1;
+    const cropHeight = maxY - minY + 1;
+    if (cropWidth === width && cropHeight === height) {
+      return image;
+    }
+
+    const out = new ImageData(cropWidth, cropHeight);
+    const cropRowBytes = cropWidth * 4;
+    for (let y = 0; y < cropHeight; y += 1) {
+      const source = ((y + minY) * width + minX) * 4;
+      out.data.set(data.subarray(source, source + cropRowBytes), y * cropRowBytes);
+    }
+    return out;
+  }
+
+  function imageDataToCanvas(image) {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    canvas.getContext("2d", { alpha: true }).putImageData(image, 0, 0);
+    return canvas;
+  }
+
+  // Renders one off-schedule frame at the requested size straight into the
+  // drawing buffer, reads it back, then restores the on-screen frame.
+  function captureScreenshotImage() {
+    const glState = state.gl;
+    if (!glState) {
+      throw new Error("The viewer is not running.");
+    }
+
+    const { gl } = glState;
+    const canvas = gl.canvas;
+    const settings = state.screenshot;
+    const background = resolveScreenshotBackground();
+    const maxDimension = getMaxScreenshotDimension(gl);
+    const outputWidth = clamp(Math.round(settings.width) || 1, 16, maxDimension);
+    const outputHeight = clamp(Math.round(settings.height) || 1, 16, maxDimension);
+
+    let scale = clamp(Math.round(settings.supersample) || 1, 1, 4);
+    while (scale > 1
+      && (outputWidth * scale > maxDimension
+        || outputHeight * scale > maxDimension
+        || outputWidth * outputHeight * scale * scale > MAX_SCREENSHOT_PIXELS)) {
+      scale -= 1;
+    }
+
+    const width = outputWidth * scale;
+    const height = outputHeight * scale;
+    const previousWidth = canvas.width;
+    const previousHeight = canvas.height;
+    const pixels = new Uint8Array(width * height * 4);
+
+    state.capturingScreenshot = true;
+    try {
+      canvas.width = width;
+      canvas.height = height;
+      drawScreenshotScene(glState, width, height, background);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    } finally {
+      state.capturingScreenshot = false;
+      canvas.width = previousWidth;
+      canvas.height = previousHeight;
+      draw();
+    }
+
+    let image = downsampleImageData(readbackToImageData(pixels, width, height), scale);
+    if (settings.trim) {
+      image = trimImageData(image, background);
+    }
+
+    return { image, scale, requestedWidth: outputWidth, requestedHeight: outputHeight };
+  }
+
+  function getSuggestedScreenshotFilename(modelPath) {
+    const normalized = normalizePath(modelPath || "model.mdl");
+    const base = (normalized.split("/").pop() || "model.mdl").replace(/\.mdl$/i, "");
+    return `${base}_screenshot.png`;
+  }
+
+  function setScreenshotStatus(message) {
+    dom.screenshotStatus.textContent = message;
+  }
+
+  function describeScreenshot(result) {
+    const { image, scale, requestedWidth, requestedHeight } = result;
+    const notes = [];
+    if (scale > 1) {
+      notes.push(`${scale}x supersampled`);
+    } else if (state.screenshot.supersample > 1) {
+      notes.push("supersampling reduced to fit this capture size");
+    }
+    if (image.width !== requestedWidth || image.height !== requestedHeight) {
+      notes.push("trimmed");
+    }
+    return `${image.width} x ${image.height}${notes.length ? ` (${notes.join(", ")})` : ""}`;
+  }
+
+  async function saveScreenshot() {
+    if (!state.model || state.screenshotBusy) {
+      return;
+    }
+
+    state.screenshotBusy = true;
+    setScreenshotStatus("Rendering screenshot...");
+    syncScreenshotControls();
+    // A large supersampled capture blocks the thread for a second or two, so
+    // give the status line a chance to paint before it starts.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    try {
+      const result = captureScreenshotImage();
+      const filename = getSuggestedScreenshotFilename(state.model.path);
+      await downloadCanvasAsPng(imageDataToCanvas(result.image), filename);
+      setScreenshotStatus(`Saved ${filename} at ${describeScreenshot(result)}.`);
+    } catch (error) {
+      setScreenshotStatus(`Screenshot failed: ${error.message}`);
+    } finally {
+      state.screenshotBusy = false;
+      syncScreenshotControls();
+    }
+  }
+
+  function copyScreenshot() {
+    if (!state.model || state.screenshotBusy) {
+      return;
+    }
+
+    if (!navigator.clipboard || typeof window.ClipboardItem !== "function") {
+      setScreenshotStatus("This browser cannot copy images to the clipboard. Use Save .png instead.");
+      return;
+    }
+
+    let result;
+    let item;
+    try {
+      result = captureScreenshotImage();
+      const canvas = imageDataToCanvas(result.image);
+      // Safari only accepts a ClipboardItem built during the click itself, so
+      // hand it the pending blob rather than awaiting the encode first.
+      const blob = new Promise((resolve, reject) => {
+        canvas.toBlob((encoded) => {
+          if (encoded) {
+            resolve(encoded);
+            return;
+          }
+          reject(new Error("Failed to encode PNG data"));
+        }, "image/png");
+      });
+      item = new ClipboardItem({ "image/png": blob });
+    } catch (error) {
+      setScreenshotStatus(`Screenshot failed: ${error.message}`);
+      return;
+    }
+
+    state.screenshotBusy = true;
+    syncScreenshotControls();
+    navigator.clipboard.write([item]).then(
+      () => setScreenshotStatus(`Copied ${describeScreenshot(result)} to the clipboard.`),
+      (error) => setScreenshotStatus(`Clipboard copy failed: ${error.message}`)
+    ).then(() => {
+      state.screenshotBusy = false;
+      syncScreenshotControls();
+    });
+  }
+
+  function applyViewSizeToScreenshot() {
+    const rect = dom.mainViewPane.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (width < 16 || height < 16) {
+      return false;
+    }
+
+    state.screenshot.width = clamp(width, 16, MAX_SCREENSHOT_DIMENSION);
+    state.screenshot.height = clamp(height, 16, MAX_SCREENSHOT_DIMENSION);
+    state.screenshot.sizedFromView = true;
+    return true;
+  }
+
+  function syncScreenshotControls() {
+    const settings = state.screenshot;
+    dom.screenshotWidth.value = String(settings.width);
+    dom.screenshotHeight.value = String(settings.height);
+    dom.screenshotBackground.value = settings.background;
+    dom.screenshotSupersample.value = String(settings.supersample);
+    dom.screenshotSceneryToggle.checked = settings.includeScenery;
+    dom.screenshotTrimToggle.checked = settings.trim;
+
+    const ready = !!state.model && !state.screenshotBusy;
+    const canCopy = !!navigator.clipboard && typeof window.ClipboardItem === "function";
+    dom.screenshotCopyButton.disabled = !canCopy || !ready;
+    dom.screenshotCopyButton.title = canCopy
+      ? "Copy the rendered PNG to the clipboard"
+      : "This browser cannot copy images to the clipboard.";
+    dom.screenshotSaveButton.disabled = !ready;
+    dom.screenshotButton.disabled = !ready;
+  }
+
+  function applyClearColor(gl, mode) {
+    if (mode === "white") {
+      gl.clearColor(1, 1, 1, 1);
+    } else if (mode === "grid" || mode === "transparent") {
+      gl.clearColor(0, 0, 0, 0);
+    } else {
+      gl.clearColor(VIEWER_DARK_CLEAR_COLOR[0], VIEWER_DARK_CLEAR_COLOR[1], VIEWER_DARK_CLEAR_COLOR[2], 1);
+    }
+  }
+
+  // On screen the canvas composites over an opaque page, so the usual source
+  // blend is fine. A transparent capture is read back instead of composited,
+  // and there the alpha channel has to accumulate a real "over" or every
+  // blended pass (shadow, wireframe, grid, reduced opacity) squares its own
+  // alpha and comes out far too faint. Separate alpha blending leaves the
+  // result premultiplied, which readbackToImageData undoes.
+  function enableSceneBlend(gl) {
+    gl.enable(gl.BLEND);
+    if (state.capturingScreenshot) {
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    } else {
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
+  }
+
   function drawGroundPlane(glState, viewports) {
     const { gl, grid } = glState;
     gl.useProgram(grid.program);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    enableSceneBlend(gl);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, grid.positionBuffer);
     gl.enableVertexAttribArray(grid.attribs.position);
@@ -11710,8 +12172,7 @@
     }
 
     if (state.modelOpacity < 0.999) {
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      enableSceneBlend(gl);
       gl.depthMask(false);
     } else {
       gl.disable(gl.BLEND);
@@ -11819,8 +12280,7 @@
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
     gl.disable(gl.CULL_FACE);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    enableSceneBlend(gl);
     gl.depthMask(false);
     gl.drawElements(gl.TRIANGLES, state.model.render.indices.length, gl.UNSIGNED_SHORT, 0);
     gl.depthMask(true);
@@ -11837,8 +12297,7 @@
     gl.uniformMatrix4fv(overlay.uniforms.mvp, false, mvp);
     gl.uniform4f(overlay.uniforms.color, color[0], color[1], color[2], color[3]);
     gl.uniform1f(overlay.uniforms.pointSize, 1);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    enableSceneBlend(gl);
     gl.depthMask(false);
     gl.drawElements(gl.LINES, state.model.render.wireframeIndices.length, gl.UNSIGNED_SHORT, 0);
     gl.depthMask(true);
@@ -11864,8 +12323,7 @@
     } else {
       gl.disable(gl.DEPTH_TEST);
     }
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    enableSceneBlend(gl);
     gl.drawArrays(gl.LINES, 0, positions.length / 3);
     gl.disable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
@@ -12030,7 +12488,7 @@
         yaw: state.camera.yaw,
         pitch: state.camera.pitch,
         distanceScale: 1,
-        fovDegrees: 50,
+        fovDegrees: ORBIT_VIEW_FOV_DEGREES,
       }),
     ];
 

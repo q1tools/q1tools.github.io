@@ -16,6 +16,7 @@ Features:
 - Collapses threshold-selected vertex regions across one pose, a sequence, or every pose without changing topology
 - Previews palette fullbright pixels separately from lit base skin pixels
 - Applies Quake-style player `topcolor` / `bottomcolor` remapping
+- Saves PNG screenshots of the orbit view at any resolution, with an optional transparent background
 - Exports the displayed pose for 3D printing as unit-aware `.3mf` or binary `.stl`
 - Scales print exports in millimetres, orients and grounds them, cleans bad faces and winding, and reports mesh manifoldness
 
@@ -81,6 +82,21 @@ Then open:
 3. For `player.mdl`, enable Quake player colors and adjust shirt / pants values.
 
 If you load `pak0.pak`, the app will auto-detect both `progs/*.mdl` and `gfx/palette.lmp`, and the detected palette will override the built-in default.
+
+## Screenshots
+
+The **Screenshot** toolbar button saves a PNG of the orbit view using the settings in the **Screenshot** panel. Capture resolution is independent of the on-screen viewport, so a small browser window can still produce a large image.
+
+- **Width / Height** set the output size. **Match View Size** copies the current viewport dimensions.
+- **Background** picks `Transparent`, `Dark`, `White`, or `Match Viewer` (whatever the background pills are set to).
+- **Supersample** renders at 2x or 4x and box-filters down for cleaner edges. It is reduced automatically if the supersampled size would exceed the GPU or pixel budget.
+- **Include Ground + Axes** adds the grid and world axes, which are otherwise left out of the capture.
+- **Trim To Model** crops the result to the rendered pixels.
+- **Copy To Clipboard** puts the same PNG on the clipboard where the browser supports it.
+
+Transparent captures are written as straight alpha: blended passes such as shadows, the wireframe overlay, reduced model opacity, and the grid keep their real opacity instead of fading out. Antialiased model edges carry partial alpha, so the PNG composites cleanly over any background.
+
+The canvas also keeps its drawing buffer, so the browser's own right-click **Save image as** on the viewport writes the rendered frame rather than a blank image. That path captures the viewport at its on-screen size and uses the current background pill, so use the panel when you want a specific resolution.
 
 ## 3D printing
 

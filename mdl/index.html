@@ -622,6 +622,58 @@
         </div>
       </details>
 
+      <details id="screenshot-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
+        <summary class="panel-summary">
+          <h2>Screenshot</h2>
+        </summary>
+        <div class="panel-collapsible-content">
+          <p class="hint">Renders the orbit camera at its own resolution, independent of the on-screen viewport size.</p>
+
+          <div class="screenshot-grid">
+            <label for="screenshot-width">Width</label>
+            <input id="screenshot-width" type="number" min="16" max="8192" step="1" value="1024">
+
+            <label for="screenshot-height">Height</label>
+            <input id="screenshot-height" type="number" min="16" max="8192" step="1" value="768">
+
+            <label for="screenshot-background">Background</label>
+            <select id="screenshot-background">
+              <option value="transparent">Transparent</option>
+              <option value="dark">Dark</option>
+              <option value="white">White</option>
+              <option value="current">Match Viewer</option>
+            </select>
+
+            <label for="screenshot-supersample">Supersample</label>
+            <select id="screenshot-supersample">
+              <option value="1">Off</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+          </div>
+
+          <div class="display-toggle-grid">
+            <label class="checkbox">
+              <input id="screenshot-scenery-toggle" type="checkbox">
+              <span>Include Ground + Axes</span>
+            </label>
+
+            <label class="checkbox">
+              <input id="screenshot-trim-toggle" type="checkbox">
+              <span>Trim To Model</span>
+            </label>
+          </div>
+
+          <div class="property-actions">
+            <button id="screenshot-match-view-button" type="button">Match View Size</button>
+            <button id="screenshot-save-button" type="button">Save .png</button>
+            <button id="screenshot-copy-button" type="button">Copy To Clipboard</button>
+          </div>
+
+          <div id="screenshot-status" class="hint" aria-live="polite">Transparent captures write straight alpha, so shadows and wireframes keep their real opacity.</div>
+        </div>
+      </details>
+
       <details id="validation-panel" class="panel panel-collapsible is-hidden" aria-hidden="true">
         <summary class="panel-summary">
           <h2>Validation</h2>
@@ -815,6 +867,13 @@
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" fill="#ccc"/><rect x="1" y="1" width="7" height="7" fill="#fff"/><rect x="8" y="8" width="7" height="7" fill="#fff"/></svg>
           </button>
         </div>
+        <button
+          id="screenshot-button"
+          class="view-mode-pill"
+          type="button"
+          disabled
+          title="Save a PNG of the orbit view using the Screenshot panel settings"
+        >Screenshot</button>
       </div>
       <div class="viewer-canvas-area">
         <canvas id="gl-canvas"></canvas>
