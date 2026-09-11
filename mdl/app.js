@@ -304,6 +304,8 @@
 
   const dom = {
     assetInput: document.getElementById("asset-input"),
+    assetDropZone: document.getElementById("asset-drop-zone"),
+    svgImportDropZone: document.getElementById("svg-import-drop-zone"),
     modelPicker: document.getElementById("model-picker"),
     modelSelect: document.getElementById("model-select"),
     paletteStatus: document.getElementById("palette-status"),
@@ -650,7 +652,90 @@
     });
   }
 
+  function dragEventHasFiles(event) {
+    const types = event.dataTransfer && event.dataTransfer.types;
+    return !!types && Array.prototype.indexOf.call(types, "Files") >= 0;
+  }
+
+  // The file inputs are visually hidden, so a drop on the dashed zone lands on
+  // the label instead and the browser's default action navigates the page to
+  // the dropped file. Handle the drop on the zone itself.
+  function bindFileDropZone(element, handleFiles) {
+    if (!element) {
+      return;
+    }
+
+    let enterDepth = 0;
+
+    const clearActive = () => {
+      enterDepth = 0;
+      element.classList.remove("is-drop-active");
+    };
+
+    element.addEventListener("dragenter", (event) => {
+      if (!dragEventHasFiles(event)) {
+        return;
+      }
+      event.preventDefault();
+      enterDepth += 1;
+      element.classList.add("is-drop-active");
+    });
+
+    element.addEventListener("dragover", (event) => {
+      if (!dragEventHasFiles(event)) {
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    });
+
+    // Child elements fire their own dragleave, so only clear on the outermost.
+    element.addEventListener("dragleave", () => {
+      enterDepth -= 1;
+      if (enterDepth <= 0) {
+        clearActive();
+      }
+    });
+
+    element.addEventListener("drop", (event) => {
+      if (!dragEventHasFiles(event)) {
+        return;
+      }
+      event.preventDefault();
+      clearActive();
+      const files = Array.from(event.dataTransfer.files || []);
+      if (files.length) {
+        void handleFiles(files);
+      }
+    });
+  }
+
   function bindEvents() {
+    bindFileDropZone(dom.assetDropZone, (files) => loadFiles(files));
+
+    bindFileDropZone(dom.svgImportDropZone, async (files) => {
+      const svgFile = files.find((file) => file.name.toLowerCase().endsWith(".svg"));
+      if (!svgFile) {
+        dom.svgImportStatus.textContent = "Drop an .svg file here.";
+        return;
+      }
+      await loadSvgFile(svgFile);
+    });
+
+    // Without this a file dropped anywhere else navigates away from the app
+    // and loses the loaded model.
+    window.addEventListener("dragover", (event) => {
+      if (dragEventHasFiles(event)) {
+        event.preventDefault();
+      }
+    });
+
+    window.addEventListener("drop", (event) => {
+      if (dragEventHasFiles(event)) {
+        event.preventDefault();
+      }
+    });
+
     dom.assetInput.addEventListener("change", async (event) => {
       const files = Array.from(event.target.files || []);
       if (!files.length) {

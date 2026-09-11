@@ -74,7 +74,7 @@ Then open:
 
 ## Usage
 
-1. Load one or more of:
+1. Load one or more of the following, by dropping them on the Assets zone or clicking it to browse:
    - a standalone `.mdl`
    - `gfx/palette.lmp` if you want to override the default palette
    - `pak0.pak`

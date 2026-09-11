@@ -568,6 +568,12 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   background: rgba(95, 214, 224, 0.05);
 }
 
+.file-drop.is-drop-active {
+  border-style: solid;
+  border-color: var(--accent-2);
+  background: rgba(95, 214, 224, 0.12);
+}
+
 .file-drop-copy {
   display: flex;
   align-items: center;
