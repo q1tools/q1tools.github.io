@@ -868,6 +868,13 @@
           </button>
         </div>
         <button
+          id="reset-view-button"
+          class="view-mode-pill"
+          type="button"
+          disabled
+          title="Recentre the camera on the model"
+        >Reset View</button>
+        <button
           id="screenshot-button"
           class="view-mode-pill"
           type="button"
@@ -875,7 +882,7 @@
           title="Save a PNG of the orbit view using the Screenshot panel settings"
         >Screenshot</button>
       </div>
-      <div class="viewer-canvas-area">
+      <div class="viewer-canvas-area" title="Drag to orbit &#10; Right-drag, middle-drag or shift-drag to pan &#10; Scroll to zoom &#10; Touch: one finger orbits, two fingers pinch and pan">
         <canvas id="gl-canvas"></canvas>
         <div id="viewer-layout" class="viewer-layout is-orbit-only" aria-hidden="true">
           <section id="view-main" class="viewport-pane viewport-pane-main">

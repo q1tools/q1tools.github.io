@@ -137,6 +137,8 @@ body.is-resizing * {
   display: block;
   width: 100%;
   height: 100%;
+  /* Own the touch gestures so orbit/pinch don't scroll the page instead. */
+  touch-action: none;
 }
 
 .viewer-canvas-area.bg-dark #gl-canvas {

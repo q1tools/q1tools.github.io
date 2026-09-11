@@ -83,6 +83,25 @@ Then open:
 
 If you load `pak0.pak`, the app will auto-detect both `progs/*.mdl` and `gfx/palette.lmp`, and the detected palette will override the built-in default.
 
+## Viewport controls
+
+| Input | Action |
+| --- | --- |
+| Drag | Orbit |
+| Right-drag, middle-drag, or shift-drag | Pan |
+| Scroll | Zoom |
+| One finger | Orbit |
+| Two fingers | Pinch to zoom, slide to pan |
+| **Reset View** (toolbar) | Recentre on the model |
+
+Panning slides the orbit target across the view plane, scaled by distance and
+field of view so a pixel of drag stays a pixel of model movement at any zoom
+level. That is what lets you push the model off-centre and zoom into a detail
+near its edge; before, zoom always converged on the bounding-box centre and the
+detail left the frame. Pan and pinch resolve against the state the gesture
+started from rather than accumulating per event, so they are exactly reversible
+and do not drift.
+
 ## Screenshots
 
 The **Screenshot** toolbar button saves a PNG of the orbit view using the settings in the **Screenshot** panel. Capture resolution is independent of the on-screen viewport, so a small browser window can still produce a large image.

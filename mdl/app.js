@@ -318,6 +318,7 @@
     skinsPanel: document.getElementById("skins-panel"),
     playToggle: document.getElementById("play-toggle"),
     resetCamera: document.getElementById("reset-camera"),
+    resetViewButton: document.getElementById("reset-view-button"),
     speedRange: document.getElementById("speed-range"),
     speedValue: document.getElementById("speed-value"),
     frameGroupSelect: document.getElementById("frame-group-select"),
@@ -568,7 +569,9 @@
     currentSkinFrameIndex: 0,
     lastPrintAnalysisTime: 0,
     printExportBusy: false,
-    drag: null,
+    pointers: new Map(),
+    dragMode: null,
+    pinch: null,
     resizingSidebar: null,
     sampleCache: {
       poseA: -1,
@@ -606,7 +609,7 @@
     updateValidationPanel();
     restoreCachedLocalFonts();
     void maybeWarmLocalFontsCache();
-    updateOverlay("Load a `.mdl` or `.pak` to begin. Using the default Quake palette; load `palette.lmp` to override it.");
+    updateOverlay("Load a `.mdl` or `.pak` to begin. Drag to orbit, right-drag or shift-drag to pan, scroll to zoom. Using the default Quake palette; load `palette.lmp` to override it.");
     requestAnimationFrame(frame);
   }
 
@@ -1308,36 +1311,88 @@
         return;
       }
       dom.canvas.setPointerCapture(event.pointerId);
-      state.drag = {
-        pointerId: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-      };
+      state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (state.pointers.size === 1) {
+        // Middle or right drag pans, matching other 3D tools; shift-drag is the
+        // same thing for trackpads and single-button mice.
+        state.dragMode = event.pointerType !== "touch"
+          && (event.button === 1 || event.button === 2 || event.shiftKey)
+          ? "pan"
+          : "orbit";
+      } else if (state.pointers.size === 2) {
+        state.pinch = beginPinch();
+      }
     });
 
     dom.canvas.addEventListener("pointermove", (event) => {
-      if (!state.drag || state.drag.pointerId !== event.pointerId) {
+      const tracked = state.pointers.get(event.pointerId);
+      if (!tracked) {
         return;
       }
 
-      const dx = event.clientX - state.drag.x;
-      const dy = event.clientY - state.drag.y;
-      state.drag.x = event.clientX;
-      state.drag.y = event.clientY;
+      const dx = event.clientX - tracked.x;
+      const dy = event.clientY - tracked.y;
+      tracked.x = event.clientX;
+      tracked.y = event.clientY;
+
+      // Two fingers pinch to zoom and slide to pan. Pointer events arrive one
+      // at a time, so an incremental gesture would read a distorted finger
+      // distance on every other event and jitter the zoom. Resolve both
+      // against the state the gesture started from instead.
+      if (state.pointers.size >= 2) {
+        const start = state.pinch;
+        if (!start) {
+          state.pinch = beginPinch();
+          return;
+        }
+
+        const pinch = readPinchState();
+        if (start.distance > 0 && pinch.distance > 0) {
+          state.camera.distance = clamp(
+            start.cameraDistance * (start.distance / pinch.distance),
+            5,
+            20000
+          );
+        }
+        state.camera.target = start.target.slice();
+        panCamera(pinch.centerX - start.centerX, pinch.centerY - start.centerY);
+        return;
+      }
+
+      if (state.dragMode === "pan") {
+        panCamera(dx, dy);
+        return;
+      }
 
       state.camera.yaw -= dx * 0.01;
       state.camera.pitch += dy * 0.01;
       state.camera.pitch = clamp(state.camera.pitch, -1.45, 1.45);
     });
 
-    dom.canvas.addEventListener("pointerup", (event) => {
-      if (state.drag && state.drag.pointerId === event.pointerId) {
-        state.drag = null;
+    const releaseCameraPointer = (event) => {
+      if (!state.pointers.delete(event.pointerId)) {
+        return;
+      }
+      // Re-anchor rather than carry a stale origin when the finger count changes.
+      state.pinch = state.pointers.size === 2 ? beginPinch() : null;
+      if (state.pointers.size === 0) {
+        state.dragMode = null;
+      }
+    };
+
+    dom.canvas.addEventListener("pointerup", releaseCameraPointer);
+    dom.canvas.addEventListener("pointercancel", releaseCameraPointer);
+
+    // Right-drag is a pan, so the menu would interrupt it.
+    dom.canvas.addEventListener("contextmenu", (event) => {
+      if (isEventInsideElement(event, dom.mainViewPane)) {
+        event.preventDefault();
       }
     });
 
-    dom.canvas.addEventListener("pointercancel", () => {
-      state.drag = null;
+    dom.resetViewButton.addEventListener("click", () => {
+      resetCamera();
     });
 
     dom.canvas.addEventListener("wheel", (event) => {
@@ -2101,6 +2156,7 @@
     dom.playToggle.disabled = !state.model || !hasPlayableGroup;
     dom.frameRange.disabled = !state.model || poseCount <= 1;
     dom.resetCamera.disabled = !state.model;
+    dom.resetViewButton.disabled = !state.model;
     dom.regionCollapseSuggest.disabled = !state.model;
     dom.regionCollapseApply.disabled = !state.model;
     updateAnimationEditor();
@@ -13139,6 +13195,50 @@
     out[15] = b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33;
 
     return out;
+  }
+
+  function readPinchState() {
+    const [a, b] = Array.from(state.pointers.values());
+    return {
+      distance: Math.hypot(a.x - b.x, a.y - b.y),
+      centerX: (a.x + b.x) / 2,
+      centerY: (a.y + b.y) / 2,
+    };
+  }
+
+  function beginPinch() {
+    const pinch = readPinchState();
+    pinch.cameraDistance = state.camera.distance;
+    pinch.target = state.camera.target.slice();
+    return pinch;
+  }
+
+  // Slides the orbit target across the view plane so the model tracks the
+  // cursor. Scaled by distance and FOV so a pixel of drag stays a pixel of
+  // model movement at any zoom level.
+  function panCamera(dx, dy) {
+    if (!dx && !dy) {
+      return;
+    }
+
+    const rect = dom.mainViewPane.getBoundingClientRect();
+    const fov = ORBIT_VIEW_FOV_DEGREES * Math.PI / 180;
+    const unitsPerPixel =
+      (2 * state.camera.distance * Math.tan(fov / 2)) / Math.max(rect.height, 1);
+
+    const sinYaw = Math.sin(state.camera.yaw);
+    const cosYaw = Math.cos(state.camera.yaw);
+    const sinPitch = Math.sin(state.camera.pitch);
+    const cosPitch = Math.cos(state.camera.pitch);
+
+    // Screen right and up for this Z-up orbit camera.
+    const right = [-sinYaw, cosYaw, 0];
+    const up = [-cosYaw * sinPitch, -sinYaw * sinPitch, cosPitch];
+
+    const target = state.camera.target;
+    for (let axis = 0; axis < 3; axis += 1) {
+      target[axis] += (up[axis] * dy - right[axis] * dx) * unitsPerPixel;
+    }
   }
 
   function orbitEye(target, distance, yaw, pitch) {
