@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-08-18",
+  "updated": "2026-10-02",
   "mods": [
     {
       "id": "ad",
@@ -282,6 +282,19 @@
           "size": "665 MB"
         }
       ]
+    },
+    {
+      "id": "qrtjam",
+      "title": "Rooftops Jam",
+      "tag": "qrtjam-2",
+      "install_dir": "qrtjam",
+      "size": "653 MB",
+      "asset": {
+        "filename": "quake_rooftop_jam_v2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/qrtjam-2/quake_rooftop_jam_v2.zip",
+        "sha256": "e029d8b849a124a99d21ca212d7bb85a72fc8193492b97c0ce32bcf72d5b6864",
+        "size": "653 MB"
+      }
     },
     {
       "id": "rk",
