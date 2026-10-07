@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-10-02",
+  "updated": "2026-10-07",
   "mods": [
     {
       "id": "ad",
@@ -182,6 +182,19 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mc_xmasjam_2025-1/mc_xmasjam_2025.zip",
         "sha256": "01869daddb52357b86aba0e145d5c905eb06f6168e5f33af0ee65b959c824449",
         "size": "145 MB"
+      }
+    },
+    {
+      "id": "mcj2",
+      "title": "Minecraft Jam 2",
+      "tag": "mcj2-1",
+      "install_dir": "mcj2",
+      "size": "106 MB",
+      "asset": {
+        "filename": "minecraft_jam2.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mcj2-1/minecraft_jam2.zip",
+        "sha256": "2aabcf5da5422d52caafad7822a570f4862e50805c38b84d7a6545030ca68542",
+        "size": "106 MB"
       }
     },
     {
