@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-10-07",
+  "updated": "2026-11-01",
   "mods": [
     {
       "id": "ad",
@@ -156,6 +156,19 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/limjam-3/limjam.zip",
         "sha256": "b936d086fece844fbf88dc0681011b80513f92aa3542474e3d8d2b6540cec409",
         "size": "487 MB"
+      }
+    },
+    {
+      "id": "mc_hj26",
+      "title": "Halloween Horror Jam 26",
+      "tag": "mc_hj26-rc2",
+      "install_dir": "mc_hj26",
+      "size": "265 MB",
+      "asset": {
+        "filename": "mc_hj26.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/mc_hj26-rc2/mc_hj26.zip",
+        "sha256": "9251cec186855e5c86a2366a79cc605d55acf1dc5628c24eb513ccad35fa15b8",
+        "size": "265 MB"
       }
     },
     {
