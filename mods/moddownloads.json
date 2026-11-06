@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-01",
+  "updated": "2026-11-06",
   "mods": [
     {
       "id": "ad",
@@ -398,6 +398,19 @@
         "url": "https://github.com/q1tools/q1tools.github.io/releases/download/sj2/sewerjam2.zip",
         "sha256": "ff4a1016f152ecaa2ab0007e164de4cb8fda4e60f36acd9bca16e6581a180f8c",
         "size": "232 MB"
+      }
+    },
+    {
+      "id": "sj3",
+      "title": "Sewer Jam 3",
+      "tag": "sewerjam3-1.0",
+      "install_dir": "sewerjam3",
+      "size": "340 MB",
+      "asset": {
+        "filename": "sewerjam3.zip",
+        "url": "https://github.com/q1tools/q1tools.github.io/releases/download/sewerjam3-1.0/sewerjam3.zip",
+        "sha256": "01b8e963107e73b33275eb77819bee9aa74ae7b4cf9676e2f8f58dcd0831f17f",
+        "size": "340 MB"
       }
     },
     {
