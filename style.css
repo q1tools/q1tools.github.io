@@ -317,6 +317,10 @@ body.tool-index {
     color: #c98b6a;
 }
 
+.tool-grid .webchat-tool-icon {
+    color: #8fbd8f;
+}
+
 body.tool-index footer {
     position: fixed;
 }
